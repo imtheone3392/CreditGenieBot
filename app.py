@@ -40,6 +40,11 @@ DB_PATH = os.getenv("DB_PATH", "creditgenie.db").strip()
 
 SEARCH_COST_CENTS = 1200
 
+BTC_DEPOSIT_ADDRESS = os.getenv(
+    "BTC_DEPOSIT_ADDRESS",
+    ""
+).strip()
+
 SUPPORT_USERNAME = os.getenv(
     "SUPPORT_USERNAME",
     "@YourSupport"
