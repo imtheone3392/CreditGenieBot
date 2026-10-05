@@ -38,9 +38,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 MINI_APP_URL = os.getenv("MINI_APP_URL", "").strip()
 DB_PATH = os.getenv("DB_PATH", "creditgenie.db").strip()
 
-SEARCH_COST_CENTS = int(
-    os.getenv("SEARCH_COST_CENTS", "0")
-)
+SEARCH_COST_CENTS = 1200
 
 SUPPORT_USERNAME = os.getenv(
     "SUPPORT_USERNAME",
