@@ -549,7 +549,35 @@ async function loadMe() {
   }
 }
 
+async function loadHistory() {
+  try {
+    const rows = await api('/api/history');
 
+    if (!rows.length) {
+      $('history').innerHTML =
+        '<div class="empty">No previous searches yet.</div>';
+      return;
+    }
+
+    $('history').innerHTML = rows.map(r => `
+      <div class="history-item">
+        <b>${esc(r.query)}</b>
+
+        <div class="row">
+          ${esc(r.result_count)} result(s) · ${esc(r.cost)}
+        </div>
+
+        <div class="row">
+          ${esc(new Date(r.created_at).toLocaleString())}
+        </div>
+      </div>
+    `).join('');
+
+  } catch (e) {
+    $('history').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
 $('searchForm').addEventListener(
   'submit',
   async e => {
