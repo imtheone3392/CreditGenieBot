@@ -374,7 +374,20 @@ button:disabled{
         >
           RECONNECT PEOPLEFINDER
         </button>
-
+<div
+  id="peopleFinderAdmin"
+  style="
+    display:none;
+    margin-top:14px;
+    padding:14px;
+    border:1px solid #2b3a46;
+    border-radius:12px;
+    color:#cbd2d8;
+    font-size:14px;
+  "
+>
+  PeopleFinder: Manual login / reconnect
+</div>
       </div>
 
 
@@ -539,10 +552,12 @@ async function loadMe() {
         : `${me.search_cost} / search`;
 
     if (me.is_admin) {
-      $('openPeopleFinder').style.display = 'block';
-    } else {
-      $('openPeopleFinder').style.display = 'none';
-    }
+  $('openPeopleFinder').style.display = 'block';
+  $('peopleFinderAdmin').style.display = 'block';
+} else {
+  $('openPeopleFinder').style.display = 'none';
+  $('peopleFinderAdmin').style.display = 'none';
+}
 
   } catch (e) {
     $('status').textContent = e.message;
