@@ -34,9 +34,20 @@ from telegram.ext import (
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
-MINI_APP_URL = os.getenv("MINI_APP_URL", "").strip()
-DB_PATH = os.getenv("DB_PATH", "creditgenie.db").strip()
+BOT_TOKEN = os.getenv(
+    "BOT_TOKEN",
+    ""
+).strip()
+
+MINI_APP_URL = os.getenv(
+    "MINI_APP_URL",
+    ""
+).strip()
+
+DB_PATH = os.getenv(
+    "DB_PATH",
+    "creditgenie.db"
+).strip()
 
 SEARCH_COST_CENTS = 1200
 
@@ -52,21 +63,30 @@ SUPPORT_USERNAME = os.getenv(
 
 ADMIN_IDS = {
     int(x.strip())
-    for x in os.getenv("ADMIN_IDS", "").split(",")
+    for x in os.getenv(
+        "ADMIN_IDS",
+        ""
+    ).split(",")
     if x.strip().isdigit()
 }
 
 if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN is missing")
+    raise RuntimeError(
+        "BOT_TOKEN is missing"
+    )
 
 
 # -------------------------------------------------
 # LOGGING
 # -------------------------------------------------
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO
+)
 
-logger = logging.getLogger("creditgenie")
+logger = logging.getLogger(
+    "creditgenie"
+)
 
 
 # -------------------------------------------------
@@ -74,6 +94,7 @@ logger = logging.getLogger("creditgenie")
 # -------------------------------------------------
 
 def now_iso():
+
     return datetime.now(
         timezone.utc
     ).isoformat(
@@ -82,19 +103,40 @@ def now_iso():
 
 
 def money(cents):
-    return f"${cents / 100:,.2f}"
+
+    return (
+        f"${cents / 100:,.2f}"
+    )
 
 
 def db():
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
+
+    con = sqlite3.connect(
+        DB_PATH
+    )
+
+    con.row_factory = (
+        sqlite3.Row
+    )
+
     return con
 
 
-def is_admin(telegram_id):
+def is_admin(
+    telegram_id
+):
+
     try:
-        return int(telegram_id) in ADMIN_IDS
-    except (TypeError, ValueError):
+
+        return int(
+            telegram_id
+        ) in ADMIN_IDS
+
+    except (
+        TypeError,
+        ValueError
+    ):
+
         return False
 
 
@@ -192,17 +234,23 @@ def init_db():
             """
         )
 
+
 # -------------------------------------------------
 # TELEGRAM MINI APP AUTH
 # -------------------------------------------------
 
-def verify_init_data(init_data: str):
+def verify_init_data(
+    init_data: str
+):
 
     if not init_data:
 
         raise HTTPException(
             status_code=401,
-            detail="Open this page from Telegram."
+            detail=(
+                "Open this page "
+                "from Telegram."
+            )
         )
 
     pairs = dict(
@@ -221,12 +269,16 @@ def verify_init_data(init_data: str):
 
         raise HTTPException(
             status_code=401,
-            detail="Missing Telegram signature."
+            detail=(
+                "Missing Telegram signature."
+            )
         )
 
     data_check_string = "\n".join(
         f"{key}={pairs[key]}"
-        for key in sorted(pairs)
+        for key in sorted(
+            pairs
+        )
     )
 
     secret_key = hmac.new(
@@ -248,7 +300,9 @@ def verify_init_data(init_data: str):
 
         raise HTTPException(
             status_code=401,
-            detail="Invalid Telegram signature."
+            detail=(
+                "Invalid Telegram signature."
+            )
         )
 
     try:
@@ -264,14 +318,18 @@ def verify_init_data(init_data: str):
 
         raise HTTPException(
             status_code=401,
-            detail="Invalid Telegram user data."
+            detail=(
+                "Invalid Telegram user data."
+            )
         )
 
     if not user.get("id"):
 
         raise HTTPException(
             status_code=401,
-            detail="Telegram user not found."
+            detail=(
+                "Telegram user not found."
+            )
         )
 
     return user
@@ -281,9 +339,13 @@ def verify_init_data(init_data: str):
 # REQUIRE ADMIN
 # -------------------------------------------------
 
-def require_admin(init_data: str):
+def require_admin(
+    init_data: str
+):
 
-    tg = verify_init_data(init_data)
+    tg = verify_init_data(
+        init_data
+    )
 
     if not is_admin(
         tg.get("id")
@@ -291,7 +353,9 @@ def require_admin(init_data: str):
 
         raise HTTPException(
             status_code=403,
-            detail="Admin access required."
+            detail=(
+                "Admin access required."
+            )
         )
 
     return tg
@@ -301,7 +365,9 @@ def require_admin(init_data: str):
 # USER DATABASE
 # -------------------------------------------------
 
-def get_or_create_user(tg):
+def get_or_create_user(
+    tg
+):
 
     telegram_id = int(
         tg["id"]
@@ -324,13 +390,24 @@ def get_or_create_user(tg):
 
             ON CONFLICT(telegram_id)
             DO UPDATE SET
-                username = excluded.username,
-                first_name = excluded.first_name
+                username =
+                    excluded.username,
+
+                first_name =
+                    excluded.first_name
             """,
             (
                 telegram_id,
-                tg.get("username"),
-                tg.get("first_name", ""),
+
+                tg.get(
+                    "username"
+                ),
+
+                tg.get(
+                    "first_name",
+                    ""
+                ),
+
                 now_iso()
             )
         )
@@ -339,7 +416,7 @@ def get_or_create_user(tg):
             """
             SELECT *
             FROM users
-            WHERE telegram_id = ?
+            WHERE telegram_id=?
             """,
             (
                 telegram_id,
@@ -351,7 +428,9 @@ def get_or_create_user(tg):
 # MODELS
 # -------------------------------------------------
 
-class SearchRequest(BaseModel):
+class SearchRequest(
+    BaseModel
+):
 
     first_name: str = Field(
         min_length=1,
@@ -382,7 +461,11 @@ class SearchRequest(BaseModel):
         default="",
         max_length=20
     )
-class BitcoinDepositRequest(BaseModel):
+
+
+class BitcoinDepositRequest(
+    BaseModel
+):
 
     txid: str = Field(
         min_length=10,
@@ -390,7 +473,9 @@ class BitcoinDepositRequest(BaseModel):
     )
 
 
-class CreditDepositRequest(BaseModel):
+class CreditDepositRequest(
+    BaseModel
+):
 
     deposit_id: int = Field(
         gt=0
@@ -401,7 +486,10 @@ class CreditDepositRequest(BaseModel):
         le=1000000
     )
 
-class AdminResultRequest(BaseModel):
+
+class AdminResultRequest(
+    BaseModel
+):
 
     request_id: int = Field(
         gt=0
@@ -418,14 +506,19 @@ class AdminResultRequest(BaseModel):
     )
 
 
-class AdminRejectRequest(BaseModel):
+class AdminRejectRequest(
+    BaseModel
+):
 
     request_id: int = Field(
         gt=0
     )
 
     reason: str = Field(
-        default="Request could not be completed.",
+        default=(
+            "Request could not "
+            "be completed."
+        ),
         max_length=2000
     )
 
@@ -452,7 +545,7 @@ async def start(
         [
             [
                 InlineKeyboardButton(
-                    "🧞 Open CreditGenie Search",
+                    "🧞 Open CreditGenie",
                     web_app=WebAppInfo(
                         url=MINI_APP_URL
                     )
@@ -463,8 +556,8 @@ async def start(
 
     await update.message.reply_text(
         "🧞 CreditGenie\n\n"
-        "Submit a search request and "
-        "check its status in the Mini App.",
+        "Open the Mini App to manage "
+        "your balance and search requests.",
         reply_markup=keyboard
     )
 
@@ -513,11 +606,11 @@ async def admin(
             """
         ).fetchone()["c"]
 
-        rejected_count = con.execute(
+        pending_deposits = con.execute(
             """
             SELECT COUNT(*) AS c
-            FROM search_requests
-            WHERE status='rejected'
+            FROM bitcoin_deposits
+            WHERE status='pending'
             """
         ).fetchone()["c"]
 
@@ -525,14 +618,14 @@ async def admin(
         "🛠 CreditGenie Admin\n\n"
 
         f"Users: {users_count}\n"
-        f"Pending requests: {pending_count}\n"
-        f"Completed requests: {completed_count}\n"
-        f"Rejected requests: {rejected_count}\n\n"
+        f"Pending searches: {pending_count}\n"
+        f"Completed searches: {completed_count}\n"
+        f"Pending deposits: {pending_deposits}\n\n"
 
         "Commands:\n"
         "/queue\n"
         "/request 17\n"
-        "/sendresult 17|Your result text\n"
+        "/sendresult 17|Result\n"
         "/reject 17|Reason"
     )
 
@@ -570,13 +663,15 @@ async def queue(
                 sr.dob,
                 sr.created_at,
 
-                u.first_name AS user_first_name,
+                u.first_name
+                    AS user_first_name,
+
                 u.username
 
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             WHERE sr.status='pending'
 
@@ -697,7 +792,7 @@ async def request_detail(
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             WHERE sr.id=?
             """,
@@ -742,8 +837,7 @@ async def request_detail(
         f"Requested by: {who}\n\n"
 
         f"Complete:\n"
-        f"/sendresult {row['id']}|"
-        f"Your result text\n\n"
+        f"/sendresult {row['id']}|Result\n\n"
 
         f"Reject:\n"
         f"/reject {row['id']}|Reason"
@@ -791,8 +885,7 @@ async def sendresult(
 
         await update.message.reply_text(
             "Usage:\n"
-            "/sendresult "
-            "17|Your result text"
+            "/sendresult 17|Result"
         )
 
         return
@@ -817,7 +910,7 @@ async def sendresult(
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             WHERE sr.id=?
             """,
@@ -837,8 +930,8 @@ async def sendresult(
         if row["status"] != "pending":
 
             await update.message.reply_text(
-                f"Request #{request_id} is already "
-                f"{row['status']}."
+                f"Request #{request_id} "
+                f"is already {row['status']}."
             )
 
             return
@@ -871,8 +964,8 @@ async def sendresult(
                 f"✅ CreditGenie request "
                 f"#{request_id} is complete.\n\n"
 
-                "Open the Mini App to view "
-                "your completed request."
+                "Open the Mini App "
+                "to view your result."
             )
         )
 
@@ -954,7 +1047,7 @@ async def reject(
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             WHERE sr.id=?
             """,
@@ -974,8 +1067,8 @@ async def reject(
         if row["status"] != "pending":
 
             await update.message.reply_text(
-                f"Request #{request_id} is already "
-                f"{row['status']}."
+                f"Request #{request_id} "
+                f"is already {row['status']}."
             )
 
             return
@@ -1193,6 +1286,9 @@ async def me(
                 user["balance_cents"]
             ),
 
+        "balance_cents":
+            user["balance_cents"],
+
         "search_cost":
             money(
                 SEARCH_COST_CENTS
@@ -1212,13 +1308,10 @@ async def me(
 # CREATE SEARCH REQUEST
 # -------------------------------------------------
 
-# -------------------------------------------------
-# CREATE SEARCH REQUEST
-# -------------------------------------------------
-
 @api.post("/api/search")
 async def search(
     req: SearchRequest,
+
     x_telegram_init_data: str = Header(
         default=""
     )
@@ -1232,8 +1325,15 @@ async def search(
         tg
     )
 
-    first = req.first_name.strip()
-    last = req.last_name.strip()
+    first = (
+        req.first_name
+        .strip()
+    )
+
+    last = (
+        req.last_name
+        .strip()
+    )
 
     state = (
         req.state
@@ -1241,15 +1341,29 @@ async def search(
         .upper()
     )
 
-    city = req.city.strip()
-    zipcode = req.zip.strip()
-    dob = req.dob.strip()
+    city = (
+        req.city
+        .strip()
+    )
+
+    zipcode = (
+        req.zip
+        .strip()
+    )
+
+    dob = (
+        req.dob
+        .strip()
+    )
 
     if not first or not last:
 
         raise HTTPException(
             status_code=400,
-            detail="First and last name are required."
+            detail=(
+                "First and last name "
+                "are required."
+            )
         )
 
     if state and (
@@ -1267,10 +1381,6 @@ async def search(
         )
 
     with db() as con:
-
-        # -----------------------------------------
-        # GET CURRENT USER BALANCE
-        # -----------------------------------------
 
         current_user = con.execute(
             """
@@ -1294,10 +1404,6 @@ async def search(
                 detail="User not found."
             )
 
-        # -----------------------------------------
-        # MAKE SURE USER HAS $12
-        # -----------------------------------------
-
         if (
             current_user["balance_cents"]
             <
@@ -1312,10 +1418,6 @@ async def search(
                     f"{money(SEARCH_COST_CENTS)}."
                 )
             )
-
-        # -----------------------------------------
-        # MAX 5 PENDING REQUESTS
-        # -----------------------------------------
 
         pending_count = con.execute(
             """
@@ -1338,103 +1440,74 @@ async def search(
                 status_code=429,
                 detail=(
                     "You already have "
-                    "5 pending requests. "
-                    "Please wait for an admin response."
+                    "5 pending requests."
                 )
             )
 
-        # -----------------------------------------
-        # BEGIN PAYMENT + SEARCH
-        # -----------------------------------------
+        charged = con.execute(
+            """
+            UPDATE users
 
-        try:
+            SET balance_cents =
+                balance_cents - ?
 
-            # Deduct $12
-            charged = con.execute(
-                """
-                UPDATE users
-
-                SET balance_cents =
-                    balance_cents - ?
-
-                WHERE
-                    id=?
-                    AND balance_cents >= ?
-                """,
-                (
-                    SEARCH_COST_CENTS,
-                    user["id"],
-                    SEARCH_COST_CENTS
-                )
+            WHERE
+                id=?
+                AND balance_cents >= ?
+            """,
+            (
+                SEARCH_COST_CENTS,
+                user["id"],
+                SEARCH_COST_CENTS
             )
+        )
 
-            if charged.rowcount != 1:
-
-                raise HTTPException(
-                    status_code=402,
-                    detail=(
-                        "Insufficient Bitcoin balance."
-                    )
-                )
-
-            # Create request
-            cur = con.execute(
-                """
-                INSERT INTO search_requests(
-                    user_id,
-                    first_name,
-                    last_name,
-                    state,
-                    city,
-                    zip,
-                    dob,
-                    status,
-                    created_at,
-                    updated_at
-                )
-
-                VALUES(
-                    ?, ?, ?, ?, ?, ?, ?,
-                    'pending',
-                    ?, ?
-                )
-                """,
-                (
-                    user["id"],
-                    first,
-                    last,
-                    state,
-                    city,
-                    zipcode,
-                    dob,
-                    now_iso(),
-                    now_iso()
-                )
-            )
-
-            request_id = (
-                cur.lastrowid
-            )
-
-        except HTTPException:
-            raise
-
-        except Exception as exc:
-
-            logger.exception(
-                "Could not create paid search request"
-            )
+        if charged.rowcount != 1:
 
             raise HTTPException(
-                status_code=500,
+                status_code=402,
                 detail=(
-                    "Could not create search request."
+                    "Insufficient Bitcoin balance."
                 )
             )
 
-        # -----------------------------------------
-        # NEW BALANCE
-        # -----------------------------------------
+        cur = con.execute(
+            """
+            INSERT INTO search_requests(
+                user_id,
+                first_name,
+                last_name,
+                state,
+                city,
+                zip,
+                dob,
+                status,
+                created_at,
+                updated_at
+            )
+
+            VALUES(
+                ?, ?, ?, ?, ?, ?, ?,
+                'pending',
+                ?, ?
+            )
+            """,
+            (
+                user["id"],
+                first,
+                last,
+                state,
+                city,
+                zipcode,
+                dob,
+                now_iso(),
+                now_iso()
+            )
+        )
+
+        request_id = (
+            cur.lastrowid
+        )
 
         updated_user = con.execute(
             """
@@ -1448,9 +1521,7 @@ async def search(
         ).fetchone()
 
     return {
-
-        "ok":
-            True,
+        "ok": True,
 
         "request_id":
             request_id,
@@ -1465,7 +1536,9 @@ async def search(
 
         "balance":
             money(
-                updated_user["balance_cents"]
+                updated_user[
+                    "balance_cents"
+                ]
             ),
 
         "message":
@@ -1474,7 +1547,10 @@ async def search(
                 "was charged and your search "
                 "was submitted to the admin queue."
             )
-    }# -------------------------------------------------
+    }
+
+
+# -------------------------------------------------
 # USER SEARCH REQUESTS
 # -------------------------------------------------
 
@@ -1531,6 +1607,231 @@ async def my_requests(
 
 
 # =================================================
+# BITCOIN WALLET API
+# =================================================
+
+
+# -------------------------------------------------
+# WALLET
+# -------------------------------------------------
+
+@api.get("/api/wallet")
+async def wallet(
+    x_telegram_init_data: str = Header(
+        default=""
+    )
+):
+
+    tg = verify_init_data(
+        x_telegram_init_data
+    )
+
+    user = get_or_create_user(
+        tg
+    )
+
+    return {
+        "ok": True,
+
+        "balance":
+            money(
+                user["balance_cents"]
+            ),
+
+        "balance_cents":
+            user["balance_cents"],
+
+        "deposit_address":
+            BTC_DEPOSIT_ADDRESS,
+
+        "search_cost":
+            money(
+                SEARCH_COST_CENTS
+            )
+    }
+
+
+# -------------------------------------------------
+# SUBMIT BITCOIN TRANSACTION
+# -------------------------------------------------
+
+@api.post("/api/deposit")
+async def submit_bitcoin_deposit(
+    req: BitcoinDepositRequest,
+
+    x_telegram_init_data: str = Header(
+        default=""
+    )
+):
+
+    tg = verify_init_data(
+        x_telegram_init_data
+    )
+
+    user = get_or_create_user(
+        tg
+    )
+
+    txid = (
+        req.txid
+        .strip()
+        .lower()
+    )
+
+    if (
+        len(txid) != 64
+        or
+        any(
+            c not in "0123456789abcdef"
+            for c in txid
+        )
+    ):
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Enter a valid Bitcoin "
+                "transaction ID."
+            )
+        )
+
+    with db() as con:
+
+        existing = con.execute(
+            """
+            SELECT id
+            FROM bitcoin_deposits
+            WHERE txid=?
+            """,
+            (
+                txid,
+            )
+        ).fetchone()
+
+        if existing:
+
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This Bitcoin transaction "
+                    "has already been submitted."
+                )
+            )
+
+        cur = con.execute(
+            """
+            INSERT INTO bitcoin_deposits(
+                user_id,
+                txid,
+                amount_cents,
+                status,
+                created_at,
+                updated_at
+            )
+
+            VALUES(
+                ?,
+                ?,
+                0,
+                'pending',
+                ?,
+                ?
+            )
+            """,
+            (
+                user["id"],
+                txid,
+                now_iso(),
+                now_iso()
+            )
+        )
+
+        deposit_id = (
+            cur.lastrowid
+        )
+
+    return {
+        "ok": True,
+
+        "deposit_id":
+            deposit_id,
+
+        "status":
+            "pending",
+
+        "message":
+            (
+                "Bitcoin transaction submitted "
+                "for verification."
+            )
+    }
+
+
+# -------------------------------------------------
+# USER DEPOSIT HISTORY
+# -------------------------------------------------
+
+@api.get("/api/deposits")
+async def my_bitcoin_deposits(
+    x_telegram_init_data: str = Header(
+        default=""
+    )
+):
+
+    tg = verify_init_data(
+        x_telegram_init_data
+    )
+
+    user = get_or_create_user(
+        tg
+    )
+
+    with db() as con:
+
+        rows = con.execute(
+            """
+            SELECT
+                id,
+                txid,
+                amount_cents,
+                status,
+                created_at,
+                updated_at
+
+            FROM bitcoin_deposits
+
+            WHERE user_id=?
+
+            ORDER BY id DESC
+
+            LIMIT 25
+            """,
+            (
+                user["id"],
+            )
+        ).fetchall()
+
+    return {
+        "ok": True,
+
+        "deposits": [
+            {
+                **dict(row),
+
+                "amount":
+                    money(
+                        row[
+                            "amount_cents"
+                        ]
+                    )
+            }
+
+            for row in rows
+        ]
+    }
+
+
+# =================================================
 # ADMIN MINI APP API
 # =================================================
 
@@ -1583,17 +1884,27 @@ async def admin_stats(
             """
         ).fetchone()["c"]
 
+        pending_deposits = con.execute(
+            """
+            SELECT COUNT(*) AS c
+            FROM bitcoin_deposits
+            WHERE status='pending'
+            """
+        ).fetchone()["c"]
+
     return {
         "ok": True,
         "users": users,
         "pending": pending,
         "completed": completed,
-        "rejected": rejected
+        "rejected": rejected,
+        "pending_deposits":
+            pending_deposits
     }
 
 
 # -------------------------------------------------
-# ADMIN QUEUE
+# ADMIN SEARCH QUEUE
 # -------------------------------------------------
 
 @api.get("/api/admin/queue")
@@ -1632,7 +1943,7 @@ async def admin_queue(
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             WHERE sr.status='pending'
 
@@ -1666,6 +1977,7 @@ async def admin_queue(
 )
 async def admin_request_detail(
     request_id: int,
+
     x_telegram_init_data: str = Header(
         default=""
     )
@@ -1702,7 +2014,7 @@ async def admin_request_detail(
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             WHERE sr.id=?
             """,
@@ -1731,6 +2043,7 @@ async def admin_request_detail(
 @api.post("/api/admin/send-result")
 async def admin_send_result(
     req: AdminResultRequest,
+
     x_telegram_init_data: str = Header(
         default=""
     )
@@ -1741,18 +2054,22 @@ async def admin_send_result(
     )
 
     result_text = (
-        req.result_text.strip()
+        req.result_text
+        .strip()
     )
 
     admin_note = (
-        req.admin_note.strip()
+        req.admin_note
+        .strip()
     )
 
     if not result_text:
 
         raise HTTPException(
             status_code=400,
-            detail="Result text is required."
+            detail=(
+                "Result text is required."
+            )
         )
 
     with db() as con:
@@ -1770,7 +2087,7 @@ async def admin_send_result(
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             WHERE sr.id=?
             """,
@@ -1783,7 +2100,9 @@ async def admin_send_result(
 
             raise HTTPException(
                 status_code=404,
-                detail="Request not found."
+                detail=(
+                    "Request not found."
+                )
             )
 
         if row["status"] != "pending":
@@ -1830,9 +2149,8 @@ async def admin_send_result(
                 f"{row['first_name']} "
                 f"{row['last_name']}\n\n"
 
-                "Your request has been reviewed.\n\n"
-                "Open CreditGenie to view "
-                "the result."
+                "Open CreditGenie "
+                "to view the result."
             )
         )
 
@@ -1853,19 +2171,23 @@ async def admin_send_result(
 
     return {
         "ok": True,
-        "request_id": req.request_id,
-        "status": "completed",
-        "message": "Result sent successfully."
+        "request_id":
+            req.request_id,
+        "status":
+            "completed",
+        "message":
+            "Result sent successfully."
     }
 
 
 # -------------------------------------------------
-# ADMIN REJECT REQUEST
+# ADMIN REJECT SEARCH
 # -------------------------------------------------
 
 @api.post("/api/admin/reject")
 async def admin_reject_request(
     req: AdminRejectRequest,
+
     x_telegram_init_data: str = Header(
         default=""
     )
@@ -1896,7 +2218,7 @@ async def admin_reject_request(
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             WHERE sr.id=?
             """,
@@ -1976,14 +2298,250 @@ async def admin_reject_request(
 
     return {
         "ok": True,
-        "request_id": req.request_id,
-        "status": "rejected",
-        "message": "Request rejected."
+        "request_id":
+            req.request_id,
+        "status":
+            "rejected",
+        "message":
+            "Request rejected."
     }
 
 
 # -------------------------------------------------
-# ADMIN RECENT REQUESTS
+# ADMIN BITCOIN DEPOSIT QUEUE
+# -------------------------------------------------
+
+@api.get("/api/admin/deposits")
+async def admin_deposits(
+    x_telegram_init_data: str = Header(
+        default=""
+    )
+):
+
+    require_admin(
+        x_telegram_init_data
+    )
+
+    with db() as con:
+
+        rows = con.execute(
+            """
+            SELECT
+                d.id,
+                d.txid,
+                d.amount_cents,
+                d.status,
+                d.created_at,
+                d.updated_at,
+
+                u.telegram_id,
+                u.first_name,
+                u.username
+
+            FROM bitcoin_deposits d
+
+            JOIN users u
+                ON u.id=d.user_id
+
+            WHERE d.status='pending'
+
+            ORDER BY
+                d.created_at ASC,
+                d.id ASC
+            """
+        ).fetchall()
+
+    return {
+        "ok": True,
+
+        "count":
+            len(rows),
+
+        "deposits": [
+            {
+                **dict(row),
+
+                "amount":
+                    money(
+                        row[
+                            "amount_cents"
+                        ]
+                    )
+            }
+
+            for row in rows
+        ]
+    }
+
+
+# -------------------------------------------------
+# ADMIN CREDIT DEPOSIT
+# -------------------------------------------------
+
+@api.post(
+    "/api/admin/credit-deposit"
+)
+async def credit_deposit(
+    req: CreditDepositRequest,
+
+    x_telegram_init_data: str = Header(
+        default=""
+    )
+):
+
+    admin_tg = require_admin(
+        x_telegram_init_data
+    )
+
+    with db() as con:
+
+        deposit = con.execute(
+            """
+            SELECT
+                d.*,
+                u.telegram_id
+
+            FROM bitcoin_deposits d
+
+            JOIN users u
+                ON u.id=d.user_id
+
+            WHERE d.id=?
+            """,
+            (
+                req.deposit_id,
+            )
+        ).fetchone()
+
+        if not deposit:
+
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "Deposit not found."
+                )
+            )
+
+        if (
+            deposit["status"]
+            !=
+            "pending"
+        ):
+
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Deposit has already "
+                    "been processed."
+                )
+            )
+
+        con.execute(
+            """
+            UPDATE users
+
+            SET balance_cents =
+                balance_cents + ?
+
+            WHERE id=?
+            """,
+            (
+                req.amount_cents,
+                deposit["user_id"]
+            )
+        )
+
+        con.execute(
+            """
+            UPDATE bitcoin_deposits
+
+            SET
+                amount_cents=?,
+                status='credited',
+                updated_at=?
+
+            WHERE
+                id=?
+                AND status='pending'
+            """,
+            (
+                req.amount_cents,
+                now_iso(),
+                req.deposit_id
+            )
+        )
+
+        updated_user = con.execute(
+            """
+            SELECT balance_cents
+            FROM users
+            WHERE id=?
+            """,
+            (
+                deposit["user_id"],
+            )
+        ).fetchone()
+
+    try:
+
+        await telegram_bot.bot.send_message(
+            chat_id=deposit[
+                "telegram_id"
+            ],
+
+            text=(
+                "₿ Bitcoin Deposit Credited\n\n"
+
+                f"Amount credited: "
+                f"{money(req.amount_cents)}\n"
+
+                f"New balance: "
+                f"{money(updated_user['balance_cents'])}\n\n"
+
+                "Open CreditGenie to continue."
+            )
+        )
+
+    except Exception as exc:
+
+        logger.warning(
+            "Could not notify user "
+            "for deposit %s: %s",
+            req.deposit_id,
+            exc
+        )
+
+    logger.info(
+        "Deposit %s credited by admin %s",
+        req.deposit_id,
+        admin_tg.get("id")
+    )
+
+    return {
+        "ok": True,
+
+        "deposit_id":
+            req.deposit_id,
+
+        "status":
+            "credited",
+
+        "credited":
+            money(
+                req.amount_cents
+            ),
+
+        "balance":
+            money(
+                updated_user[
+                    "balance_cents"
+                ]
+            )
+    }
+
+
+# -------------------------------------------------
+# ADMIN RECENT SEARCH REQUESTS
 # -------------------------------------------------
 
 @api.get("/api/admin/recent")
@@ -2022,7 +2580,7 @@ async def admin_recent_requests(
             FROM search_requests sr
 
             JOIN users u
-                ON u.id = sr.user_id
+                ON u.id=sr.user_id
 
             ORDER BY sr.id DESC
 
