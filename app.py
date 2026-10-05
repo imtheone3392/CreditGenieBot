@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from telegram import (
     Update,
@@ -58,7 +58,10 @@ if not BOT_TOKEN:
 # -------------------------------------------------
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("creditgenie")
+
+logger = logging.getLogger(
+    "creditgenie"
+)
 
 
 # -------------------------------------------------
@@ -111,26 +114,45 @@ def init_db():
                 created_at TEXT NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS records(
+            CREATE TABLE IF NOT EXISTS search_requests(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                first_name TEXT COLLATE NOCASE NOT NULL,
-                last_name TEXT COLLATE NOCASE NOT NULL,
-                state TEXT COLLATE NOCASE,
-                city TEXT COLLATE NOCASE,
+
+                user_id INTEGER NOT NULL,
+
+                first_name TEXT NOT NULL,
+                last_name TEXT NOT NULL,
+
+                state TEXT,
+                city TEXT,
                 zip TEXT,
                 dob TEXT,
-                reference TEXT,
-                notes TEXT,
-                created_at TEXT NOT NULL
+
+                status TEXT NOT NULL DEFAULT 'pending',
+
+                result_text TEXT,
+                admin_note TEXT,
+
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+
+                FOREIGN KEY(user_id)
+                REFERENCES users(id)
             );
 
-            CREATE TABLE IF NOT EXISTS search_history(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                query_summary TEXT NOT NULL,
-                result_count INTEGER NOT NULL DEFAULT 0,
-                cost_cents INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL
+            CREATE INDEX IF NOT EXISTS
+            idx_search_requests_user
+
+            ON search_requests(
+                user_id,
+                id DESC
+            );
+
+            CREATE INDEX IF NOT EXISTS
+            idx_search_requests_status
+
+            ON search_requests(
+                status,
+                id ASC
             );
             """
         )
@@ -140,13 +162,17 @@ def init_db():
 # TELEGRAM MINI APP AUTH
 # -------------------------------------------------
 
-def verify_init_data(init_data: str):
+def verify_init_data(
+    init_data: str
+):
 
     if not init_data:
+
         raise HTTPException(
             401,
             "Open this page from Telegram."
         )
+
 
     pairs = dict(
         parse_qsl(
@@ -155,21 +181,26 @@ def verify_init_data(init_data: str):
         )
     )
 
+
     received_hash = pairs.pop(
         "hash",
         None
     )
 
+
     if not received_hash:
+
         raise HTTPException(
             401,
             "Missing Telegram signature."
         )
 
+
     data_check_string = "\n".join(
         f"{key}={pairs[key]}"
         for key in sorted(pairs)
     )
+
 
     secret_key = hmac.new(
         b"WebAppData",
@@ -177,22 +208,27 @@ def verify_init_data(init_data: str):
         hashlib.sha256
     ).digest()
 
+
     calculated_hash = hmac.new(
         secret_key,
         data_check_string.encode(),
         hashlib.sha256
     ).hexdigest()
 
+
     if not hmac.compare_digest(
         calculated_hash,
         received_hash
     ):
+
         raise HTTPException(
             401,
             "Invalid Telegram signature."
         )
 
+
     try:
+
         user = json.loads(
             pairs.get(
                 "user",
@@ -201,29 +237,36 @@ def verify_init_data(init_data: str):
         )
 
     except Exception:
+
         raise HTTPException(
             401,
             "Invalid Telegram user data."
         )
 
+
     if not user.get("id"):
+
         raise HTTPException(
             401,
             "Telegram user not found."
         )
 
+
     return user
 
 
 # -------------------------------------------------
-# USERS
+# USER DATABASE
 # -------------------------------------------------
 
-def get_or_create_user(tg):
+def get_or_create_user(
+    tg
+):
 
     telegram_id = int(
         tg["id"]
     )
+
 
     with db() as con:
 
@@ -235,29 +278,39 @@ def get_or_create_user(tg):
                 first_name,
                 created_at
             )
-            VALUES(?,?,?,?)
+
+            VALUES(
+                ?, ?, ?, ?
+            )
 
             ON CONFLICT(telegram_id)
             DO UPDATE SET
-                username=excluded.username,
-                first_name=excluded.first_name
+
+                username = excluded.username,
+                first_name = excluded.first_name
             """,
             (
                 telegram_id,
-                tg.get("username"),
+
+                tg.get(
+                    "username"
+                ),
+
                 tg.get(
                     "first_name",
                     ""
                 ),
+
                 now_iso()
             )
         )
+
 
         return con.execute(
             """
             SELECT *
             FROM users
-            WHERE telegram_id=?
+            WHERE telegram_id = ?
             """,
             (
                 telegram_id,
@@ -269,18 +322,43 @@ def get_or_create_user(tg):
 # SEARCH REQUEST MODEL
 # -------------------------------------------------
 
-class SearchRequest(BaseModel):
+class SearchRequest(
+    BaseModel
+):
 
-    first_name: str
-    last_name: str
-    state: str = ""
-    city: str = ""
-    zip: str = ""
-    dob: str = ""
+    first_name: str = Field(
+        min_length=1,
+        max_length=80
+    )
+
+    last_name: str = Field(
+        min_length=1,
+        max_length=80
+    )
+
+    state: str = Field(
+        default="",
+        max_length=2
+    )
+
+    city: str = Field(
+        default="",
+        max_length=100
+    )
+
+    zip: str = Field(
+        default="",
+        max_length=20
+    )
+
+    dob: str = Field(
+        default="",
+        max_length=20
+    )
 
 
 # -------------------------------------------------
-# TELEGRAM COMMAND: /start
+# TELEGRAM /start
 # -------------------------------------------------
 
 async def start(
@@ -297,6 +375,7 @@ async def start(
 
         return
 
+
     keyboard = InlineKeyboardMarkup(
         [
             [
@@ -310,16 +389,17 @@ async def start(
         ]
     )
 
+
     await update.message.reply_text(
         "🧞 CreditGenie\n\n"
-        "Search records you own or are "
-        "authorized to access.",
+        "Submit a search request and "
+        "check its status in the Mini App.",
         reply_markup=keyboard
     )
 
 
 # -------------------------------------------------
-# TELEGRAM COMMAND: /admin
+# TELEGRAM /admin
 # -------------------------------------------------
 
 async def admin(
@@ -337,6 +417,7 @@ async def admin(
 
         return
 
+
     with db() as con:
 
         users_count = con.execute(
@@ -346,36 +427,53 @@ async def admin(
             """
         ).fetchone()["c"]
 
-        records_count = con.execute(
+
+        pending_count = con.execute(
             """
             SELECT COUNT(*) AS c
-            FROM records
+            FROM search_requests
+            WHERE status='pending'
             """
         ).fetchone()["c"]
 
-        searches_count = con.execute(
+
+        completed_count = con.execute(
             """
             SELECT COUNT(*) AS c
-            FROM search_history
+            FROM search_requests
+            WHERE status='completed'
             """
         ).fetchone()["c"]
+
 
     await update.message.reply_text(
         "🛠 CreditGenie Admin\n\n"
+
         f"Users: {users_count}\n"
-        f"Authorized records: {records_count}\n"
-        f"Searches: {searches_count}\n\n"
-        "/addrecord "
-        "First|Last|NV|Las Vegas|89103|"
-        "01/01/1990|REF-001|Notes"
+
+        f"Pending requests: "
+        f"{pending_count}\n"
+
+        f"Completed requests: "
+        f"{completed_count}\n\n"
+
+        "Commands:\n"
+
+        "/queue\n"
+
+        "/request 17\n"
+
+        "/sendresult 17|Your result text\n"
+
+        "/reject 17|Reason"
     )
 
 
 # -------------------------------------------------
-# TELEGRAM COMMAND: /addrecord
+# TELEGRAM /queue
 # -------------------------------------------------
 
-async def addrecord(
+async def queue(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
@@ -390,84 +488,527 @@ async def addrecord(
 
         return
 
+
+    with db() as con:
+
+        rows = con.execute(
+            """
+            SELECT
+                sr.id,
+                sr.first_name,
+                sr.last_name,
+                sr.state,
+                sr.city,
+                sr.zip,
+                sr.dob,
+                sr.created_at,
+
+                u.first_name
+                    AS user_first_name,
+
+                u.username
+
+            FROM search_requests sr
+
+            JOIN users u
+                ON u.id = sr.user_id
+
+            WHERE sr.status='pending'
+
+            ORDER BY sr.id ASC
+
+            LIMIT 10
+            """
+        ).fetchall()
+
+
+    if not rows:
+
+        await update.message.reply_text(
+            "✅ No pending search requests."
+        )
+
+        return
+
+
+    parts = [
+        "📥 Pending Search Queue"
+    ]
+
+
+    for row in rows:
+
+        who = (
+            row["user_first_name"]
+            or
+            "User"
+        )
+
+
+        if row["username"]:
+
+            who += (
+                f" (@{row['username']})"
+            )
+
+
+        location = ", ".join(
+            x
+            for x in [
+                row["city"],
+                row["state"],
+                row["zip"]
+            ]
+            if x
+        ) or "No location"
+
+
+        parts.append(
+            f"\n"
+            f"#{row['id']} — "
+            f"{row['first_name']} "
+            f"{row['last_name']}\n"
+
+            f"{location}\n"
+
+            f"DOB: "
+            f"{row['dob'] or '—'}\n"
+
+            f"Requested by: "
+            f"{who}\n"
+
+            f"/request "
+            f"{row['id']}"
+        )
+
+
+    await update.message.reply_text(
+        "\n".join(parts)
+    )
+
+
+# -------------------------------------------------
+# TELEGRAM /request
+# -------------------------------------------------
+
+async def request_detail(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(
+        update.effective_user.id
+    ):
+
+        await update.message.reply_text(
+            "Admin access required."
+        )
+
+        return
+
+
+    if (
+        not context.args
+        or
+        not context.args[0].isdigit()
+    ):
+
+        await update.message.reply_text(
+            "Usage: /request 17"
+        )
+
+        return
+
+
+    request_id = int(
+        context.args[0]
+    )
+
+
+    with db() as con:
+
+        row = con.execute(
+            """
+            SELECT
+                sr.*,
+
+                u.telegram_id,
+
+                u.first_name
+                    AS user_first_name,
+
+                u.username
+
+            FROM search_requests sr
+
+            JOIN users u
+                ON u.id = sr.user_id
+
+            WHERE sr.id=?
+            """,
+            (
+                request_id,
+            )
+        ).fetchone()
+
+
+    if not row:
+
+        await update.message.reply_text(
+            "Request not found."
+        )
+
+        return
+
+
+    who = (
+        row["user_first_name"]
+        or
+        "User"
+    )
+
+
+    if row["username"]:
+
+        who += (
+            f" (@{row['username']})"
+        )
+
+
+    await update.message.reply_text(
+        f"🔎 Request "
+        f"#{row['id']}\n\n"
+
+        f"Status: "
+        f"{row['status']}\n"
+
+        f"First: "
+        f"{row['first_name']}\n"
+
+        f"Last: "
+        f"{row['last_name']}\n"
+
+        f"State: "
+        f"{row['state'] or '—'}\n"
+
+        f"City: "
+        f"{row['city'] or '—'}\n"
+
+        f"ZIP: "
+        f"{row['zip'] or '—'}\n"
+
+        f"DOB: "
+        f"{row['dob'] or '—'}\n"
+
+        f"Requested by: "
+        f"{who}\n\n"
+
+        f"Complete:\n"
+
+        f"/sendresult "
+        f"{row['id']}|"
+        f"Your result text\n\n"
+
+        f"Reject:\n"
+
+        f"/reject "
+        f"{row['id']}|Reason"
+    )
+
+
+# -------------------------------------------------
+# TELEGRAM /sendresult
+# -------------------------------------------------
+
+async def sendresult(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(
+        update.effective_user.id
+    ):
+
+        await update.message.reply_text(
+            "Admin access required."
+        )
+
+        return
+
+
     raw = (
         update.message.text
         .partition(" ")[2]
         .strip()
     )
 
-    parts = [
-        p.strip()
-        for p in raw.split("|")
-    ]
 
-    if len(parts) != 8:
+    (
+        request_id_text,
+        sep,
+        result_text
+    ) = raw.partition("|")
+
+
+    if (
+        not sep
+        or
+        not request_id_text.strip().isdigit()
+        or
+        not result_text.strip()
+    ):
 
         await update.message.reply_text(
             "Usage:\n"
-            "/addrecord "
-            "First|Last|State|City|ZIP|"
-            "DOB|Reference|Notes"
+            "/sendresult "
+            "17|Your result text"
         )
 
         return
 
-    (
-        first,
-        last,
-        state,
-        city,
-        zipcode,
-        dob,
-        reference,
-        notes
-    ) = parts
+
+    request_id = int(
+        request_id_text.strip()
+    )
+
+
+    result_text = (
+        result_text.strip()
+    )
+
 
     with db() as con:
 
-        con.execute(
+        row = con.execute(
             """
-            INSERT INTO records(
-                first_name,
-                last_name,
-                state,
-                city,
-                zip,
-                dob,
-                reference,
-                notes,
-                created_at
-            )
-            VALUES(?,?,?,?,?,?,?,?,?)
+            SELECT
+                sr.id,
+                sr.status,
+                u.telegram_id
+
+            FROM search_requests sr
+
+            JOIN users u
+                ON u.id = sr.user_id
+
+            WHERE sr.id=?
             """,
             (
-                first,
-                last,
-                state.upper(),
-                city,
-                zipcode,
-                dob,
-                reference,
-                notes,
-                now_iso()
+                request_id,
+            )
+        ).fetchone()
+
+
+        if not row:
+
+            await update.message.reply_text(
+                "Request not found."
+            )
+
+            return
+
+
+        con.execute(
+            """
+            UPDATE search_requests
+
+            SET
+                status='completed',
+                result_text=?,
+                admin_note=NULL,
+                updated_at=?
+
+            WHERE id=?
+            """,
+            (
+                result_text,
+                now_iso(),
+                request_id
             )
         )
 
+
+    try:
+
+        await context.bot.send_message(
+            chat_id=row["telegram_id"],
+
+            text=(
+                f"✅ CreditGenie request "
+                f"#{request_id} is complete.\n\n"
+
+                f"{result_text}\n\n"
+
+                "Open the Mini App to view "
+                "it in your request history."
+            )
+        )
+
+    except Exception as exc:
+
+        logger.warning(
+            "Could not notify user "
+            "for request %s: %s",
+            request_id,
+            exc
+        )
+
+
     await update.message.reply_text(
-        "✅ Authorized record added."
+        f"✅ Request #{request_id} "
+        "completed and saved."
     )
 
 
 # -------------------------------------------------
-# TELEGRAM APPLICATION
+# TELEGRAM /reject
+# -------------------------------------------------
+
+async def reject(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE
+):
+
+    if not is_admin(
+        update.effective_user.id
+    ):
+
+        await update.message.reply_text(
+            "Admin access required."
+        )
+
+        return
+
+
+    raw = (
+        update.message.text
+        .partition(" ")[2]
+        .strip()
+    )
+
+
+    (
+        request_id_text,
+        sep,
+        reason
+    ) = raw.partition("|")
+
+
+    if not request_id_text.strip().isdigit():
+
+        await update.message.reply_text(
+            "Usage:\n"
+            "/reject 17|Reason"
+        )
+
+        return
+
+
+    request_id = int(
+        request_id_text.strip()
+    )
+
+
+    reason = (
+        reason.strip()
+        if sep
+        else
+        "Request could not be completed."
+    )
+
+
+    with db() as con:
+
+        row = con.execute(
+            """
+            SELECT
+                sr.id,
+                u.telegram_id
+
+            FROM search_requests sr
+
+            JOIN users u
+                ON u.id = sr.user_id
+
+            WHERE sr.id=?
+            """,
+            (
+                request_id,
+            )
+        ).fetchone()
+
+
+        if not row:
+
+            await update.message.reply_text(
+                "Request not found."
+            )
+
+            return
+
+
+        con.execute(
+            """
+            UPDATE search_requests
+
+            SET
+                status='rejected',
+                result_text=NULL,
+                admin_note=?,
+                updated_at=?
+
+            WHERE id=?
+            """,
+            (
+                reason,
+                now_iso(),
+                request_id
+            )
+        )
+
+
+    try:
+
+        await context.bot.send_message(
+            chat_id=row["telegram_id"],
+
+            text=(
+                f"❌ CreditGenie request "
+                f"#{request_id} was not completed.\n\n"
+
+                f"{reason}"
+            )
+        )
+
+    except Exception as exc:
+
+        logger.warning(
+            "Could not notify user "
+            "for request %s: %s",
+            request_id,
+            exc
+        )
+
+
+    await update.message.reply_text(
+        f"Request #{request_id} "
+        "marked rejected."
+    )
+
+
+# -------------------------------------------------
+# TELEGRAM BOT
 # -------------------------------------------------
 
 telegram_bot = (
     Application
     .builder()
-    .token(BOT_TOKEN)
+    .token(
+        BOT_TOKEN
+    )
     .build()
 )
+
 
 telegram_bot.add_handler(
     CommandHandler(
@@ -476,6 +1017,7 @@ telegram_bot.add_handler(
     )
 )
 
+
 telegram_bot.add_handler(
     CommandHandler(
         "admin",
@@ -483,31 +1025,62 @@ telegram_bot.add_handler(
     )
 )
 
+
 telegram_bot.add_handler(
     CommandHandler(
-        "addrecord",
-        addrecord
+        "queue",
+        queue
+    )
+)
+
+
+telegram_bot.add_handler(
+    CommandHandler(
+        "request",
+        request_detail
+    )
+)
+
+
+telegram_bot.add_handler(
+    CommandHandler(
+        "sendresult",
+        sendresult
+    )
+)
+
+
+telegram_bot.add_handler(
+    CommandHandler(
+        "reject",
+        reject
     )
 )
 
 
 # -------------------------------------------------
-# FASTAPI STARTUP / SHUTDOWN
+# FASTAPI STARTUP
 # -------------------------------------------------
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(
+    app: FastAPI
+):
 
     init_db()
 
+
     await telegram_bot.initialize()
+
     await telegram_bot.start()
+
 
     if telegram_bot.updater:
 
         await telegram_bot.updater.start_polling(
             drop_pending_updates=True
         )
+
 
     try:
 
@@ -516,14 +1089,17 @@ async def lifespan(app: FastAPI):
     finally:
 
         if telegram_bot.updater:
+
             await telegram_bot.updater.stop()
 
+
         await telegram_bot.stop()
+
         await telegram_bot.shutdown()
 
 
 # -------------------------------------------------
-# FASTAPI APP
+# FASTAPI
 # -------------------------------------------------
 
 api = FastAPI(
@@ -546,7 +1122,7 @@ async def root():
 
 
 # -------------------------------------------------
-# HEALTH CHECK
+# HEALTH
 # -------------------------------------------------
 
 @api.get("/health")
@@ -558,7 +1134,7 @@ async def health():
 
 
 # -------------------------------------------------
-# MINI APP PAGE
+# MINI APP
 # -------------------------------------------------
 
 @api.get("/app")
@@ -585,9 +1161,11 @@ async def me(
         x_telegram_init_data
     )
 
+
     user = get_or_create_user(
         tg
     )
+
 
     return {
 
@@ -615,70 +1193,7 @@ async def me(
 
 
 # -------------------------------------------------
-# SEARCH HISTORY
-# -------------------------------------------------
-
-@api.get("/api/history")
-async def history(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    tg = verify_init_data(
-        x_telegram_init_data
-    )
-
-    user = get_or_create_user(
-        tg
-    )
-
-    with db() as con:
-
-        rows = con.execute(
-            """
-            SELECT
-                query_summary,
-                result_count,
-                cost_cents,
-                created_at
-
-            FROM search_history
-
-            WHERE user_id=?
-
-            ORDER BY id DESC
-
-            LIMIT 20
-            """,
-            (
-                user["id"],
-            )
-        ).fetchall()
-
-    return [
-        {
-            "query":
-                row["query_summary"],
-
-            "result_count":
-                row["result_count"],
-
-            "cost":
-                money(
-                    row["cost_cents"]
-                ),
-
-            "created_at":
-                row["created_at"]
-        }
-
-        for row in rows
-    ]
-
-
-# -------------------------------------------------
-# SEARCH
+# CREATE SEARCH REQUEST
 # -------------------------------------------------
 
 @api.post("/api/search")
@@ -693,12 +1208,28 @@ async def search(
         x_telegram_init_data
     )
 
+
     user = get_or_create_user(
         tg
     )
 
+
     first = req.first_name.strip()
+
     last = req.last_name.strip()
+
+    state = (
+        req.state
+        .strip()
+        .upper()
+    )
+
+    city = req.city.strip()
+
+    zipcode = req.zip.strip()
+
+    dob = req.dob.strip()
+
 
     if not first or not last:
 
@@ -707,81 +1238,130 @@ async def search(
             "First and last name are required."
         )
 
-    vals = {
 
-        "state":
-            req.state
-            .strip()
-            .upper(),
+    if state and (
+        len(state) != 2
+        or
+        not state.isalpha()
+    ):
 
-        "city":
-            req.city
-            .strip(),
+        raise HTTPException(
+            400,
+            "State must be a "
+            "2-letter abbreviation."
+        )
 
-        "zip":
-            req.zip
-            .strip(),
-
-        "dob":
-            req.dob
-            .strip()
-    }
-
-    clauses = [
-        "first_name = ?",
-        "last_name = ?"
-    ]
-
-    params = [
-        first,
-        last
-    ]
-
-    for column, value in vals.items():
-
-        if value:
-
-            clauses.append(
-                f"{column} = ?"
-            )
-
-            params.append(
-                value
-            )
-
-    where = " AND ".join(
-        clauses
-    )
 
     with db() as con:
 
-        current = con.execute(
+        pending_count = con.execute(
             """
-            SELECT *
-            FROM users
-            WHERE id=?
+            SELECT COUNT(*) AS c
+
+            FROM search_requests
+
+            WHERE
+                user_id=?
+                AND status='pending'
             """,
             (
                 user["id"],
             )
-        ).fetchone()
+        ).fetchone()["c"]
 
-        if (
-            SEARCH_COST_CENTS > 0
-            and
-            current["balance_cents"]
-            < SEARCH_COST_CENTS
-        ):
+
+        if pending_count >= 5:
 
             raise HTTPException(
-                402,
-                "Insufficient balance. "
-                f"Search cost is "
-                f"{money(SEARCH_COST_CENTS)}."
+                429,
+                "You already have "
+                "5 pending requests. "
+                "Please wait for an admin response."
             )
 
+
+        cur = con.execute(
+            """
+            INSERT INTO search_requests(
+                user_id,
+                first_name,
+                last_name,
+                state,
+                city,
+                zip,
+                dob,
+                status,
+                created_at,
+                updated_at
+            )
+
+            VALUES(
+                ?, ?, ?, ?, ?, ?, ?,
+                'pending',
+                ?, ?
+            )
+            """,
+            (
+                user["id"],
+                first,
+                last,
+                state,
+                city,
+                zipcode,
+                dob,
+                now_iso(),
+                now_iso()
+            )
+        )
+
+
+        request_id = (
+            cur.lastrowid
+        )
+
+
+    return {
+
+        "ok":
+            True,
+
+        "request_id":
+            request_id,
+
+        "status":
+            "pending",
+
+        "message":
+            "Search request submitted "
+            "to the admin queue."
+    }
+
+
+# -------------------------------------------------
+# USER SEARCH REQUESTS
+# -------------------------------------------------
+
+@api.get("/api/requests")
+async def my_requests(
+    x_telegram_init_data: str = Header(
+        default=""
+    )
+):
+
+    tg = verify_init_data(
+        x_telegram_init_data
+    )
+
+
+    user = get_or_create_user(
+        tg
+    )
+
+
+    with db() as con:
+
         rows = con.execute(
-            f"""
+            """
             SELECT
                 id,
                 first_name,
@@ -790,85 +1370,27 @@ async def search(
                 city,
                 zip,
                 dob,
-                reference,
-                notes
+                status,
+                result_text,
+                admin_note,
+                created_at,
+                updated_at
 
-            FROM records
+            FROM search_requests
 
-            WHERE {where}
+            WHERE user_id=?
 
             ORDER BY id DESC
 
-            LIMIT 10
-            """,
-            params
-        ).fetchall()
-
-        total = con.execute(
-            f"""
-            SELECT COUNT(*) AS c
-
-            FROM records
-
-            WHERE {where}
-            """,
-            params
-        ).fetchone()["c"]
-
-        if SEARCH_COST_CENTS > 0:
-
-            con.execute(
-                """
-                UPDATE users
-
-                SET balance_cents =
-                    balance_cents - ?
-
-                WHERE id=?
-                """,
-                (
-                    SEARCH_COST_CENTS,
-                    user["id"]
-                )
-            )
-
-        summary = (
-            f"{first} {last}"
-        )
-
-        if vals["state"]:
-            summary += (
-                f", {vals['state']}"
-            )
-
-        con.execute(
-            """
-            INSERT INTO search_history(
-                user_id,
-                query_summary,
-                result_count,
-                cost_cents,
-                created_at
-            )
-            VALUES(?,?,?,?,?)
+            LIMIT 20
             """,
             (
                 user["id"],
-                summary,
-                total,
-                SEARCH_COST_CENTS,
-                now_iso()
             )
-        )
+        ).fetchall()
 
-    return {
 
-        "count":
-            total,
-
-        "results":
-            [
-                dict(row)
-                for row in rows
-            ]
-    }
+    return [
+        dict(row)
+        for row in rows
+    ]
