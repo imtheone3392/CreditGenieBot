@@ -1161,6 +1161,10 @@ async def me(
 # CREATE SEARCH REQUEST
 # -------------------------------------------------
 
+# -------------------------------------------------
+# CREATE SEARCH REQUEST
+# -------------------------------------------------
+
 @api.post("/api/search")
 async def search(
     req: SearchRequest,
@@ -1213,6 +1217,55 @@ async def search(
 
     with db() as con:
 
+        # -----------------------------------------
+        # GET CURRENT USER BALANCE
+        # -----------------------------------------
+
+        current_user = con.execute(
+            """
+            SELECT
+                id,
+                balance_cents
+
+            FROM users
+
+            WHERE id=?
+            """,
+            (
+                user["id"],
+            )
+        ).fetchone()
+
+        if not current_user:
+
+            raise HTTPException(
+                status_code=404,
+                detail="User not found."
+            )
+
+        # -----------------------------------------
+        # MAKE SURE USER HAS $12
+        # -----------------------------------------
+
+        if (
+            current_user["balance_cents"]
+            <
+            SEARCH_COST_CENTS
+        ):
+
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    "Insufficient Bitcoin balance. "
+                    f"This search costs "
+                    f"{money(SEARCH_COST_CENTS)}."
+                )
+            )
+
+        # -----------------------------------------
+        # MAX 5 PENDING REQUESTS
+        # -----------------------------------------
+
         pending_count = con.execute(
             """
             SELECT COUNT(*) AS c
@@ -1239,44 +1292,114 @@ async def search(
                 )
             )
 
-        cur = con.execute(
-            """
-            INSERT INTO search_requests(
-                user_id,
-                first_name,
-                last_name,
-                state,
-                city,
-                zip,
-                dob,
-                status,
-                created_at,
-                updated_at
+        # -----------------------------------------
+        # BEGIN PAYMENT + SEARCH
+        # -----------------------------------------
+
+        try:
+
+            # Deduct $12
+            charged = con.execute(
+                """
+                UPDATE users
+
+                SET balance_cents =
+                    balance_cents - ?
+
+                WHERE
+                    id=?
+                    AND balance_cents >= ?
+                """,
+                (
+                    SEARCH_COST_CENTS,
+                    user["id"],
+                    SEARCH_COST_CENTS
+                )
             )
 
-            VALUES(
-                ?, ?, ?, ?, ?, ?, ?,
-                'pending',
-                ?, ?
+            if charged.rowcount != 1:
+
+                raise HTTPException(
+                    status_code=402,
+                    detail=(
+                        "Insufficient Bitcoin balance."
+                    )
+                )
+
+            # Create request
+            cur = con.execute(
+                """
+                INSERT INTO search_requests(
+                    user_id,
+                    first_name,
+                    last_name,
+                    state,
+                    city,
+                    zip,
+                    dob,
+                    status,
+                    created_at,
+                    updated_at
+                )
+
+                VALUES(
+                    ?, ?, ?, ?, ?, ?, ?,
+                    'pending',
+                    ?, ?
+                )
+                """,
+                (
+                    user["id"],
+                    first,
+                    last,
+                    state,
+                    city,
+                    zipcode,
+                    dob,
+                    now_iso(),
+                    now_iso()
+                )
             )
+
+            request_id = (
+                cur.lastrowid
+            )
+
+        except HTTPException:
+            raise
+
+        except Exception as exc:
+
+            logger.exception(
+                "Could not create paid search request"
+            )
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "Could not create search request."
+                )
+            )
+
+        # -----------------------------------------
+        # NEW BALANCE
+        # -----------------------------------------
+
+        updated_user = con.execute(
+            """
+            SELECT balance_cents
+            FROM users
+            WHERE id=?
             """,
             (
                 user["id"],
-                first,
-                last,
-                state,
-                city,
-                zipcode,
-                dob,
-                now_iso(),
-                now_iso()
             )
-        )
-
-        request_id = cur.lastrowid
+        ).fetchone()
 
     return {
-        "ok": True,
+
+        "ok":
+            True,
 
         "request_id":
             request_id,
@@ -1284,13 +1407,23 @@ async def search(
         "status":
             "pending",
 
+        "charged":
+            money(
+                SEARCH_COST_CENTS
+            ),
+
+        "balance":
+            money(
+                updated_user["balance_cents"]
+            ),
+
         "message":
-            "Search request submitted "
-            "to the admin queue."
-    }
-
-
-# -------------------------------------------------
+            (
+                f"{money(SEARCH_COST_CENTS)} "
+                "was charged and your search "
+                "was submitted to the admin queue."
+            )
+    }# -------------------------------------------------
 # USER SEARCH REQUESTS
 # -------------------------------------------------
 
