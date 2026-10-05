@@ -11,13 +11,9 @@
   content="width=device-width,initial-scale=1,viewport-fit=cover"
 >
 
-<title>
-  CreditGenie
-</title>
+<title>CreditGenie</title>
 
-<script
-  src="https://telegram.org/js/telegram-web-app.js"
-></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 
 <style>
@@ -25,16 +21,25 @@
 :root{
   --bg:#14212b;
   --panel:#17222b;
+  --panel2:#111b23;
   --line:#2b3a46;
   --text:#f5f7f8;
   --muted:#8e98a1;
+
   --green:#49a627;
   --green2:#3e8f21;
+
   --blue:#2d7bdc;
   --blue2:#1f5fae;
+
   --input:#172029;
+
   --yellow:#d4a82f;
+
   --red:#c74b4b;
+  --red2:#963838;
+
+  --orange:#d78935;
 }
 
 *{
@@ -58,7 +63,9 @@ body{
 
 body{
   min-height:100vh;
-  padding:18px 14px 40px;
+
+  padding:
+    18px 14px 50px;
 }
 
 .wrap{
@@ -66,11 +73,18 @@ body{
   margin:0 auto;
 }
 
+
+/* -------------------------------------------------
+   BRAND
+------------------------------------------------- */
+
 .brand{
   display:flex;
   align-items:center;
   gap:10px;
-  margin:2px 2px 18px;
+
+  margin:
+    2px 2px 18px;
 }
 
 .logo{
@@ -102,9 +116,16 @@ body{
 
 .brand p{
   margin:2px 0 0;
+
   color:var(--muted);
+
   font-size:13px;
 }
+
+
+/* -------------------------------------------------
+   CARDS
+------------------------------------------------- */
 
 .card{
   background:var(--panel);
@@ -122,9 +143,14 @@ body{
 
 .card-head{
   display:flex;
-  justify-content:space-between;
+
+  justify-content:
+    space-between;
+
   align-items:center;
+
   gap:12px;
+
   margin-bottom:18px;
 }
 
@@ -139,10 +165,15 @@ body{
   gap:13px;
 }
 
+
+/* -------------------------------------------------
+   INPUTS
+------------------------------------------------- */
+
 input,
-select{
+select,
+textarea{
   width:100%;
-  height:58px;
 
   border:
     1px solid var(--line);
@@ -156,24 +187,100 @@ select{
   padding:
     0 16px;
 
-  font-size:18px;
+  font-size:17px;
+
   outline:none;
 }
 
-input::placeholder{
-  color:#c9ced3;
+input,
+select{
+  height:58px;
 }
+
+textarea{
+  min-height:130px;
+
+  padding:
+    14px 16px;
+
+  resize:vertical;
+
+  font-family:inherit;
+
+  line-height:1.45;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color:#aeb6bd;
+}
+
+input:focus,
+select:focus,
+textarea:focus{
+  border-color:#477089;
+}
+
+
+/* -------------------------------------------------
+   TEXT
+------------------------------------------------- */
 
 .help{
   font-size:14px;
+
   color:var(--muted);
+
   line-height:1.5;
-  margin:2px 0 0;
+
+  margin:
+    2px 0 0;
 }
+
+.notice{
+  font-size:12px;
+
+  color:var(--muted);
+
+  line-height:1.45;
+
+  margin-top:14px;
+}
+
+.status{
+  margin-top:14px;
+
+  color:var(--muted);
+
+  font-size:14px;
+
+  line-height:1.5;
+}
+
+.empty{
+  color:var(--muted);
+}
+
+.row{
+  color:#cbd2d8;
+
+  margin-top:5px;
+
+  font-size:14px;
+
+  line-height:1.45;
+}
+
+
+/* -------------------------------------------------
+   BUTTONS
+------------------------------------------------- */
 
 .actions{
   display:grid;
+
   gap:14px;
+
   margin-top:16px;
 }
 
@@ -192,6 +299,7 @@ button{
     16px 26px;
 
   font-size:18px;
+
   font-weight:800;
 
   letter-spacing:.02em;
@@ -214,31 +322,45 @@ button:active{
 
 button:disabled{
   opacity:.55;
+
+  cursor:not-allowed;
 }
 
-#openPeopleFinder{
-  display:none;
-
-  background:
-    var(--blue);
+.btn-blue{
+  background:var(--blue);
 
   box-shadow:
     0 6px 0 var(--blue2);
 }
 
-#openPeopleFinder:active{
+.btn-blue:active{
   box-shadow:
     0 4px 0 var(--blue2);
 }
 
-.status{
-  margin-top:14px;
+.btn-red{
+  background:var(--red);
 
-  color:
-    var(--muted);
+  box-shadow:
+    0 6px 0 var(--red2);
+}
+
+.btn-red:active{
+  box-shadow:
+    0 4px 0 var(--red2);
+}
+
+.btn-small{
+  padding:
+    12px 14px;
 
   font-size:14px;
 }
+
+
+/* -------------------------------------------------
+   PILLS
+------------------------------------------------- */
 
 .pill{
   font-size:12px;
@@ -253,23 +375,40 @@ button:disabled{
     999px;
 
   color:#cbd2d8;
+
+  white-space:nowrap;
 }
 
-.notice{
+.status-pill{
+  border-radius:999px;
+
+  padding:
+    5px 9px;
+
   font-size:12px;
 
-  color:
-    var(--muted);
+  border:
+    1px solid var(--line);
 
-  line-height:1.45;
-
-  margin-top:14px;
+  white-space:nowrap;
 }
 
-.empty{
-  color:
-    var(--muted);
+.status-pill.pending{
+  color:#f1c854;
 }
+
+.status-pill.completed{
+  color:#62d95a;
+}
+
+.status-pill.rejected{
+  color:#ff7979;
+}
+
+
+/* -------------------------------------------------
+   USER REQUESTS
+------------------------------------------------- */
 
 .request-item{
   padding:
@@ -285,42 +424,15 @@ button:disabled{
 
 .request-top{
   display:flex;
+
   align-items:center;
-  justify-content:space-between;
+
+  justify-content:
+    space-between;
+
   gap:12px;
+
   margin-bottom:8px;
-}
-
-.row{
-  color:#cbd2d8;
-
-  margin-top:5px;
-
-  font-size:14px;
-}
-
-.status-pill{
-  border-radius:999px;
-
-  padding:
-    5px 9px;
-
-  font-size:12px;
-
-  border:
-    1px solid var(--line);
-}
-
-.status-pill.pending{
-  color:#f1c854;
-}
-
-.status-pill.completed{
-  color:#62d95a;
-}
-
-.status-pill.rejected{
-  color:#ff7979;
 }
 
 .result-text{
@@ -337,14 +449,24 @@ button:disabled{
 
   color:#f1f4f6;
 
-  white-space:
-    pre-wrap;
+  white-space:pre-wrap;
 
   line-height:1.45;
+
+  overflow-wrap:anywhere;
 }
 
 .rejected-text{
   color:#ffaaaa;
+}
+
+
+/* -------------------------------------------------
+   PEOPLEFINDER ADMIN
+------------------------------------------------- */
+
+#openPeopleFinder{
+  display:none;
 }
 
 #peopleFinderAdmin{
@@ -365,11 +487,209 @@ button:disabled{
 }
 
 
+/* -------------------------------------------------
+   ADMIN
+------------------------------------------------- */
+
+#adminPanel{
+  display:none;
+}
+
+.admin-banner{
+  margin-bottom:16px;
+
+  padding:14px;
+
+  border-radius:14px;
+
+  background:
+    linear-gradient(
+      135deg,
+      #273b4a,
+      #17222b
+    );
+
+  border:
+    1px solid #395269;
+}
+
+.admin-title{
+  font-weight:800;
+
+  font-size:18px;
+
+  margin-bottom:4px;
+}
+
+.admin-sub{
+  color:var(--muted);
+
+  font-size:13px;
+
+  line-height:1.4;
+}
+
+.stats{
+  display:grid;
+
+  grid-template-columns:
+    repeat(2,1fr);
+
+  gap:10px;
+
+  margin-bottom:18px;
+}
+
+.stat{
+  background:var(--panel2);
+
+  border:
+    1px solid var(--line);
+
+  border-radius:14px;
+
+  padding:14px;
+}
+
+.stat-number{
+  font-size:24px;
+
+  font-weight:800;
+}
+
+.stat-label{
+  font-size:12px;
+
+  color:var(--muted);
+
+  margin-top:4px;
+}
+
+
+/* -------------------------------------------------
+   ADMIN QUEUE CARDS
+------------------------------------------------- */
+
+.admin-request{
+  border:
+    1px solid var(--line);
+
+  border-radius:16px;
+
+  background:#141e26;
+
+  padding:16px;
+
+  margin-bottom:14px;
+}
+
+.admin-request:last-child{
+  margin-bottom:0;
+}
+
+.admin-request-head{
+  display:flex;
+
+  justify-content:
+    space-between;
+
+  align-items:center;
+
+  gap:10px;
+
+  margin-bottom:12px;
+}
+
+.admin-request-title{
+  font-size:18px;
+
+  font-weight:800;
+}
+
+.admin-name{
+  font-size:19px;
+
+  font-weight:800;
+
+  margin-top:10px;
+}
+
+.admin-meta{
+  color:#cbd2d8;
+
+  margin-top:6px;
+
+  font-size:14px;
+
+  line-height:1.45;
+}
+
+.admin-requested-by{
+  margin-top:12px;
+
+  padding-top:12px;
+
+  border-top:
+    1px solid var(--line);
+
+  color:var(--muted);
+
+  font-size:13px;
+}
+
+.admin-editor{
+  margin-top:16px;
+
+  padding-top:16px;
+
+  border-top:
+    1px solid var(--line);
+}
+
+.admin-editor-title{
+  margin-bottom:8px;
+
+  font-size:14px;
+
+  font-weight:700;
+}
+
+.admin-editor textarea{
+  margin-bottom:12px;
+}
+
+.admin-buttons{
+  display:grid;
+
+  grid-template-columns:
+    1fr 1fr;
+
+  gap:10px;
+}
+
+.queue-status{
+  color:var(--muted);
+
+  margin-bottom:14px;
+
+  font-size:13px;
+}
+
+
+/* -------------------------------------------------
+   RESPONSIVE
+------------------------------------------------- */
+
 @media(min-width:700px){
 
   .grid.two{
     grid-template-columns:
       1fr 1fr;
+  }
+
+  .stats{
+    grid-template-columns:
+      repeat(4,1fr);
   }
 
 }
@@ -384,6 +704,10 @@ button:disabled{
 
 <div class="wrap">
 
+
+<!-- ------------------------------------------------
+     BRAND
+------------------------------------------------- -->
 
 <div class="brand">
 
@@ -405,6 +729,10 @@ button:disabled{
 
 </div>
 
+
+<!-- ------------------------------------------------
+     SEARCH
+------------------------------------------------- -->
 
 <section class="card">
 
@@ -563,6 +891,7 @@ button:disabled{
 
 <button
   id="openPeopleFinder"
+  class="btn-blue"
   type="button"
 >
 
@@ -574,9 +903,7 @@ button:disabled{
 </div>
 
 
-<div
-  id="peopleFinderAdmin"
->
+<div id="peopleFinderAdmin">
 
   PeopleFinder:
   Manual login / reconnect
@@ -604,6 +931,139 @@ button:disabled{
 
 </section>
 
+
+<!-- ------------------------------------------------
+     ADMIN PANEL
+------------------------------------------------- -->
+
+<section
+  class="card"
+  id="adminPanel"
+>
+
+
+<div class="admin-banner">
+
+  <div class="admin-title">
+    🛠 ADMIN CONTROL CENTER
+  </div>
+
+  <div class="admin-sub">
+    Review pending requests,
+    send approved results,
+    or reject requests.
+  </div>
+
+</div>
+
+
+<div class="stats">
+
+
+<div class="stat">
+
+  <div
+    class="stat-number"
+    id="statUsers"
+  >
+    —
+  </div>
+
+  <div class="stat-label">
+    USERS
+  </div>
+
+</div>
+
+
+<div class="stat">
+
+  <div
+    class="stat-number"
+    id="statPending"
+  >
+    —
+  </div>
+
+  <div class="stat-label">
+    PENDING
+  </div>
+
+</div>
+
+
+<div class="stat">
+
+  <div
+    class="stat-number"
+    id="statCompleted"
+  >
+    —
+  </div>
+
+  <div class="stat-label">
+    COMPLETED
+  </div>
+
+</div>
+
+
+<div class="stat">
+
+  <div
+    class="stat-number"
+    id="statRejected"
+  >
+    —
+  </div>
+
+  <div class="stat-label">
+    REJECTED
+  </div>
+
+</div>
+
+
+</div>
+
+
+<div class="card-head">
+
+  <h2>
+    ADMIN QUEUE
+  </h2>
+
+  <span
+    class="pill"
+    id="queueCount"
+  >
+    0 pending
+  </span>
+
+</div>
+
+
+<div
+  id="adminQueueStatus"
+  class="queue-status"
+></div>
+
+
+<div id="adminQueue">
+
+  <div class="empty">
+    Loading admin queue…
+  </div>
+
+</div>
+
+
+</section>
+
+
+<!-- ------------------------------------------------
+     USER REQUESTS
+------------------------------------------------- -->
 
 <section class="card">
 
@@ -642,6 +1102,10 @@ button:disabled{
 
 <script>
 
+/* -------------------------------------------------
+   TELEGRAM
+------------------------------------------------- */
+
 const tg =
   window.Telegram?.WebApp;
 
@@ -662,7 +1126,9 @@ if (tg) {
       '#14212b'
     );
 
-  } catch (e) {}
+  }
+
+  catch (e) {}
 
 }
 
@@ -670,6 +1136,15 @@ if (tg) {
 const initData =
   tg?.initData || '';
 
+
+let currentUser = null;
+
+let adminEnabled = false;
+
+
+/* -------------------------------------------------
+   HELPERS
+------------------------------------------------- */
 
 const $ =
   id =>
@@ -686,43 +1161,6 @@ const headers =
       initData
 
   });
-
-
-$('stateSelect')
-.addEventListener(
-  'change',
-  e => {
-
-    $('state').value =
-      e.target.value;
-
-  }
-);
-
-
-$('state')
-.addEventListener(
-  'input',
-  e => {
-
-    e.target.value =
-      e.target.value
-      .toUpperCase()
-      .replace(
-        /[^A-Z]/g,
-        ''
-      )
-      .slice(
-        0,
-        2
-      );
-
-
-    $('stateSelect').value =
-      e.target.value;
-
-  }
-);
 
 
 async function api(
@@ -784,6 +1222,7 @@ function esc(
   return String(v)
   .replace(
     /[&<>"']/g,
+
     s => ({
 
       '&':
@@ -868,6 +1307,53 @@ function statusLabel(
 }
 
 
+/* -------------------------------------------------
+   STATE SELECT
+------------------------------------------------- */
+
+$('stateSelect')
+.addEventListener(
+  'change',
+
+  e => {
+
+    $('state').value =
+      e.target.value;
+
+  }
+);
+
+
+$('state')
+.addEventListener(
+  'input',
+
+  e => {
+
+    e.target.value =
+      e.target.value
+      .toUpperCase()
+      .replace(
+        /[^A-Z]/g,
+        ''
+      )
+      .slice(
+        0,
+        2
+      );
+
+
+    $('stateSelect').value =
+      e.target.value;
+
+  }
+);
+
+
+/* -------------------------------------------------
+   LOAD CURRENT USER
+------------------------------------------------- */
+
 async function loadMe(){
 
   try {
@@ -876,6 +1362,10 @@ async function loadMe(){
       await api(
         '/api/me'
       );
+
+
+    currentUser =
+      me;
 
 
     $('account')
@@ -899,8 +1389,14 @@ async function loadMe(){
       : `${me.search_cost} / search`;
 
 
+    adminEnabled =
+      Boolean(
+        me.is_admin
+      );
+
+
     if (
-      me.is_admin
+      adminEnabled
     ){
 
       $('openPeopleFinder')
@@ -912,6 +1408,17 @@ async function loadMe(){
       .style.display =
         'block';
 
+
+      $('adminPanel')
+      .style.display =
+        'block';
+
+
+      await Promise.all([
+        loadAdminStats(),
+        loadAdminQueue()
+      ]);
+
     }
 
     else{
@@ -922,6 +1429,11 @@ async function loadMe(){
 
 
       $('peopleFinderAdmin')
+      .style.display =
+        'none';
+
+
+      $('adminPanel')
       .style.display =
         'none';
 
@@ -939,6 +1451,10 @@ async function loadMe(){
 
 }
 
+
+/* -------------------------------------------------
+   USER REQUEST HISTORY
+------------------------------------------------- */
 
 async function loadRequests(){
 
@@ -973,6 +1489,7 @@ async function loadRequests(){
 
       rows.map(
         r => {
+
 
           const location =
             [
@@ -1044,7 +1561,9 @@ async function loadRequests(){
             ? `
 
             <div class="row">
+
               Waiting for admin review…
+
             </div>
 
             `
@@ -1173,15 +1692,17 @@ async function loadRequests(){
     .innerHTML =
 
       `<div class="empty">
-
         ${esc(e.message)}
-
       </div>`;
 
   }
 
 }
 
+
+/* -------------------------------------------------
+   SUBMIT SEARCH
+------------------------------------------------- */
 
 $('searchForm')
 .addEventListener(
@@ -1203,7 +1724,6 @@ $('searchForm')
 
     $('status')
     .textContent =
-
       'Submitting request…';
 
 
@@ -1269,7 +1789,30 @@ $('searchForm')
         `Waiting for admin review.`;
 
 
+      $('searchForm')
+      .reset();
+
+
+      $('state')
+      .value = '';
+
+
+      $('stateSelect')
+      .value = '';
+
+
       await loadRequests();
+
+
+      if (
+        adminEnabled
+      ){
+
+        await loadAdminStats();
+
+        await loadAdminQueue();
+
+      }
 
     }
 
@@ -1291,6 +1834,10 @@ $('searchForm')
   }
 );
 
+
+/* -------------------------------------------------
+   PEOPLEFINDER ADMIN BUTTON
+------------------------------------------------- */
 
 $('openPeopleFinder')
 .addEventListener(
@@ -1327,14 +1874,693 @@ $('openPeopleFinder')
 );
 
 
-loadMe();
+/* =================================================
+   ADMIN FUNCTIONS
+================================================= */
 
-loadRequests();
 
+/* -------------------------------------------------
+   ADMIN STATS
+------------------------------------------------- */
+
+async function loadAdminStats(){
+
+  if (
+    !adminEnabled
+  ){
+
+    return;
+
+  }
+
+
+  try {
+
+    const data =
+      await api(
+        '/api/admin/stats'
+      );
+
+
+    $('statUsers')
+    .textContent =
+      data.users ?? 0;
+
+
+    $('statPending')
+    .textContent =
+      data.pending ?? 0;
+
+
+    $('statCompleted')
+    .textContent =
+      data.completed ?? 0;
+
+
+    $('statRejected')
+    .textContent =
+      data.rejected ?? 0;
+
+
+    $('queueCount')
+    .textContent =
+
+      `${data.pending ?? 0} pending`;
+
+  }
+
+  catch(e){
+
+    $('adminQueueStatus')
+    .textContent =
+      e.message;
+
+  }
+
+}
+
+
+/* -------------------------------------------------
+   LOAD ADMIN QUEUE
+------------------------------------------------- */
+
+async function loadAdminQueue(){
+
+  if (
+    !adminEnabled
+  ){
+
+    return;
+
+  }
+
+
+  try {
+
+    const data =
+      await api(
+        '/api/admin/queue'
+      );
+
+
+    const rows =
+      data.requests || [];
+
+
+    $('queueCount')
+    .textContent =
+
+      `${rows.length} pending`;
+
+
+    if (
+      !rows.length
+    ){
+
+      $('adminQueue')
+      .innerHTML = `
+
+        <div class="empty">
+
+          ✅ No pending search requests.
+
+        </div>
+
+      `;
+
+
+      return;
+
+    }
+
+
+    $('adminQueue')
+    .innerHTML =
+
+      rows.map(
+        r => {
+
+
+          const location =
+            [
+              r.city,
+              r.state,
+              r.zip
+            ]
+            .filter(
+              Boolean
+            )
+            .join(
+              ', '
+            );
+
+
+          let requestedBy =
+            r.requested_by
+            ||
+            'Telegram User';
+
+
+          if (
+            r.requested_by_username
+          ){
+
+            requestedBy +=
+
+              ` (@${r.requested_by_username})`;
+
+          }
+
+
+          return `
+
+          <div
+            class="admin-request"
+            id="admin-request-${esc(r.id)}"
+          >
+
+
+            <div class="admin-request-head">
+
+
+              <div class="admin-request-title">
+
+                Request #${esc(r.id)}
+
+              </div>
+
+
+              <span
+                class="
+                  status-pill
+                  pending
+                "
+              >
+
+                Pending
+
+              </span>
+
+
+            </div>
+
+
+            <div class="admin-name">
+
+              ${
+                esc(
+                  r.first_name
+                )
+              }
+
+              ${
+                esc(
+                  r.last_name
+                )
+              }
+
+            </div>
+
+
+            <div class="admin-meta">
+
+              State:
+              ${
+                esc(
+                  r.state
+                  ||
+                  '—'
+                )
+              }
+
+            </div>
+
+
+            <div class="admin-meta">
+
+              City:
+              ${
+                esc(
+                  r.city
+                  ||
+                  '—'
+                )
+              }
+
+            </div>
+
+
+            <div class="admin-meta">
+
+              ZIP:
+              ${
+                esc(
+                  r.zip
+                  ||
+                  '—'
+                )
+              }
+
+            </div>
+
+
+            <div class="admin-meta">
+
+              DOB:
+              ${
+                esc(
+                  r.dob
+                  ||
+                  '—'
+                )
+              }
+
+            </div>
+
+
+            <div class="admin-meta">
+
+              Submitted:
+              ${
+                esc(
+                  prettyTime(
+                    r.created_at
+                  )
+                )
+              }
+
+            </div>
+
+
+            <div class="admin-requested-by">
+
+              Requested by:
+
+              ${
+                esc(
+                  requestedBy
+                )
+              }
+
+            </div>
+
+
+            <div class="admin-editor">
+
+
+              <div class="admin-editor-title">
+
+                RESULT TO SEND TO USER
+
+              </div>
+
+
+              <textarea
+                id="result-${esc(r.id)}"
+                placeholder="Enter the authorized result here..."
+              ></textarea>
+
+
+              <div class="admin-editor-title">
+
+                ADMIN NOTE / REJECTION REASON
+
+              </div>
+
+
+              <textarea
+                id="note-${esc(r.id)}"
+                placeholder="Optional admin note. If rejecting, enter the reason here."
+              ></textarea>
+
+
+              <div class="admin-buttons">
+
+
+                <button
+                  class="btn-small"
+                  id="send-${esc(r.id)}"
+                  onclick="sendAdminResult(${Number(r.id)})"
+                  type="button"
+                >
+
+                  SEND RESULT
+
+                </button>
+
+
+                <button
+                  class="
+                    btn-red
+                    btn-small
+                  "
+                  id="reject-${esc(r.id)}"
+                  onclick="rejectAdminRequest(${Number(r.id)})"
+                  type="button"
+                >
+
+                  REJECT
+
+                </button>
+
+
+              </div>
+
+
+              <div
+                class="status"
+                id="admin-status-${esc(r.id)}"
+              ></div>
+
+
+            </div>
+
+
+          </div>
+
+          `;
+
+        }
+      )
+      .join('');
+
+  }
+
+  catch(e){
+
+    $('adminQueue')
+    .innerHTML = `
+
+      <div class="empty">
+
+        ${esc(e.message)}
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+/* -------------------------------------------------
+   SEND RESULT
+------------------------------------------------- */
+
+async function sendAdminResult(
+  requestId
+){
+
+  const resultBox =
+    $(
+      `result-${requestId}`
+    );
+
+
+  const noteBox =
+    $(
+      `note-${requestId}`
+    );
+
+
+  const sendBtn =
+    $(
+      `send-${requestId}`
+    );
+
+
+  const rejectBtn =
+    $(
+      `reject-${requestId}`
+    );
+
+
+  const message =
+    $(
+      `admin-status-${requestId}`
+    );
+
+
+  const resultText =
+    resultBox
+    ?.value
+    ?.trim();
+
+
+  const adminNote =
+    noteBox
+    ?.value
+    ?.trim()
+    ||
+    '';
+
+
+  if (
+    !resultText
+  ){
+
+    message.textContent =
+      'Enter a result before sending.';
+
+    return;
+
+  }
+
+
+  sendBtn.disabled =
+    true;
+
+
+  rejectBtn.disabled =
+    true;
+
+
+  message.textContent =
+    'Sending result…';
+
+
+  try {
+
+    await api(
+      '/api/admin/send-result',
+      {
+
+        method:
+          'POST',
+
+        body:
+          JSON.stringify(
+            {
+
+              request_id:
+                requestId,
+
+              result_text:
+                resultText,
+
+              admin_note:
+                adminNote
+
+            }
+          )
+
+      }
+    );
+
+
+    message.textContent =
+      '✅ Result sent successfully.';
+
+
+    await Promise.all([
+      loadAdminStats(),
+      loadAdminQueue(),
+      loadRequests()
+    ]);
+
+  }
+
+  catch(e){
+
+    message.textContent =
+      e.message;
+
+
+    sendBtn.disabled =
+      false;
+
+
+    rejectBtn.disabled =
+      false;
+
+  }
+
+}
+
+
+/* -------------------------------------------------
+   REJECT REQUEST
+------------------------------------------------- */
+
+async function rejectAdminRequest(
+  requestId
+){
+
+  const noteBox =
+    $(
+      `note-${requestId}`
+    );
+
+
+  const sendBtn =
+    $(
+      `send-${requestId}`
+    );
+
+
+  const rejectBtn =
+    $(
+      `reject-${requestId}`
+    );
+
+
+  const message =
+    $(
+      `admin-status-${requestId}`
+    );
+
+
+  const reason =
+    noteBox
+    ?.value
+    ?.trim()
+
+    ||
+    'Request could not be completed.';
+
+
+  const confirmed =
+    window.confirm(
+      `Reject Request #${requestId}?`
+    );
+
+
+  if (
+    !confirmed
+  ){
+
+    return;
+
+  }
+
+
+  sendBtn.disabled =
+    true;
+
+
+  rejectBtn.disabled =
+    true;
+
+
+  message.textContent =
+    'Rejecting request…';
+
+
+  try {
+
+    await api(
+      '/api/admin/reject',
+      {
+
+        method:
+          'POST',
+
+        body:
+          JSON.stringify(
+            {
+
+              request_id:
+                requestId,
+
+              reason:
+                reason
+
+            }
+          )
+
+      }
+    );
+
+
+    message.textContent =
+      'Request rejected.';
+
+
+    await Promise.all([
+      loadAdminStats(),
+      loadAdminQueue(),
+      loadRequests()
+    ]);
+
+  }
+
+  catch(e){
+
+    message.textContent =
+      e.message;
+
+
+    sendBtn.disabled =
+      false;
+
+
+    rejectBtn.disabled =
+      false;
+
+  }
+
+}
+
+
+/* -------------------------------------------------
+   INITIAL LOAD
+------------------------------------------------- */
+
+async function startApp(){
+
+  await loadMe();
+
+  await loadRequests();
+
+}
+
+
+startApp();
+
+
+/* -------------------------------------------------
+   AUTO REFRESH USER REQUESTS
+------------------------------------------------- */
 
 setInterval(
-  loadRequests,
-  5000
+  async () => {
+
+    await loadRequests();
+
+    if (
+      adminEnabled
+    ){
+
+      await loadAdminStats();
+
+      await loadAdminQueue();
+
+    }
+
+  },
+
+  10000
 );
 
 </script>
