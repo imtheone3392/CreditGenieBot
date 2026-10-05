@@ -370,6 +370,7 @@ button:disabled{
         <button
           id="openPeopleFinder"
           type="button"
+          style="display:none"
         >
           OPEN PEOPLEFINDER
         </button>
@@ -525,47 +526,27 @@ async function loadMe() {
 }
 
 
-async function loadHistory() {
-
+async function loadMe() {
   try {
+    const me = await api('/api/me');
 
-    const rows = await api('/api/history');
+    $('account').textContent =
+      me.first_name ? `Hi, ${me.first_name}` : '';
 
-    if (!rows.length) {
+    $('costPill').textContent =
+      me.search_cost === '$0.00'
+        ? 'Free search'
+        : `${me.search_cost} / search`;
 
-      $('history').innerHTML =
-        '<div class="empty">No previous searches yet.</div>';
-
-      return;
+    if (me.is_admin) {
+      $('openPeopleFinder').style.display = 'block';
+    } else {
+      $('openPeopleFinder').style.display = 'none';
     }
 
-    $('history').innerHTML = rows.map(r => `
-
-      <div class="history-item">
-
-        <b>
-          ${esc(r.query)}
-        </b>
-
-        <div class="row">
-          ${esc(r.result_count)} result(s) · ${esc(r.cost)}
-        </div>
-
-        <div class="row">
-          ${esc(new Date(r.created_at).toLocaleString())}
-        </div>
-
-      </div>
-
-    `).join('');
-
   } catch (e) {
-
-    $('history').innerHTML =
-      `<div class="empty">${esc(e.message)}</div>`;
-
+    $('status').textContent = e.message;
   }
-
 }
 
 
