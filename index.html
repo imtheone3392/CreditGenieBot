@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CreditGenie</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#14212b;--panel:#17222b;--line:#2b3a46;--text:#f5f7f8;--muted:#8e98a1;--green:#49a627;--green2:#3e8f21;--input:#172029}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}body{min-height:100vh;padding:18px 14px 40px}.wrap{max-width:760px;margin:0 auto}.brand{display:flex;align-items:center;gap:10px;margin:2px 2px 18px}.logo{width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#63d73b,#308819);display:grid;place-items:center;font-size:24px;box-shadow:0 6px 18px #0005}.brand h1{font-size:22px;margin:0}.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px 16px;margin-bottom:18px;box-shadow:0 8px 26px #00000018}.card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}.card-head h2{font-size:24px;line-height:1.1;margin:0}.grid{display:grid;gap:13px}input,select{width:100%;height:58px;border:1px solid var(--line);border-radius:14px;background:var(--input);color:var(--text);padding:0 16px;font-size:18px;outline:none}input::placeholder{color:#c9ced3}.help{font-size:14px;color:var(--muted);line-height:1.5;margin:2px 0 0}.actions{display:flex;justify-content:flex-end;margin-top:16px}button{appearance:none;border:0;border-radius:13px;background:var(--green);color:white;padding:16px 26px;font-size:18px;font-weight:800;letter-spacing:.02em;box-shadow:0 6px 0 var(--green2);cursor:pointer;min-width:210px}button:active{transform:translateY(2px);box-shadow:0 4px 0 var(--green2)}button:disabled{opacity:.55}.status{margin-top:14px;color:var(--muted);font-size:14px}.result{border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px;background:#141d24}.result b{font-size:17px}.row{color:#cbd2d8;margin-top:5px;font-size:14px}.history-item{padding:12px 0;border-bottom:1px solid var(--line)}.history-item:last-child{border-bottom:0}.empty{color:var(--muted)}.pill{font-size:12px;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:#cbd2d8}.notice{font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px}@media(min-width:700px){.grid.two{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="logo">🧞</div><div><h1>CreditGenie</h1><p>Authorized record search</p></div></div>
+  <section class="card">
+    <div class="card-head"><h2>SINGLE RECORD SEARCH</h2><span class="pill" id="costPill">Search</span></div>
+    <form id="searchForm">
+      <div class="grid">
+        <input id="firstName" placeholder="First Name" required>
+        <input id="lastName" placeholder="Last Name" required>
+        <div class="grid two">
+          <input id="state" maxlength="2" placeholder="State (2 letter)">
+          <select id="stateSelect"><option value="">Select A State</option><option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option><option>CO</option><option>CT</option><option>DE</option><option>FL</option><option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option><option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option><option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option><option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option><option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option><option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option><option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option><option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option></select>
+        </div>
+        <input id="city" placeholder="City">
+        <input id="zip" inputmode="numeric" placeholder="ZIP">
+        <input id="dob" placeholder="DOB (mm/dd/yyyy)">
+        <p class="help">Use DOB as mm/dd/yyyy. Leave optional fields blank if you do not want to filter by them.</p>
+      </div>
+      <div class="actions"><button id="searchBtn" type="submit">SEARCH RECORDS</button></div>
+      <div id="status" class="status"></div><div id="results"></div>
+      <p class="notice">Use only with records you own or are authorized to access. This app is not intended for SSNs, passwords, full payment-card data, authentication codes, or stolen identity information.</p>
+    </form>
+  </section>
+  <section class="card"><div class="card-head"><h2>PREVIOUS SEARCH HISTORY</h2><span class="pill" id="account"></span></div><div id="history"><div class="empty">Loading…</div></div></section>
+</div>
+<script>
+const tg=window.Telegram?.WebApp;if(tg){tg.ready();tg.expand();try{tg.setHeaderColor('#14212b');tg.setBackgroundColor('#14212b')}catch(e){}}
+const initData=tg?.initData||"";const $=id=>document.getElementById(id);const headers=()=>({'Content-Type':'application/json','X-Telegram-Init-Data':initData});
+$('stateSelect').addEventListener('change',e=>$('state').value=e.target.value);$('state').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,2);$('stateSelect').value=e.target.value});
+async function api(path,options={}){const res=await fetch(path,{...options,headers:{...headers(),...(options.headers||{})}});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.detail||'Request failed');return data}
+function esc(v=''){return String(v).replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))}
+async function loadMe(){try{const me=await api('/api/me');$('account').textContent=me.first_name?`Hi, ${me.first_name}`:'';$('costPill').textContent=me.search_cost==='$0.00'?'Free search':`${me.search_cost} / search`}catch(e){$('status').textContent=e.message}}
+async function loadHistory(){try{const rows=await api('/api/history');if(!rows.length){$('history').innerHTML='<div class="empty">No previous searches yet.</div>';return}$('history').innerHTML=rows.map(r=>`<div class="history-item"><b>${esc(r.query)}</b><div class="row">${esc(r.result_count)} result(s) · ${esc(r.cost)}</div><div class="row">${esc(new Date(r.created_at).toLocaleString())}</div></div>`).join('')}catch(e){$('history').innerHTML=`<div class="empty">${esc(e.message)}</div>`}}
+$('searchForm').addEventListener('submit',async e=>{e.preventDefault();const btn=$('searchBtn');btn.disabled=true;$('status').textContent='Searching…';$('results').innerHTML='';const payload={first_name:$('firstName').value.trim(),last_name:$('lastName').value.trim(),state:$('state').value.trim(),city:$('city').value.trim(),zip:$('zip').value.trim(),dob:$('dob').value.trim()};try{const data=await api('/api/search',{method:'POST',body:JSON.stringify(payload)});$('status').textContent=`${data.count} match(es) found.`;$('results').innerHTML=data.results.length?data.results.map(r=>`<div class="result"><b>${esc(r.first_name)} ${esc(r.last_name)}</b><div class="row">${esc([r.city,r.state,r.zip].filter(Boolean).join(', '))}</div><div class="row">DOB: ${esc(r.dob||'—')}</div><div class="row">Reference: ${esc(r.reference||'—')}</div><div class="row">${esc(r.notes||'')}</div></div>`).join(''):'<div class="result empty">No authorized records matched.</div>';await loadHistory()}catch(err){$('status').textContent=err.message}finally{btn.disabled=false}});loadMe();loadHistory();
+</script>
+</body>
+</html>
