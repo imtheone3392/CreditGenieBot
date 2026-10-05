@@ -1,23 +1,12 @@
 <!doctype html>
-
 <html lang="en">
-
 <head>
-
 <meta charset="utf-8">
-
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1,viewport-fit=cover"
->
-
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>CreditGenie</title>
-
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-
 <style>
-
 :root{
   --bg:#14212b;
   --panel:#17222b;
@@ -25,47 +14,29 @@
   --line:#2b3a46;
   --text:#f5f7f8;
   --muted:#8e98a1;
-
   --green:#49a627;
   --green2:#3e8f21;
-
   --blue:#2d7bdc;
   --blue2:#1f5fae;
-
   --input:#172029;
-
   --yellow:#d4a82f;
-
   --red:#c74b4b;
   --red2:#963838;
-
   --orange:#d78935;
 }
 
-*{
-  box-sizing:border-box;
-}
+*{box-sizing:border-box}
 
-html,
-body{
+html,body{
   margin:0;
   background:var(--bg);
   color:var(--text);
-
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    Arial,
-    sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
 }
 
 body{
   min-height:100vh;
-
-  padding:
-    18px 14px 50px;
+  padding:18px 14px 50px;
 }
 
 .wrap{
@@ -73,84 +44,40 @@ body{
   margin:0 auto;
 }
 
-
-/* -------------------------------------------------
-   BRAND
-------------------------------------------------- */
-
 .brand{
   display:flex;
   align-items:center;
   gap:10px;
-
-  margin:
-    2px 2px 18px;
+  margin:2px 2px 18px;
 }
 
 .logo{
   width:42px;
   height:42px;
-
   border-radius:13px;
-
-  background:
-    linear-gradient(
-      145deg,
-      #63d73b,
-      #308819
-    );
-
+  background:linear-gradient(145deg,#63d73b,#308819);
   display:grid;
   place-items:center;
-
   font-size:24px;
-
-  box-shadow:
-    0 6px 18px #0005;
+  box-shadow:0 6px 18px #0005;
 }
 
-.brand h1{
-  font-size:22px;
-  margin:0;
-}
-
-.brand p{
-  margin:2px 0 0;
-
-  color:var(--muted);
-
-  font-size:13px;
-}
-
-
-/* -------------------------------------------------
-   CARDS
-------------------------------------------------- */
+.brand h1{font-size:22px;margin:0}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
 
 .card{
   background:var(--panel);
-
-  border:
-    1px solid var(--line);
-
+  border:1px solid var(--line);
   border-radius:18px;
-
-  padding:
-    20px 16px;
-
+  padding:20px 16px;
   margin-bottom:18px;
 }
 
 .card-head{
   display:flex;
-
-  justify-content:
-    space-between;
-
+  justify-content:space-between;
   align-items:center;
-
   gap:12px;
-
   margin-bottom:18px;
 }
 
@@ -165,2407 +92,1272 @@ body{
   gap:13px;
 }
 
-
-/* -------------------------------------------------
-   INPUTS
-------------------------------------------------- */
-
-input,
-select,
-textarea{
+input,select,textarea{
   width:100%;
-
-  border:
-    1px solid var(--line);
-
+  border:1px solid var(--line);
   border-radius:14px;
-
   background:var(--input);
-
   color:var(--text);
-
-  padding:
-    0 16px;
-
+  padding:0 16px;
   font-size:17px;
-
   outline:none;
 }
 
-input,
-select{
-  height:58px;
-}
+input,select{height:58px}
 
 textarea{
   min-height:130px;
-
-  padding:
-    14px 16px;
-
+  padding:14px 16px;
   resize:vertical;
-
   font-family:inherit;
-
   line-height:1.45;
 }
 
-input::placeholder,
-textarea::placeholder{
-  color:#aeb6bd;
-}
+input::placeholder,textarea::placeholder{color:#aeb6bd}
+input:focus,select:focus,textarea:focus{border-color:#477089}
 
-input:focus,
-select:focus,
-textarea:focus{
-  border-color:#477089;
-}
-
-
-/* -------------------------------------------------
-   TEXT
-------------------------------------------------- */
-
-.help{
-  font-size:14px;
-
+.help,.notice,.status,.empty,.row{
   color:var(--muted);
-
-  line-height:1.5;
-
-  margin:
-    2px 0 0;
-}
-
-.notice{
-  font-size:12px;
-
-  color:var(--muted);
-
-  line-height:1.45;
-
-  margin-top:14px;
-}
-
-.status{
-  margin-top:14px;
-
-  color:var(--muted);
-
-  font-size:14px;
-
   line-height:1.5;
 }
 
-.empty{
-  color:var(--muted);
-}
-
-.row{
-  color:#cbd2d8;
-
-  margin-top:5px;
-
-  font-size:14px;
-
-  line-height:1.45;
-}
-
-
-/* -------------------------------------------------
-   BUTTONS
-------------------------------------------------- */
+.help{font-size:14px;margin:2px 0 0}
+.notice{font-size:12px;margin-top:14px}
+.status{font-size:14px;margin-top:14px}
+.row{color:#cbd2d8;font-size:14px;margin-top:5px}
 
 .actions{
   display:grid;
-
   gap:14px;
-
   margin-top:16px;
 }
 
 button{
   appearance:none;
-
   border:0;
-
   border-radius:13px;
-
   background:var(--green);
-
   color:white;
-
-  padding:
-    16px 26px;
-
+  padding:16px 26px;
   font-size:18px;
-
   font-weight:800;
-
   letter-spacing:.02em;
-
-  box-shadow:
-    0 6px 0 var(--green2);
-
+  box-shadow:0 6px 0 var(--green2);
   cursor:pointer;
-
   width:100%;
 }
 
 button:active{
-  transform:
-    translateY(2px);
-
-  box-shadow:
-    0 4px 0 var(--green2);
+  transform:translateY(2px);
+  box-shadow:0 4px 0 var(--green2);
 }
 
-button:disabled{
-  opacity:.55;
-
-  cursor:not-allowed;
-}
+button:disabled{opacity:.55;cursor:not-allowed}
 
 .btn-blue{
   background:var(--blue);
-
-  box-shadow:
-    0 6px 0 var(--blue2);
+  box-shadow:0 6px 0 var(--blue2);
 }
 
-.btn-blue:active{
-  box-shadow:
-    0 4px 0 var(--blue2);
-}
+.btn-blue:active{box-shadow:0 4px 0 var(--blue2)}
 
 .btn-red{
   background:var(--red);
-
-  box-shadow:
-    0 6px 0 var(--red2);
+  box-shadow:0 6px 0 var(--red2);
 }
 
-.btn-red:active{
-  box-shadow:
-    0 4px 0 var(--red2);
-}
+.btn-red:active{box-shadow:0 4px 0 var(--red2)}
 
 .btn-small{
-  padding:
-    12px 14px;
-
+  padding:12px 14px;
   font-size:14px;
 }
 
-
-/* -------------------------------------------------
-   PILLS
-------------------------------------------------- */
-
-.pill{
+.pill,.status-pill{
   font-size:12px;
-
-  padding:
-    5px 9px;
-
-  border:
-    1px solid var(--line);
-
-  border-radius:
-    999px;
-
-  color:#cbd2d8;
-
-  white-space:nowrap;
-}
-
-.status-pill{
+  padding:5px 9px;
+  border:1px solid var(--line);
   border-radius:999px;
-
-  padding:
-    5px 9px;
-
-  font-size:12px;
-
-  border:
-    1px solid var(--line);
-
   white-space:nowrap;
 }
 
-.status-pill.pending{
-  color:#f1c854;
+.pill{color:#cbd2d8}
+.status-pill.pending{color:#f1c854}
+.status-pill.credited,.status-pill.completed{color:#62d95a}
+.status-pill.rejected{color:#ff7979}
+
+.wallet-summary{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-bottom:16px;
 }
 
-.status-pill.completed{
-  color:#62d95a;
+.wallet-box{
+  background:var(--panel2);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
 }
 
-.status-pill.rejected{
-  color:#ff7979;
+.wallet-number{
+  font-size:24px;
+  font-weight:800;
 }
 
+.wallet-label{
+  color:var(--muted);
+  font-size:12px;
+  margin-top:4px;
+}
 
-/* -------------------------------------------------
-   USER REQUESTS
-------------------------------------------------- */
+.address-box{
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#141d24;
+  padding:14px;
+  margin-top:10px;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#dce3e8;
+}
+
+.deposit-item{
+  padding:14px 0;
+  border-bottom:1px solid var(--line);
+}
+
+.deposit-item:last-child{border-bottom:0}
+
+.txid{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  overflow-wrap:anywhere;
+  color:#cbd2d8;
+  font-size:12px;
+  margin-top:6px;
+}
 
 .request-item{
-  padding:
-    16px 0;
-
-  border-bottom:
-    1px solid var(--line);
+  padding:16px 0;
+  border-bottom:1px solid var(--line);
 }
 
-.request-item:last-child{
-  border-bottom:0;
-}
+.request-item:last-child{border-bottom:0}
 
-.request-top{
+.request-top,.admin-request-head{
   display:flex;
-
   align-items:center;
-
-  justify-content:
-    space-between;
-
+  justify-content:space-between;
   gap:12px;
-
   margin-bottom:8px;
 }
 
 .result-text{
   margin-top:12px;
-
   padding:12px;
-
-  border:
-    1px solid var(--line);
-
+  border:1px solid var(--line);
   border-radius:12px;
-
   background:#141d24;
-
   color:#f1f4f6;
-
   white-space:pre-wrap;
-
   line-height:1.45;
-
   overflow-wrap:anywhere;
 }
 
-.rejected-text{
-  color:#ffaaaa;
-}
+.rejected-text{color:#ffaaaa}
 
-
-/* -------------------------------------------------
-   PEOPLEFINDER ADMIN
-------------------------------------------------- */
-
-#openPeopleFinder{
-  display:none;
-}
+#openPeopleFinder,#peopleFinderAdmin,#adminPanel{display:none}
 
 #peopleFinderAdmin{
-  display:none;
-
   margin-top:14px;
-
   padding:14px;
-
-  border:
-    1px solid var(--line);
-
+  border:1px solid var(--line);
   border-radius:12px;
-
   color:#cbd2d8;
-
   font-size:14px;
-}
-
-
-/* -------------------------------------------------
-   ADMIN
-------------------------------------------------- */
-
-#adminPanel{
-  display:none;
 }
 
 .admin-banner{
   margin-bottom:16px;
-
   padding:14px;
-
   border-radius:14px;
-
-  background:
-    linear-gradient(
-      135deg,
-      #273b4a,
-      #17222b
-    );
-
-  border:
-    1px solid #395269;
+  background:linear-gradient(135deg,#273b4a,#17222b);
+  border:1px solid #395269;
 }
 
-.admin-title{
-  font-weight:800;
-
-  font-size:18px;
-
-  margin-bottom:4px;
-}
-
-.admin-sub{
-  color:var(--muted);
-
-  font-size:13px;
-
-  line-height:1.4;
-}
+.admin-title{font-weight:800;font-size:18px;margin-bottom:4px}
+.admin-sub{color:var(--muted);font-size:13px;line-height:1.4}
 
 .stats{
   display:grid;
-
-  grid-template-columns:
-    repeat(2,1fr);
-
+  grid-template-columns:repeat(2,1fr);
   gap:10px;
-
   margin-bottom:18px;
 }
 
 .stat{
   background:var(--panel2);
-
-  border:
-    1px solid var(--line);
-
+  border:1px solid var(--line);
   border-radius:14px;
-
   padding:14px;
 }
 
-.stat-number{
-  font-size:24px;
+.stat-number{font-size:24px;font-weight:800}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px}
 
-  font-weight:800;
-}
-
-.stat-label{
-  font-size:12px;
-
-  color:var(--muted);
-
-  margin-top:4px;
-}
-
-
-/* -------------------------------------------------
-   ADMIN QUEUE CARDS
-------------------------------------------------- */
-
-.admin-request{
-  border:
-    1px solid var(--line);
-
+.admin-request,.admin-deposit{
+  border:1px solid var(--line);
   border-radius:16px;
-
   background:#141e26;
-
   padding:16px;
-
   margin-bottom:14px;
 }
 
-.admin-request:last-child{
-  margin-bottom:0;
-}
-
-.admin-request-head{
-  display:flex;
-
-  justify-content:
-    space-between;
-
-  align-items:center;
-
-  gap:10px;
-
-  margin-bottom:12px;
-}
-
-.admin-request-title{
+.admin-request-title,.admin-deposit-title{
   font-size:18px;
-
   font-weight:800;
 }
 
 .admin-name{
   font-size:19px;
-
   font-weight:800;
-
   margin-top:10px;
 }
 
 .admin-meta{
   color:#cbd2d8;
-
   margin-top:6px;
-
   font-size:14px;
-
   line-height:1.45;
 }
 
 .admin-requested-by{
   margin-top:12px;
-
   padding-top:12px;
-
-  border-top:
-    1px solid var(--line);
-
+  border-top:1px solid var(--line);
   color:var(--muted);
-
   font-size:13px;
 }
 
 .admin-editor{
   margin-top:16px;
-
   padding-top:16px;
-
-  border-top:
-    1px solid var(--line);
+  border-top:1px solid var(--line);
 }
 
 .admin-editor-title{
   margin-bottom:8px;
-
   font-size:14px;
-
   font-weight:700;
 }
 
-.admin-editor textarea{
-  margin-bottom:12px;
-}
+.admin-editor textarea{margin-bottom:12px}
 
 .admin-buttons{
   display:grid;
-
-  grid-template-columns:
-    1fr 1fr;
-
+  grid-template-columns:1fr 1fr;
   gap:10px;
 }
 
 .queue-status{
   color:var(--muted);
-
   margin-bottom:14px;
-
   font-size:13px;
 }
 
-
-/* -------------------------------------------------
-   RESPONSIVE
-------------------------------------------------- */
+.section-gap{margin-top:24px}
 
 @media(min-width:700px){
-
-  .grid.two{
-    grid-template-columns:
-      1fr 1fr;
-  }
-
-  .stats{
-    grid-template-columns:
-      repeat(4,1fr);
-  }
-
+  .grid.two{grid-template-columns:1fr 1fr}
+  .stats{grid-template-columns:repeat(5,1fr)}
 }
-
 </style>
-
 </head>
 
-
 <body>
-
-
 <div class="wrap">
 
-
-<!-- ------------------------------------------------
-     BRAND
-------------------------------------------------- -->
-
 <div class="brand">
-
-  <div class="logo">
-    🧞
-  </div>
-
+  <div class="logo">🧞</div>
   <div>
+    <h1>CreditGenie</h1>
+    <p>Search request service</p>
+  </div>
+</div>
 
-    <h1>
-      CreditGenie
-    </h1>
+<!-- BITCOIN WALLET -->
+<section class="card">
+  <div class="card-head">
+    <h2>₿ BITCOIN WALLET</h2>
+    <span class="pill" id="walletBalance">$0.00</span>
+  </div>
 
-    <p>
-      Search request service
+  <div class="wallet-summary">
+    <div class="wallet-box">
+      <div class="wallet-number" id="walletBalanceLarge">$0.00</div>
+      <div class="wallet-label">AVAILABLE BALANCE</div>
+    </div>
+
+    <div class="wallet-box">
+      <div class="wallet-number" id="walletSearchCost">$12.00</div>
+      <div class="wallet-label">PER SEARCH</div>
+    </div>
+  </div>
+
+  <div class="admin-editor-title">BITCOIN RECEIVING ADDRESS</div>
+  <div class="address-box" id="btcAddress">Loading…</div>
+
+  <div class="actions">
+    <button class="btn-blue" id="copyAddressBtn" type="button">
+      COPY BTC ADDRESS
+    </button>
+  </div>
+
+  <div class="admin-editor-title section-gap">
+    SUBMIT BITCOIN TRANSACTION ID
+  </div>
+
+  <input
+    id="depositTxid"
+    maxlength="150"
+    autocapitalize="off"
+    autocomplete="off"
+    spellcheck="false"
+    placeholder="64-character Bitcoin transaction ID"
+  >
+
+  <div class="actions">
+    <button id="submitDepositBtn" type="button">
+      SUBMIT PAYMENT
+    </button>
+  </div>
+
+  <div id="walletStatus" class="status"></div>
+
+  <p class="notice">
+    Payment submissions are reviewed before your CreditGenie balance is credited.
+  </p>
+
+  <div class="card-head section-gap">
+    <h2 style="font-size:20px">DEPOSIT HISTORY</h2>
+    <span class="pill" id="depositCount">0</span>
+  </div>
+
+  <div id="depositHistory">
+    <div class="empty">Loading deposits…</div>
+  </div>
+</section>
+
+<!-- SEARCH -->
+<section class="card">
+  <div class="card-head">
+    <h2>SINGLE RECORD SEARCH</h2>
+    <span class="pill" id="costPill">Search</span>
+  </div>
+
+  <form id="searchForm">
+    <div class="grid">
+      <input id="firstName" placeholder="First Name" required>
+      <input id="lastName" placeholder="Last Name" required>
+
+      <div class="grid two">
+        <input id="state" maxlength="2" placeholder="State (2 letter)">
+
+        <select id="stateSelect">
+          <option value="">Select A State</option>
+          <option>AL</option><option>AK</option><option>AZ</option><option>AR</option>
+          <option>CA</option><option>CO</option><option>CT</option><option>DE</option>
+          <option>FL</option><option>GA</option><option>HI</option><option>ID</option>
+          <option>IL</option><option>IN</option><option>IA</option><option>KS</option>
+          <option>KY</option><option>LA</option><option>ME</option><option>MD</option>
+          <option>MA</option><option>MI</option><option>MN</option><option>MS</option>
+          <option>MO</option><option>MT</option><option>NE</option><option>NV</option>
+          <option>NH</option><option>NJ</option><option>NM</option><option>NY</option>
+          <option>NC</option><option>ND</option><option>OH</option><option>OK</option>
+          <option>OR</option><option>PA</option><option>RI</option><option>SC</option>
+          <option>SD</option><option>TN</option><option>TX</option><option>UT</option>
+          <option>VT</option><option>VA</option><option>WA</option><option>WV</option>
+          <option>WI</option><option>WY</option>
+        </select>
+      </div>
+
+      <input id="city" placeholder="City">
+      <input id="zip" inputmode="numeric" placeholder="ZIP">
+      <input id="dob" placeholder="DOB (mm/dd/yyyy)">
+
+      <p class="help">
+        Enter the search information and submit it to the admin queue.
+      </p>
+    </div>
+
+    <div class="actions">
+      <button id="searchBtn" type="submit">SUBMIT SEARCH</button>
+
+      <button
+        id="openPeopleFinder"
+        class="btn-blue"
+        type="button"
+      >
+        RECONNECT PEOPLEFINDER
+      </button>
+    </div>
+
+    <div id="peopleFinderAdmin">
+      PeopleFinder: Manual login / reconnect
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <p class="notice">
+      Use only synthetic, authorized, or otherwise permitted information.
     </p>
+  </form>
+</section>
 
+<!-- ADMIN PANEL -->
+<section class="card" id="adminPanel">
+  <div class="admin-banner">
+    <div class="admin-title">🛠 ADMIN CONTROL CENTER</div>
+    <div class="admin-sub">
+      Review pending searches and manually verify Bitcoin deposits before crediting them.
+    </div>
   </div>
 
-</div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-number" id="statUsers">—</div>
+      <div class="stat-label">USERS</div>
+    </div>
 
+    <div class="stat">
+      <div class="stat-number" id="statPending">—</div>
+      <div class="stat-label">SEARCHES</div>
+    </div>
 
-<!-- ------------------------------------------------
-     SEARCH
-------------------------------------------------- -->
+    <div class="stat">
+      <div class="stat-number" id="statCompleted">—</div>
+      <div class="stat-label">COMPLETED</div>
+    </div>
 
+    <div class="stat">
+      <div class="stat-number" id="statRejected">—</div>
+      <div class="stat-label">REJECTED</div>
+    </div>
+
+    <div class="stat">
+      <div class="stat-number" id="statDeposits">—</div>
+      <div class="stat-label">DEPOSITS</div>
+    </div>
+  </div>
+
+  <div class="card-head">
+    <h2>ADMIN SEARCH QUEUE</h2>
+    <span class="pill" id="queueCount">0 pending</span>
+  </div>
+
+  <div id="adminQueueStatus" class="queue-status"></div>
+
+  <div id="adminQueue">
+    <div class="empty">Loading admin queue…</div>
+  </div>
+
+  <div class="card-head section-gap">
+    <h2>BITCOIN DEPOSIT QUEUE</h2>
+    <span class="pill" id="adminDepositCount">0 pending</span>
+  </div>
+
+  <p class="notice">
+    Verify the transaction on the Bitcoin network and confirm it paid your receiving address before crediting a balance.
+  </p>
+
+  <div id="adminDepositStatus" class="queue-status"></div>
+
+  <div id="adminDeposits">
+    <div class="empty">Loading deposit queue…</div>
+  </div>
+</section>
+
+<!-- USER REQUESTS -->
 <section class="card">
+  <div class="card-head">
+    <h2>MY SEARCH REQUESTS</h2>
+    <span class="pill" id="account"></span>
+  </div>
 
-
-<div class="card-head">
-
-  <h2>
-    SINGLE RECORD SEARCH
-  </h2>
-
-  <span
-    class="pill"
-    id="costPill"
-  >
-    Search
-  </span>
-
-</div>
-
-
-<form id="searchForm">
-
-
-<div class="grid">
-
-
-<input
-  id="firstName"
-  placeholder="First Name"
-  required
->
-
-
-<input
-  id="lastName"
-  placeholder="Last Name"
-  required
->
-
-
-<div class="grid two">
-
-
-<input
-  id="state"
-  maxlength="2"
-  placeholder="State (2 letter)"
->
-
-
-<select id="stateSelect">
-
-<option value="">
-  Select A State
-</option>
-
-<option>AL</option>
-<option>AK</option>
-<option>AZ</option>
-<option>AR</option>
-<option>CA</option>
-<option>CO</option>
-<option>CT</option>
-<option>DE</option>
-<option>FL</option>
-<option>GA</option>
-<option>HI</option>
-<option>ID</option>
-<option>IL</option>
-<option>IN</option>
-<option>IA</option>
-<option>KS</option>
-<option>KY</option>
-<option>LA</option>
-<option>ME</option>
-<option>MD</option>
-<option>MA</option>
-<option>MI</option>
-<option>MN</option>
-<option>MS</option>
-<option>MO</option>
-<option>MT</option>
-<option>NE</option>
-<option>NV</option>
-<option>NH</option>
-<option>NJ</option>
-<option>NM</option>
-<option>NY</option>
-<option>NC</option>
-<option>ND</option>
-<option>OH</option>
-<option>OK</option>
-<option>OR</option>
-<option>PA</option>
-<option>RI</option>
-<option>SC</option>
-<option>SD</option>
-<option>TN</option>
-<option>TX</option>
-<option>UT</option>
-<option>VT</option>
-<option>VA</option>
-<option>WA</option>
-<option>WV</option>
-<option>WI</option>
-<option>WY</option>
-
-</select>
-
-
-</div>
-
-
-<input
-  id="city"
-  placeholder="City"
->
-
-
-<input
-  id="zip"
-  inputmode="numeric"
-  placeholder="ZIP"
->
-
-
-<input
-  id="dob"
-  placeholder="DOB (mm/dd/yyyy)"
->
-
-
-<p class="help">
-
-  Enter the search information
-  and submit it to the admin queue.
-
-</p>
-
-
-</div>
-
-
-<div class="actions">
-
-
-<button
-  id="searchBtn"
-  type="submit"
->
-
-  SUBMIT SEARCH
-
-</button>
-
-
-<button
-  id="openPeopleFinder"
-  class="btn-blue"
-  type="button"
->
-
-  RECONNECT PEOPLEFINDER
-
-</button>
-
-
-</div>
-
-
-<div id="peopleFinderAdmin">
-
-  PeopleFinder:
-  Manual login / reconnect
-
-</div>
-
-
-<div
-  id="status"
-  class="status"
-></div>
-
-
-<p class="notice">
-
-  Use only synthetic,
-  authorized,
-  or otherwise permitted information.
-
-</p>
-
-
-</form>
-
-
+  <div id="requests">
+    <div class="empty">Loading…</div>
+  </div>
 </section>
 
-
-<!-- ------------------------------------------------
-     ADMIN PANEL
-------------------------------------------------- -->
-
-<section
-  class="card"
-  id="adminPanel"
->
-
-
-<div class="admin-banner">
-
-  <div class="admin-title">
-    🛠 ADMIN CONTROL CENTER
-  </div>
-
-  <div class="admin-sub">
-    Review pending requests,
-    send approved results,
-    or reject requests.
-  </div>
-
 </div>
-
-
-<div class="stats">
-
-
-<div class="stat">
-
-  <div
-    class="stat-number"
-    id="statUsers"
-  >
-    —
-  </div>
-
-  <div class="stat-label">
-    USERS
-  </div>
-
-</div>
-
-
-<div class="stat">
-
-  <div
-    class="stat-number"
-    id="statPending"
-  >
-    —
-  </div>
-
-  <div class="stat-label">
-    PENDING
-  </div>
-
-</div>
-
-
-<div class="stat">
-
-  <div
-    class="stat-number"
-    id="statCompleted"
-  >
-    —
-  </div>
-
-  <div class="stat-label">
-    COMPLETED
-  </div>
-
-</div>
-
-
-<div class="stat">
-
-  <div
-    class="stat-number"
-    id="statRejected"
-  >
-    —
-  </div>
-
-  <div class="stat-label">
-    REJECTED
-  </div>
-
-</div>
-
-
-</div>
-
-
-<div class="card-head">
-
-  <h2>
-    ADMIN QUEUE
-  </h2>
-
-  <span
-    class="pill"
-    id="queueCount"
-  >
-    0 pending
-  </span>
-
-</div>
-
-
-<div
-  id="adminQueueStatus"
-  class="queue-status"
-></div>
-
-
-<div id="adminQueue">
-
-  <div class="empty">
-    Loading admin queue…
-  </div>
-
-</div>
-
-
-</section>
-
-
-<!-- ------------------------------------------------
-     USER REQUESTS
-------------------------------------------------- -->
-
-<section class="card">
-
-
-<div class="card-head">
-
-
-<h2>
-  MY SEARCH REQUESTS
-</h2>
-
-
-<span
-  class="pill"
-  id="account"
-></span>
-
-
-</div>
-
-
-<div id="requests">
-
-  <div class="empty">
-    Loading…
-  </div>
-
-</div>
-
-
-</section>
-
-
-</div>
-
 
 <script>
-
-/* -------------------------------------------------
-   TELEGRAM
-------------------------------------------------- */
-
-const tg =
-  window.Telegram?.WebApp;
-
+const tg = window.Telegram?.WebApp;
 
 if (tg) {
-
   tg.ready();
-
   tg.expand();
 
   try {
-
-    tg.setHeaderColor(
-      '#14212b'
-    );
-
-    tg.setBackgroundColor(
-      '#14212b'
-    );
-
-  }
-
-  catch (e) {}
-
+    tg.setHeaderColor('#14212b');
+    tg.setBackgroundColor('#14212b');
+  } catch (e) {}
 }
 
-
-const initData =
-  tg?.initData || '';
-
+const initData = tg?.initData || '';
+const $ = id => document.getElementById(id);
 
 let currentUser = null;
-
 let adminEnabled = false;
+let currentDepositAddress = '';
 
+const headers = () => ({
+  'Content-Type':'application/json',
+  'X-Telegram-Init-Data':initData
+});
 
-/* -------------------------------------------------
-   HELPERS
-------------------------------------------------- */
-
-const $ =
-  id =>
-    document.getElementById(id);
-
-
-const headers =
-  () => ({
-
-    'Content-Type':
-      'application/json',
-
-    'X-Telegram-Init-Data':
-      initData
-
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    ...options,
+    headers:{
+      ...headers(),
+      ...(options.headers || {})
+    }
   });
 
-
-async function api(
-  path,
-  options = {}
-){
-
-  const res =
-    await fetch(
-      path,
-      {
-
-        ...options,
-
-        headers: {
-
-          ...headers(),
-
-          ...(
-            options.headers
-            ||
-            {}
-          )
-
-        }
-
-      }
-    );
-
-
-  const data =
-    await res
-    .json()
-    .catch(
-      () => ({})
-    );
-
+  const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-
-    throw new Error(
-      data.detail
-      ||
-      'Request failed'
-    );
-
+    throw new Error(data.detail || 'Request failed');
   }
-
 
   return data;
-
 }
 
-
-function esc(
-  v = ''
-){
-
-  return String(v)
-  .replace(
-    /[&<>"']/g,
-
-    s => ({
-
-      '&':
-        '&amp;',
-
-      '<':
-        '&lt;',
-
-      '>':
-        '&gt;',
-
-      '"':
-        '&quot;',
-
-      "'":
-        '&#39;'
-
-    }[s])
-  );
-
+function esc(v = '') {
+  return String(v).replace(/[&<>"']/g, s => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[s]));
 }
 
+function prettyTime(value) {
+  if (!value) return '';
 
-function prettyTime(
-  value
-){
+  const d = new Date(value);
 
-  if (!value) {
-    return '';
-  }
-
-
-  const d =
-    new Date(
-      value
-    );
-
-
-  if (
-    Number.isNaN(
-      d.getTime()
-    )
-  ){
-
+  if (Number.isNaN(d.getTime())) {
     return value;
-
   }
 
-
-  return d
-    .toLocaleString();
-
+  return d.toLocaleString();
 }
 
-
-function statusLabel(
-  status
-){
-
-  if (
-    status ===
-    'completed'
-  ){
-
-    return 'Complete';
-
-  }
-
-
-  if (
-    status ===
-    'rejected'
-  ){
-
-    return 'Rejected';
-
-  }
-
-
+function statusLabel(status) {
+  if (status === 'completed') return 'Complete';
+  if (status === 'credited') return 'Credited';
+  if (status === 'rejected') return 'Rejected';
   return 'Pending';
-
 }
 
+function shortTxid(txid = '') {
+  if (txid.length <= 22) return txid;
+  return `${txid.slice(0,12)}…${txid.slice(-10)}`;
+}
 
-/* -------------------------------------------------
-   STATE SELECT
-------------------------------------------------- */
+/* STATE */
+$('stateSelect').addEventListener('change', e => {
+  $('state').value = e.target.value;
+});
 
-$('stateSelect')
-.addEventListener(
-  'change',
+$('state').addEventListener('input', e => {
+  e.target.value = e.target.value
+    .toUpperCase()
+    .replace(/[^A-Z]/g,'')
+    .slice(0,2);
 
-  e => {
+  $('stateSelect').value = e.target.value;
+});
 
-    $('state').value =
-      e.target.value;
-
-  }
-);
-
-
-$('state')
-.addEventListener(
-  'input',
-
-  e => {
-
-    e.target.value =
-      e.target.value
-      .toUpperCase()
-      .replace(
-        /[^A-Z]/g,
-        ''
-      )
-      .slice(
-        0,
-        2
-      );
-
-
-    $('stateSelect').value =
-      e.target.value;
-
-  }
-);
-
-
-/* -------------------------------------------------
-   LOAD CURRENT USER
-------------------------------------------------- */
-
-async function loadMe(){
-
+/* CURRENT USER */
+async function loadMe() {
   try {
+    const me = await api('/api/me');
 
-    const me =
-      await api(
-        '/api/me'
-      );
+    currentUser = me;
 
+    $('account').textContent =
+      me.first_name ? `Hi, ${me.first_name}` : '';
 
-    currentUser =
-      me;
-
-
-    $('account')
-    .textContent =
-
-      me.first_name
-
-      ? `Hi, ${me.first_name}`
-
-      : '';
-
-
-    $('costPill')
-    .textContent =
-
-      me.search_cost ===
-      '$0.00'
-
+    $('costPill').textContent =
+      me.search_cost === '$0.00'
       ? 'Free search'
-
       : `${me.search_cost} / search`;
 
+    adminEnabled = Boolean(me.is_admin);
 
-    adminEnabled =
-      Boolean(
-        me.is_admin
-      );
+    if (adminEnabled) {
+      $('openPeopleFinder').style.display = 'block';
+      $('peopleFinderAdmin').style.display = 'block';
+      $('adminPanel').style.display = 'block';
 
+      await Promise.all([
+        loadAdminStats(),
+        loadAdminQueue(),
+        loadAdminDeposits()
+      ]);
+    } else {
+      $('openPeopleFinder').style.display = 'none';
+      $('peopleFinderAdmin').style.display = 'none';
+      $('adminPanel').style.display = 'none';
+    }
+  } catch (e) {
+    $('status').textContent = e.message;
+  }
+}
 
-    if (
-      adminEnabled
-    ){
+/* WALLET */
+async function loadWallet() {
+  try {
+    const data = await api('/api/wallet');
 
-      $('openPeopleFinder')
-      .style.display =
-        'block';
+    currentDepositAddress = data.deposit_address || '';
 
+    $('walletBalance').textContent = data.balance || '$0.00';
+    $('walletBalanceLarge').textContent = data.balance || '$0.00';
+    $('walletSearchCost').textContent = data.search_cost || '$12.00';
 
-      $('peopleFinderAdmin')
-      .style.display =
-        'block';
+    $('btcAddress').textContent =
+      currentDepositAddress ||
+      'Bitcoin deposit address is not configured.';
+  } catch (e) {
+    $('walletStatus').textContent = e.message;
+  }
+}
 
+$('copyAddressBtn').addEventListener('click', async () => {
+  if (!currentDepositAddress) {
+    $('walletStatus').textContent =
+      'Bitcoin deposit address is not configured.';
+    return;
+  }
 
-      $('adminPanel')
-      .style.display =
-        'block';
+  try {
+    await navigator.clipboard.writeText(currentDepositAddress);
+    $('walletStatus').textContent = 'Bitcoin address copied.';
+  } catch (e) {
+    $('walletStatus').textContent =
+      'Could not copy automatically. Press and hold the address to copy it.';
+  }
+});
 
+$('submitDepositBtn').addEventListener('click', async () => {
+  const btn = $('submitDepositBtn');
+  const txid = $('depositTxid').value.trim();
 
+  if (!txid) {
+    $('walletStatus').textContent =
+      'Enter your Bitcoin transaction ID.';
+    return;
+  }
+
+  btn.disabled = true;
+  $('walletStatus').textContent = 'Submitting payment…';
+
+  try {
+    const data = await api('/api/deposit', {
+      method:'POST',
+      body:JSON.stringify({txid})
+    });
+
+    $('walletStatus').textContent =
+      `Deposit #${data.deposit_id} submitted for verification.`;
+
+    $('depositTxid').value = '';
+
+    await loadDeposits();
+
+    if (adminEnabled) {
+      await Promise.all([
+        loadAdminStats(),
+        loadAdminDeposits()
+      ]);
+    }
+  } catch (e) {
+    $('walletStatus').textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function loadDeposits() {
+  try {
+    const data = await api('/api/deposits');
+    const rows = data.deposits || [];
+
+    $('depositCount').textContent = rows.length;
+
+    if (!rows.length) {
+      $('depositHistory').innerHTML =
+        '<div class="empty">No Bitcoin deposits yet.</div>';
+      return;
+    }
+
+    $('depositHistory').innerHTML = rows.map(d => {
+      const amount =
+        d.status === 'credited'
+        ? `<div class="row">Credited: ${esc(d.amount)}</div>`
+        : '<div class="row">Waiting for verification…</div>';
+
+      return `
+        <div class="deposit-item">
+          <div class="request-top">
+            <b>Deposit #${esc(d.id)}</b>
+            <span class="status-pill ${esc(d.status)}">
+              ${esc(statusLabel(d.status))}
+            </span>
+          </div>
+
+          <div class="txid" title="${esc(d.txid)}">
+            ${esc(shortTxid(d.txid))}
+          </div>
+
+          ${amount}
+
+          <div class="row">
+            Submitted: ${esc(prettyTime(d.created_at))}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    $('depositHistory').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+/* REQUEST HISTORY */
+async function loadRequests() {
+  try {
+    const rows = await api('/api/requests');
+
+    if (!rows.length) {
+      $('requests').innerHTML =
+        '<div class="empty">No search requests yet.</div>';
+      return;
+    }
+
+    $('requests').innerHTML = rows.map(r => {
+      const location = [r.city,r.state,r.zip]
+        .filter(Boolean)
+        .join(', ');
+
+      const result =
+        r.status === 'completed' && r.result_text
+        ? `<div class="result-text">${esc(r.result_text)}</div>`
+        : '';
+
+      const rejected =
+        r.status === 'rejected'
+        ? `
+          <div class="result-text rejected-text">
+            ${esc(r.admin_note || 'Request could not be completed.')}
+          </div>
+        `
+        : '';
+
+      const waiting =
+        r.status === 'pending'
+        ? '<div class="row">Waiting for admin review…</div>'
+        : '';
+
+      return `
+        <div class="request-item">
+          <div class="request-top">
+            <b>Request #${esc(r.id)}</b>
+
+            <span class="status-pill ${esc(r.status)}">
+              ${esc(statusLabel(r.status))}
+            </span>
+          </div>
+
+          <div class="row">
+            <strong>${esc(r.first_name)} ${esc(r.last_name)}</strong>
+          </div>
+
+          <div class="row">
+            ${esc(location || 'No location filters')}
+          </div>
+
+          <div class="row">
+            DOB: ${esc(r.dob || '—')}
+          </div>
+
+          <div class="row">
+            Submitted: ${esc(prettyTime(r.created_at))}
+          </div>
+
+          ${waiting}
+          ${result}
+          ${rejected}
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    $('requests').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+/* SUBMIT SEARCH */
+$('searchForm').addEventListener('submit', async e => {
+  e.preventDefault();
+
+  const btn = $('searchBtn');
+  btn.disabled = true;
+
+  $('status').textContent = 'Submitting request…';
+
+  const payload = {
+    first_name:$('firstName').value.trim(),
+    last_name:$('lastName').value.trim(),
+    state:$('state').value.trim(),
+    city:$('city').value.trim(),
+    zip:$('zip').value.trim(),
+    dob:$('dob').value.trim()
+  };
+
+  try {
+    const data = await api('/api/search', {
+      method:'POST',
+      body:JSON.stringify(payload)
+    });
+
+    $('status').textContent =
+      `Request #${data.request_id} submitted. ${data.charged} charged.`;
+
+    $('searchForm').reset();
+    $('state').value = '';
+    $('stateSelect').value = '';
+
+    await Promise.all([
+      loadRequests(),
+      loadWallet()
+    ]);
+
+    if (adminEnabled) {
       await Promise.all([
         loadAdminStats(),
         loadAdminQueue()
       ]);
-
     }
-
-    else{
-
-      $('openPeopleFinder')
-      .style.display =
-        'none';
-
-
-      $('peopleFinderAdmin')
-      .style.display =
-        'none';
-
-
-      $('adminPanel')
-      .style.display =
-        'none';
-
-    }
-
+  } catch (err) {
+    $('status').textContent = err.message;
+  } finally {
+    btn.disabled = false;
   }
+});
 
-  catch(e){
+/* PEOPLEFINDER */
+$('openPeopleFinder').addEventListener('click', () => {
+  const url = 'https://peoplefinder.cc/';
 
-    $('status')
-    .textContent =
-      e.message;
-
+  if (window.Telegram?.WebApp?.openLink) {
+    window.Telegram.WebApp.openLink(url);
+  } else {
+    window.location.href = url;
   }
+});
 
-}
-
-
-/* -------------------------------------------------
-   USER REQUEST HISTORY
-------------------------------------------------- */
-
-async function loadRequests(){
+/* ADMIN STATS */
+async function loadAdminStats() {
+  if (!adminEnabled) return;
 
   try {
-
-    const rows =
-      await api(
-        '/api/requests'
-      );
-
-
-    if (
-      !rows.length
-    ){
-
-      $('requests')
-      .innerHTML =
-
-        '<div class="empty">'
-        +
-        'No search requests yet.'
-        +
-        '</div>';
-
-      return;
-
-    }
-
-
-    $('requests')
-    .innerHTML =
-
-      rows.map(
-        r => {
-
-
-          const location =
-            [
-              r.city,
-              r.state,
-              r.zip
-            ]
-            .filter(
-              Boolean
-            )
-            .join(
-              ', '
-            );
-
-
-          const result =
-
-            r.status ===
-            'completed'
-
-            &&
-            r.result_text
-
-            ? `
-
-            <div class="result-text">
-              ${esc(r.result_text)}
-            </div>
-
-            `
-
-            : '';
-
-
-          const rejected =
-
-            r.status ===
-            'rejected'
-
-            ? `
-
-            <div
-              class="
-                result-text
-                rejected-text
-              "
-            >
-
-              ${
-                esc(
-                  r.admin_note
-                  ||
-                  'Request could not be completed.'
-                )
-              }
-
-            </div>
-
-            `
-
-            : '';
-
-
-          const waiting =
-
-            r.status ===
-            'pending'
-
-            ? `
-
-            <div class="row">
-
-              Waiting for admin review…
-
-            </div>
-
-            `
-
-            : '';
-
-
-          return `
-
-          <div class="request-item">
-
-
-            <div class="request-top">
-
-
-              <b>
-                Request #${esc(r.id)}
-              </b>
-
-
-              <span
-                class="
-                  status-pill
-                  ${esc(r.status)}
-                "
-              >
-
-                ${
-                  esc(
-                    statusLabel(
-                      r.status
-                    )
-                  )
-                }
-
-              </span>
-
-
-            </div>
-
-
-            <div class="row">
-
-              <strong>
-
-                ${
-                  esc(
-                    r.first_name
-                  )
-                }
-
-                ${
-                  esc(
-                    r.last_name
-                  )
-                }
-
-              </strong>
-
-            </div>
-
-
-            <div class="row">
-
-              ${
-                esc(
-                  location
-                  ||
-                  'No location filters'
-                )
-              }
-
-            </div>
-
-
-            <div class="row">
-
-              DOB:
-
-              ${
-                esc(
-                  r.dob
-                  ||
-                  '—'
-                )
-              }
-
-            </div>
-
-
-            <div class="row">
-
-              Submitted:
-
-              ${
-                esc(
-                  prettyTime(
-                    r.created_at
-                  )
-                )
-              }
-
-            </div>
-
-
-            ${waiting}
-
-            ${result}
-
-            ${rejected}
-
-
-          </div>
-
-          `;
-
-        }
-      )
-      .join('');
-
-  }
-
-  catch(e){
-
-    $('requests')
-    .innerHTML =
-
-      `<div class="empty">
-        ${esc(e.message)}
-      </div>`;
-
-  }
-
-}
-
-
-/* -------------------------------------------------
-   SUBMIT SEARCH
-------------------------------------------------- */
-
-$('searchForm')
-.addEventListener(
-  'submit',
-
-  async e => {
-
-
-    e.preventDefault();
-
-
-    const btn =
-      $('searchBtn');
-
-
-    btn.disabled =
-      true;
-
-
-    $('status')
-    .textContent =
-      'Submitting request…';
-
-
-    const payload = {
-
-      first_name:
-        $('firstName')
-        .value
-        .trim(),
-
-      last_name:
-        $('lastName')
-        .value
-        .trim(),
-
-      state:
-        $('state')
-        .value
-        .trim(),
-
-      city:
-        $('city')
-        .value
-        .trim(),
-
-      zip:
-        $('zip')
-        .value
-        .trim(),
-
-      dob:
-        $('dob')
-        .value
-        .trim()
-
-    };
-
-
-    try {
-
-      const data =
-        await api(
-          '/api/search',
-          {
-
-            method:
-              'POST',
-
-            body:
-              JSON.stringify(
-                payload
-              )
-
-          }
-        );
-
-
-      $('status')
-      .textContent =
-
-        `Request #${data.request_id} submitted. `
-        +
-        `Waiting for admin review.`;
-
-
-      $('searchForm')
-      .reset();
-
-
-      $('state')
-      .value = '';
-
-
-      $('stateSelect')
-      .value = '';
-
-
-      await loadRequests();
-
-
-      if (
-        adminEnabled
-      ){
-
-        await loadAdminStats();
-
-        await loadAdminQueue();
-
-      }
-
-    }
-
-    catch(err){
-
-      $('status')
-      .textContent =
-        err.message;
-
-    }
-
-    finally{
-
-      btn.disabled =
-        false;
-
-    }
-
-  }
-);
-
-
-/* -------------------------------------------------
-   PEOPLEFINDER ADMIN BUTTON
-------------------------------------------------- */
-
-$('openPeopleFinder')
-.addEventListener(
-  'click',
-
-  () => {
-
-    const url =
-      'https://peoplefinder.cc/';
-
-
-    if (
-      window.Telegram
-      ?.WebApp
-      ?.openLink
-    ){
-
-      window.Telegram
-      .WebApp
-      .openLink(
-        url
-      );
-
-    }
-
-    else{
-
-      window.location.href =
-        url;
-
-    }
-
-  }
-);
-
-
-/* =================================================
-   ADMIN FUNCTIONS
-================================================= */
-
-
-/* -------------------------------------------------
-   ADMIN STATS
-------------------------------------------------- */
-
-async function loadAdminStats(){
-
-  if (
-    !adminEnabled
-  ){
-
-    return;
-
-  }
-
-
-  try {
-
-    const data =
-      await api(
-        '/api/admin/stats'
-      );
-
-
-    $('statUsers')
-    .textContent =
-      data.users ?? 0;
-
-
-    $('statPending')
-    .textContent =
-      data.pending ?? 0;
-
-
-    $('statCompleted')
-    .textContent =
-      data.completed ?? 0;
-
-
-    $('statRejected')
-    .textContent =
-      data.rejected ?? 0;
-
-
-    $('queueCount')
-    .textContent =
-
+    const data = await api('/api/admin/stats');
+
+    $('statUsers').textContent = data.users ?? 0;
+    $('statPending').textContent = data.pending ?? 0;
+    $('statCompleted').textContent = data.completed ?? 0;
+    $('statRejected').textContent = data.rejected ?? 0;
+    $('statDeposits').textContent = data.pending_deposits ?? 0;
+
+    $('queueCount').textContent =
       `${data.pending ?? 0} pending`;
 
+    $('adminDepositCount').textContent =
+      `${data.pending_deposits ?? 0} pending`;
+  } catch (e) {
+    $('adminQueueStatus').textContent = e.message;
   }
-
-  catch(e){
-
-    $('adminQueueStatus')
-    .textContent =
-      e.message;
-
-  }
-
 }
 
-
-/* -------------------------------------------------
-   LOAD ADMIN QUEUE
-------------------------------------------------- */
-
-async function loadAdminQueue(){
-
-  if (
-    !adminEnabled
-  ){
-
-    return;
-
-  }
-
+/* ADMIN SEARCH QUEUE */
+async function loadAdminQueue() {
+  if (!adminEnabled) return;
 
   try {
+    const data = await api('/api/admin/queue');
+    const rows = data.requests || [];
 
-    const data =
-      await api(
-        '/api/admin/queue'
-      );
-
-
-    const rows =
-      data.requests || [];
-
-
-    $('queueCount')
-    .textContent =
-
+    $('queueCount').textContent =
       `${rows.length} pending`;
 
-
-    if (
-      !rows.length
-    ){
-
-      $('adminQueue')
-      .innerHTML = `
-
-        <div class="empty">
-
-          ✅ No pending search requests.
-
-        </div>
-
-      `;
-
-
+    if (!rows.length) {
+      $('adminQueue').innerHTML =
+        '<div class="empty">✅ No pending search requests.</div>';
       return;
-
     }
 
+    $('adminQueue').innerHTML = rows.map(r => {
+      const location = [r.city,r.state,r.zip]
+        .filter(Boolean)
+        .join(', ');
 
-    $('adminQueue')
-    .innerHTML =
+      let requestedBy =
+        r.requested_by || 'Telegram User';
 
-      rows.map(
-        r => {
+      if (r.requested_by_username) {
+        requestedBy += ` (@${r.requested_by_username})`;
+      }
 
-
-          const location =
-            [
-              r.city,
-              r.state,
-              r.zip
-            ]
-            .filter(
-              Boolean
-            )
-            .join(
-              ', '
-            );
-
-
-          let requestedBy =
-            r.requested_by
-            ||
-            'Telegram User';
-
-
-          if (
-            r.requested_by_username
-          ){
-
-            requestedBy +=
-
-              ` (@${r.requested_by_username})`;
-
-          }
-
-
-          return `
-
-          <div
-            class="admin-request"
-            id="admin-request-${esc(r.id)}"
-          >
-
-
-            <div class="admin-request-head">
-
-
-              <div class="admin-request-title">
-
-                Request #${esc(r.id)}
-
-              </div>
-
-
-              <span
-                class="
-                  status-pill
-                  pending
-                "
-              >
-
-                Pending
-
-              </span>
-
-
+      return `
+        <div class="admin-request" id="admin-request-${esc(r.id)}">
+          <div class="admin-request-head">
+            <div class="admin-request-title">
+              Request #${esc(r.id)}
             </div>
 
-
-            <div class="admin-name">
-
-              ${
-                esc(
-                  r.first_name
-                )
-              }
-
-              ${
-                esc(
-                  r.last_name
-                )
-              }
-
-            </div>
-
-
-            <div class="admin-meta">
-
-              State:
-              ${
-                esc(
-                  r.state
-                  ||
-                  '—'
-                )
-              }
-
-            </div>
-
-
-            <div class="admin-meta">
-
-              City:
-              ${
-                esc(
-                  r.city
-                  ||
-                  '—'
-                )
-              }
-
-            </div>
-
-
-            <div class="admin-meta">
-
-              ZIP:
-              ${
-                esc(
-                  r.zip
-                  ||
-                  '—'
-                )
-              }
-
-            </div>
-
-
-            <div class="admin-meta">
-
-              DOB:
-              ${
-                esc(
-                  r.dob
-                  ||
-                  '—'
-                )
-              }
-
-            </div>
-
-
-            <div class="admin-meta">
-
-              Submitted:
-              ${
-                esc(
-                  prettyTime(
-                    r.created_at
-                  )
-                )
-              }
-
-            </div>
-
-
-            <div class="admin-requested-by">
-
-              Requested by:
-
-              ${
-                esc(
-                  requestedBy
-                )
-              }
-
-            </div>
-
-
-            <div class="admin-editor">
-
-
-              <div class="admin-editor-title">
-
-                RESULT TO SEND TO USER
-
-              </div>
-
-
-              <textarea
-                id="result-${esc(r.id)}"
-                placeholder="Enter the authorized result here..."
-              ></textarea>
-
-
-              <div class="admin-editor-title">
-
-                ADMIN NOTE / REJECTION REASON
-
-              </div>
-
-
-              <textarea
-                id="note-${esc(r.id)}"
-                placeholder="Optional admin note. If rejecting, enter the reason here."
-              ></textarea>
-
-
-              <div class="admin-buttons">
-
-
-                <button
-                  class="btn-small"
-                  id="send-${esc(r.id)}"
-                  onclick="sendAdminResult(${Number(r.id)})"
-                  type="button"
-                >
-
-                  SEND RESULT
-
-                </button>
-
-
-                <button
-                  class="
-                    btn-red
-                    btn-small
-                  "
-                  id="reject-${esc(r.id)}"
-                  onclick="rejectAdminRequest(${Number(r.id)})"
-                  type="button"
-                >
-
-                  REJECT
-
-                </button>
-
-
-              </div>
-
-
-              <div
-                class="status"
-                id="admin-status-${esc(r.id)}"
-              ></div>
-
-
-            </div>
-
-
+            <span class="status-pill pending">
+              Pending
+            </span>
           </div>
 
-          `;
+          <div class="admin-name">
+            ${esc(r.first_name)} ${esc(r.last_name)}
+          </div>
 
-        }
-      )
-      .join('');
+          <div class="admin-meta">State: ${esc(r.state || '—')}</div>
+          <div class="admin-meta">City: ${esc(r.city || '—')}</div>
+          <div class="admin-meta">ZIP: ${esc(r.zip || '—')}</div>
+          <div class="admin-meta">DOB: ${esc(r.dob || '—')}</div>
 
+          <div class="admin-meta">
+            Submitted: ${esc(prettyTime(r.created_at))}
+          </div>
+
+          <div class="admin-requested-by">
+            Requested by: ${esc(requestedBy)}
+          </div>
+
+          <div class="admin-editor">
+            <div class="admin-editor-title">
+              RESULT TO SEND TO USER
+            </div>
+
+            <textarea
+              id="result-${esc(r.id)}"
+              placeholder="Enter the authorized result here..."
+            ></textarea>
+
+            <div class="admin-editor-title">
+              ADMIN NOTE / REJECTION REASON
+            </div>
+
+            <textarea
+              id="note-${esc(r.id)}"
+              placeholder="Optional admin note. If rejecting, enter the reason here."
+            ></textarea>
+
+            <div class="admin-buttons">
+              <button
+                class="btn-small"
+                id="send-${esc(r.id)}"
+                onclick="sendAdminResult(${Number(r.id)})"
+                type="button"
+              >
+                SEND RESULT
+              </button>
+
+              <button
+                class="btn-red btn-small"
+                id="reject-${esc(r.id)}"
+                onclick="rejectAdminRequest(${Number(r.id)})"
+                type="button"
+              >
+                REJECT
+              </button>
+            </div>
+
+            <div
+              class="status"
+              id="admin-status-${esc(r.id)}"
+            ></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    $('adminQueue').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
   }
-
-  catch(e){
-
-    $('adminQueue')
-    .innerHTML = `
-
-      <div class="empty">
-
-        ${esc(e.message)}
-
-      </div>
-
-    `;
-
-  }
-
 }
 
+async function sendAdminResult(requestId) {
+  const resultBox = $(`result-${requestId}`);
+  const noteBox = $(`note-${requestId}`);
+  const sendBtn = $(`send-${requestId}`);
+  const rejectBtn = $(`reject-${requestId}`);
+  const message = $(`admin-status-${requestId}`);
 
-/* -------------------------------------------------
-   SEND RESULT
-------------------------------------------------- */
+  const resultText = resultBox?.value?.trim();
+  const adminNote = noteBox?.value?.trim() || '';
 
-async function sendAdminResult(
-  requestId
-){
-
-  const resultBox =
-    $(
-      `result-${requestId}`
-    );
-
-
-  const noteBox =
-    $(
-      `note-${requestId}`
-    );
-
-
-  const sendBtn =
-    $(
-      `send-${requestId}`
-    );
-
-
-  const rejectBtn =
-    $(
-      `reject-${requestId}`
-    );
-
-
-  const message =
-    $(
-      `admin-status-${requestId}`
-    );
-
-
-  const resultText =
-    resultBox
-    ?.value
-    ?.trim();
-
-
-  const adminNote =
-    noteBox
-    ?.value
-    ?.trim()
-    ||
-    '';
-
-
-  if (
-    !resultText
-  ){
-
+  if (!resultText) {
     message.textContent =
       'Enter a result before sending.';
-
     return;
-
   }
 
-
-  sendBtn.disabled =
-    true;
-
-
-  rejectBtn.disabled =
-    true;
-
-
-  message.textContent =
-    'Sending result…';
-
+  sendBtn.disabled = true;
+  rejectBtn.disabled = true;
+  message.textContent = 'Sending result…';
 
   try {
-
-    await api(
-      '/api/admin/send-result',
-      {
-
-        method:
-          'POST',
-
-        body:
-          JSON.stringify(
-            {
-
-              request_id:
-                requestId,
-
-              result_text:
-                resultText,
-
-              admin_note:
-                adminNote
-
-            }
-          )
-
-      }
-    );
-
-
-    message.textContent =
-      '✅ Result sent successfully.';
-
+    await api('/api/admin/send-result', {
+      method:'POST',
+      body:JSON.stringify({
+        request_id:requestId,
+        result_text:resultText,
+        admin_note:adminNote
+      })
+    });
 
     await Promise.all([
       loadAdminStats(),
       loadAdminQueue(),
       loadRequests()
     ]);
-
+  } catch (e) {
+    message.textContent = e.message;
+    sendBtn.disabled = false;
+    rejectBtn.disabled = false;
   }
-
-  catch(e){
-
-    message.textContent =
-      e.message;
-
-
-    sendBtn.disabled =
-      false;
-
-
-    rejectBtn.disabled =
-      false;
-
-  }
-
 }
 
-
-/* -------------------------------------------------
-   REJECT REQUEST
-------------------------------------------------- */
-
-async function rejectAdminRequest(
-  requestId
-){
-
-  const noteBox =
-    $(
-      `note-${requestId}`
-    );
-
-
-  const sendBtn =
-    $(
-      `send-${requestId}`
-    );
-
-
-  const rejectBtn =
-    $(
-      `reject-${requestId}`
-    );
-
-
-  const message =
-    $(
-      `admin-status-${requestId}`
-    );
-
+async function rejectAdminRequest(requestId) {
+  const noteBox = $(`note-${requestId}`);
+  const sendBtn = $(`send-${requestId}`);
+  const rejectBtn = $(`reject-${requestId}`);
+  const message = $(`admin-status-${requestId}`);
 
   const reason =
-    noteBox
-    ?.value
-    ?.trim()
-
-    ||
+    noteBox?.value?.trim() ||
     'Request could not be completed.';
 
-
   const confirmed =
-    window.confirm(
-      `Reject Request #${requestId}?`
-    );
+    window.confirm(`Reject Request #${requestId}?`);
 
+  if (!confirmed) return;
 
-  if (
-    !confirmed
-  ){
-
-    return;
-
-  }
-
-
-  sendBtn.disabled =
-    true;
-
-
-  rejectBtn.disabled =
-    true;
-
-
-  message.textContent =
-    'Rejecting request…';
-
+  sendBtn.disabled = true;
+  rejectBtn.disabled = true;
+  message.textContent = 'Rejecting request…';
 
   try {
-
-    await api(
-      '/api/admin/reject',
-      {
-
-        method:
-          'POST',
-
-        body:
-          JSON.stringify(
-            {
-
-              request_id:
-                requestId,
-
-              reason:
-                reason
-
-            }
-          )
-
-      }
-    );
-
-
-    message.textContent =
-      'Request rejected.';
-
+    await api('/api/admin/reject', {
+      method:'POST',
+      body:JSON.stringify({
+        request_id:requestId,
+        reason
+      })
+    });
 
     await Promise.all([
       loadAdminStats(),
       loadAdminQueue(),
       loadRequests()
     ]);
-
+  } catch (e) {
+    message.textContent = e.message;
+    sendBtn.disabled = false;
+    rejectBtn.disabled = false;
   }
-
-  catch(e){
-
-    message.textContent =
-      e.message;
-
-
-    sendBtn.disabled =
-      false;
-
-
-    rejectBtn.disabled =
-      false;
-
-  }
-
 }
 
+/* ADMIN DEPOSIT QUEUE */
+async function loadAdminDeposits() {
+  if (!adminEnabled) return;
 
-/* -------------------------------------------------
-   INITIAL LOAD
-------------------------------------------------- */
+  try {
+    const data = await api('/api/admin/deposits');
+    const rows = data.deposits || [];
 
-async function startApp(){
+    $('adminDepositCount').textContent =
+      `${rows.length} pending`;
 
+    if (!rows.length) {
+      $('adminDeposits').innerHTML =
+        '<div class="empty">✅ No pending Bitcoin deposits.</div>';
+      return;
+    }
+
+    $('adminDeposits').innerHTML = rows.map(d => {
+      let requestedBy = d.first_name || 'Telegram User';
+
+      if (d.username) {
+        requestedBy += ` (@${d.username})`;
+      }
+
+      return `
+        <div class="admin-deposit">
+          <div class="admin-request-head">
+            <div class="admin-deposit-title">
+              Deposit #${esc(d.id)}
+            </div>
+
+            <span class="status-pill pending">
+              Pending
+            </span>
+          </div>
+
+          <div class="admin-meta">
+            User: ${esc(requestedBy)}
+          </div>
+
+          <div class="admin-meta">
+            Submitted: ${esc(prettyTime(d.created_at))}
+          </div>
+
+          <div class="txid">
+            ${esc(d.txid)}
+          </div>
+
+          <div class="admin-editor">
+            <div class="admin-editor-title">
+              CREDIT AMOUNT IN USD
+            </div>
+
+            <input
+              id="credit-${esc(d.id)}"
+              inputmode="decimal"
+              placeholder="Example: 25.00"
+            >
+
+            <div class="actions">
+              <button
+                class="btn-small"
+                id="credit-btn-${esc(d.id)}"
+                onclick="creditAdminDeposit(${Number(d.id)})"
+                type="button"
+              >
+                CREDIT BALANCE
+              </button>
+            </div>
+
+            <div
+              class="status"
+              id="deposit-status-${esc(d.id)}"
+            ></div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (e) {
+    $('adminDeposits').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
+  }
+}
+
+async function creditAdminDeposit(depositId) {
+  const input = $(`credit-${depositId}`);
+  const btn = $(`credit-btn-${depositId}`);
+  const status = $(`deposit-status-${depositId}`);
+
+  const dollars = Number.parseFloat(
+    input?.value?.trim()
+  );
+
+  if (!Number.isFinite(dollars) || dollars <= 0) {
+    status.textContent =
+      'Enter a valid USD amount.';
+    return;
+  }
+
+  const amountCents = Math.round(dollars * 100);
+
+  if (amountCents > 1000000) {
+    status.textContent =
+      'Maximum credit is $10,000.00.';
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `Credit $${dollars.toFixed(2)} for Deposit #${depositId}? Make sure you verified the transaction first.`
+  );
+
+  if (!confirmed) return;
+
+  btn.disabled = true;
+  status.textContent = 'Crediting balance…';
+
+  try {
+    const data = await api('/api/admin/credit-deposit', {
+      method:'POST',
+      body:JSON.stringify({
+        deposit_id:depositId,
+        amount_cents:amountCents
+      })
+    });
+
+    status.textContent =
+      `${data.credited} credited successfully.`;
+
+    await Promise.all([
+      loadAdminStats(),
+      loadAdminDeposits(),
+      loadWallet(),
+      loadDeposits()
+    ]);
+  } catch (e) {
+    status.textContent = e.message;
+    btn.disabled = false;
+  }
+}
+
+/* INITIAL LOAD */
+async function startApp() {
   await loadMe();
 
-  await loadRequests();
-
+  await Promise.all([
+    loadWallet(),
+    loadDeposits(),
+    loadRequests()
+  ]);
 }
-
 
 startApp();
 
+/* AUTO REFRESH */
+setInterval(async () => {
+  await Promise.all([
+    loadWallet(),
+    loadDeposits(),
+    loadRequests()
+  ]);
 
-/* -------------------------------------------------
-   AUTO REFRESH USER REQUESTS
-------------------------------------------------- */
-
-setInterval(
-  async () => {
-
-    await loadRequests();
-
-    if (
-      adminEnabled
-    ){
-
-      await loadAdminStats();
-
-      await loadAdminQueue();
-
-    }
-
-  },
-
-  10000
-);
-
+  if (adminEnabled) {
+    await Promise.all([
+      loadAdminStats(),
+      loadAdminQueue(),
+      loadAdminDeposits()
+    ]);
+  }
+},10000);
 </script>
-
-
 </body>
-
 </html>
