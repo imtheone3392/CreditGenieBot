@@ -144,6 +144,24 @@ def init_db():
                 REFERENCES users(id)
             );
 
+            CREATE TABLE IF NOT EXISTS bitcoin_deposits(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                user_id INTEGER NOT NULL,
+
+                txid TEXT NOT NULL UNIQUE,
+
+                amount_cents INTEGER NOT NULL DEFAULT 0,
+
+                status TEXT NOT NULL DEFAULT 'pending',
+
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+
+                FOREIGN KEY(user_id)
+                REFERENCES users(id)
+            );
+
             CREATE INDEX IF NOT EXISTS
             idx_search_requests_user
             ON search_requests(
@@ -157,9 +175,22 @@ def init_db():
                 status,
                 id ASC
             );
+
+            CREATE INDEX IF NOT EXISTS
+            idx_bitcoin_deposits_user
+            ON bitcoin_deposits(
+                user_id,
+                id DESC
+            );
+
+            CREATE INDEX IF NOT EXISTS
+            idx_bitcoin_deposits_status
+            ON bitcoin_deposits(
+                status,
+                id ASC
+            );
             """
         )
-
 
 # -------------------------------------------------
 # TELEGRAM MINI APP AUTH
