@@ -2,7 +2,7 @@ import os, json, hmac, hashlib, sqlite3, logging
 from datetime import datetime, timezone
 from urllib.parse import parse_qsl
 from contextlib import asynccontextmanager
-
+# CreditGenie Telegram bot
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.responses import FileResponse
