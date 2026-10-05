@@ -382,7 +382,24 @@ class SearchRequest(BaseModel):
         default="",
         max_length=20
     )
+class BitcoinDepositRequest(BaseModel):
 
+    txid: str = Field(
+        min_length=10,
+        max_length=150
+    )
+
+
+class CreditDepositRequest(BaseModel):
+
+    deposit_id: int = Field(
+        gt=0
+    )
+
+    amount_cents: int = Field(
+        gt=0,
+        le=1000000
+    )
 
 class AdminResultRequest(BaseModel):
 
