@@ -1,3037 +1,2571 @@
-import os
-import json
-import hmac
-import hashlib
-import sqlite3
-import logging
-import time
-from pathlib import Path
-from typing import Literal
-from datetime import datetime, timezone
-from urllib.parse import parse_qsl
-from contextlib import asynccontextmanager
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CreditGenie</title>
 
-from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Header, Query
-from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field, field_validator
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    WebAppInfo,
-)
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    ContextTypes,
-)
-from telegram.error import (
-    Forbidden,
-    BadRequest,
-    RetryAfter,
-    TimedOut,
-    NetworkError,
-    TelegramError,
-)
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+:root{
+  --bg:#14212b;
+  --panel:#17222b;
+  --panel2:#111b23;
+  --line:#2b3a46;
+  --text:#f5f7f8;
+  --muted:#8e98a1;
+  --green:#49a627;
+  --green2:#3e8f21;
+  --blue:#2d7bdc;
+  --blue2:#1f5fae;
+  --input:#172029;
+  --red:#c74b4b;
+  --red2:#963838;
+  --yellow:#f1c854;
+}
+
+*{
+  box-sizing:border-box;
+}
+
+html,
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+}
+
+body{
+  min-height:100vh;
+  padding:18px 14px 50px;
+}
+
+.wrap{
+  max-width:760px;
+  margin:0 auto;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:2px 2px 18px;
+}
+
+.logo{
+  width:42px;
+  height:42px;
+  border-radius:13px;
+  background:linear-gradient(145deg,#63d73b,#308819);
+  display:grid;
+  place-items:center;
+  font-size:24px;
+  box-shadow:0 6px 18px #0005;
+}
+
+.brand h1{
+  font-size:22px;
+  margin:0;
+}
+
+.brand p{
+  margin:2px 0 0;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:20px 16px;
+  margin-bottom:18px;
+}
+
+.card-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.card-head h2{
+  font-size:24px;
+  line-height:1.1;
+  margin:0;
+}
+
+.grid{
+  display:grid;
+  gap:13px;
+}
+
+input,
+select,
+textarea{
+  width:100%;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--input);
+  color:var(--text);
+  padding:0 16px;
+  font-size:17px;
+  outline:none;
+}
+
+input,
+select{
+  height:58px;
+}
+
+textarea{
+  min-height:130px;
+  padding:14px 16px;
+  resize:vertical;
+  font-family:inherit;
+  line-height:1.45;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color:#aeb6bd;
+}
+
+input:focus,
+select:focus,
+textarea:focus{
+  border-color:#477089;
+}
+
+.help,
+.notice,
+.status,
+.empty,
+.row{
+  color:var(--muted);
+  line-height:1.5;
+}
+
+.help{
+  font-size:14px;
+  margin:2px 0 0;
+}
+
+.notice{
+  font-size:12px;
+  margin-top:14px;
+}
+
+.status{
+  font-size:14px;
+  margin-top:14px;
+}
+
+.row{
+  color:#cbd2d8;
+  font-size:14px;
+  margin-top:5px;
+}
+
+.actions{
+  display:grid;
+  gap:14px;
+  margin-top:16px;
+}
+
+button{
+  appearance:none;
+  border:0;
+  border-radius:13px;
+  background:var(--green);
+  color:#fff;
+  padding:16px 26px;
+  font-size:18px;
+  font-weight:800;
+  letter-spacing:.02em;
+  box-shadow:0 6px 0 var(--green2);
+  cursor:pointer;
+  width:100%;
+}
+
+button:active{
+  transform:translateY(2px);
+  box-shadow:0 4px 0 var(--green2);
+}
+
+button:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+
+.btn-blue{
+  background:var(--blue);
+  box-shadow:0 6px 0 var(--blue2);
+}
+
+.btn-red{
+  background:var(--red);
+  box-shadow:0 6px 0 var(--red2);
+}
+
+.btn-small{
+  padding:12px 14px;
+  font-size:14px;
+}
+
+.pill,
+.status-pill{
+  font-size:12px;
+  padding:5px 9px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  white-space:nowrap;
+}
+
+.pill{
+  color:#cbd2d8;
+}
+
+.status-pill.pending{
+  color:var(--yellow);
+}
+
+.status-pill.completed,
+.status-pill.credited{
+  color:#62d95a;
+}
+
+.status-pill.rejected{
+  color:#ff7979;
+}
+
+.wallet-summary{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+  margin-bottom:16px;
+}
+
+.wallet-box{
+  background:var(--panel2);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
+}
+
+.wallet-number{
+  font-size:24px;
+  font-weight:800;
+}
+
+.wallet-label{
+  color:var(--muted);
+  font-size:12px;
+  margin-top:4px;
+}
+
+.address-box{
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#141d24;
+  padding:14px;
+  margin-top:10px;
+  overflow-wrap:anywhere;
+  word-break:break-word;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#dce3e8;
+}
+
+.deposit-item,
+.request-item{
+  padding:14px 0;
+  border-bottom:1px solid var(--line);
+}
+
+.deposit-item:last-child,
+.request-item:last-child{
+  border-bottom:0;
+}
+
+.txid{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  overflow-wrap:anywhere;
+  color:#cbd2d8;
+  font-size:12px;
+  margin-top:6px;
+}
+
+.request-top,
+.admin-request-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+}
+
+#adminPanel{
+  display:none;
+}
+
+.admin-banner{
+  margin-bottom:16px;
+  padding:14px;
+  border-radius:14px;
+  background:linear-gradient(135deg,#273b4a,#17222b);
+  border:1px solid #395269;
+}
+
+.admin-title{
+  font-weight:800;
+  font-size:18px;
+  margin-bottom:4px;
+}
+
+.admin-sub{
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.4;
+}
+
+.stats{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+  margin-bottom:18px;
+}
+
+.stat{
+  background:var(--panel2);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:14px;
+}
+
+.stat-number{
+  font-size:24px;
+  font-weight:800;
+}
+
+.stat-label{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:4px;
+}
+
+.admin-request,
+.admin-deposit{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:#141e26;
+  padding:16px;
+  margin-bottom:14px;
+}
+
+.admin-name{
+  font-size:19px;
+  font-weight:800;
+  margin-top:10px;
+}
+
+.admin-meta{
+  color:#cbd2d8;
+  margin-top:6px;
+  font-size:14px;
+  line-height:1.45;
+}
+
+.admin-requested-by{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid var(--line);
+  color:var(--muted);
+  font-size:13px;
+}
+
+.admin-editor{
+  margin-top:16px;
+  padding-top:16px;
+  border-top:1px solid var(--line);
+}
+
+.admin-editor-title{
+  margin-bottom:8px;
+  font-size:14px;
+  font-weight:700;
+}
+
+.admin-editor textarea{
+  margin-bottom:12px;
+}
+
+.admin-buttons{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+
+.section-gap{
+  margin-top:24px;
+}
+
+#memberMessageStatus:not(:empty){
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  white-space:pre-wrap;
+}
+
+#memberMessageStatus[data-state="success"]{
+  color:#b8f5b3;
+  background:#19351f;
+  border-color:#49a627;
+}
+
+#memberMessageStatus[data-state="error"]{
+  color:#ffbaba;
+  background:#351f23;
+  border-color:#c74b4b;
+}
+
+@media(min-width:700px){
+  .stats{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+<!-- HEADER -->
+<div class="brand">
+  <div class="logo">🧞</div>
+
+  <div>
+    <h1>CreditGenie</h1>
+    <p>Member accounts and Bitcoin wallet</p>
+    <p id="account"></p>
+    <p id="status" role="status"></p>
+  </div>
+</div>
 
 
-# =================================================
-# ENVIRONMENT
-# =================================================
+<!-- SINGLE PROFILE SEARCH -->
+<section class="card">
 
-load_dotenv()
+  <div class="card-head">
 
-BOT_TOKEN = os.getenv(
-    "BOT_TOKEN",
-    ""
-).strip()
+    <h2>
+      SINGLE PROFILE<br>
+      SEARCH
+    </h2>
 
-MINI_APP_URL = os.getenv(
-    "MINI_APP_URL",
-    ""
-).strip()
+    <span class="pill">
+      $12.00 / search
+    </span>
 
-DB_PATH = os.getenv(
-    "DB_PATH",
-    "creditgenie.db"
-).strip()
+  </div>
 
-BTC_DEPOSIT_ADDRESS = os.getenv(
-    "BTC_DEPOSIT_ADDRESS",
-    ""
-).strip()
+  <form
+    id="characterRequestForm"
+    class="grid"
+  >
 
-SUPPORT_USERNAME = os.getenv(
-    "SUPPORT_USERNAME",
-    "@YourSupport"
-).strip()
+    <input
+      id="characterName"
+      maxlength="80"
+      required
+      placeholder="Name"
+      autocomplete="off"
+    >
+
+    <input
+      id="characterGame"
+      maxlength="4"
+      required
+      inputmode="numeric"
+      pattern="[0-9]{4}"
+      placeholder="Birth Year"
+      autocomplete="off"
+    >
+
+    <input
+      id="characterId"
+      maxlength="2"
+      required
+      pattern="[A-Za-z]{2}"
+      placeholder="State (2 letters)"
+      autocomplete="address-level1"
+      autocapitalize="characters"
+      spellcheck="false"
+    >
+
+    <p class="help">
+      Each profile search costs $12.00.
+      The charge is deducted from your CreditGenie balance when submitted.
+    </p>
+
+    <button
+      id="submitCharacterBtn"
+      type="submit"
+    >
+      PURCHASE & SUBMIT SEARCH
+    </button>
+
+  </form>
+
+  <div
+    id="characterStatus"
+    class="status"
+    role="status"
+    aria-live="polite"
+  ></div>
 
 
-if (
-    DB_PATH.startswith("VALUE")
-    and
-    DB_PATH[5:].strip()
-    ==
-    "/var/data/creditgenie.db"
-):
-    DB_PATH = (
-        "/var/data/creditgenie.db"
-    )
+  <div class="card-head section-gap">
+    <h2 style="font-size:20px">
+      MY PROFILE SEARCHES
+    </h2>
+  </div>
+
+  <div id="characterHistory">
+    <div class="empty">
+      Loading profile searches…
+    </div>
+  </div>
+
+</section>
 
 
-ADMIN_IDS = {
-    int(x.strip())
-    for x in os.getenv(
-        "ADMIN_IDS",
-        ""
-    ).split(",")
-    if x.strip().isdigit()
+<!-- WALLET -->
+<section class="card">
+
+  <div class="card-head">
+
+    <h2>
+      ₿ BITCOIN WALLET
+    </h2>
+
+    <span
+      class="pill"
+      id="walletBalance"
+    >
+      $0.00
+    </span>
+
+  </div>
+
+
+  <div class="wallet-summary">
+
+    <div class="wallet-box">
+
+      <div
+        class="wallet-number"
+        id="walletBalanceLarge"
+      >
+        $0.00
+      </div>
+
+      <div class="wallet-label">
+        AVAILABLE BALANCE
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <div class="admin-editor-title">
+    BITCOIN RECEIVING ADDRESS
+  </div>
+
+  <div
+    class="address-box"
+    id="btcAddress"
+  >
+    Loading…
+  </div>
+
+
+  <div class="actions">
+
+    <button
+      class="btn-blue"
+      id="copyAddressBtn"
+      type="button"
+    >
+      COPY BTC ADDRESS
+    </button>
+
+  </div>
+
+
+  <div class="admin-editor-title section-gap">
+    SUBMIT BITCOIN TRANSACTION ID
+  </div>
+
+  <input
+    id="depositTxid"
+    maxlength="150"
+    autocapitalize="off"
+    autocomplete="off"
+    spellcheck="false"
+    placeholder="64-character Bitcoin transaction ID"
+  >
+
+
+  <div class="actions">
+
+    <button
+      id="submitDepositBtn"
+      type="button"
+    >
+      SUBMIT PAYMENT
+    </button>
+
+  </div>
+
+
+  <div
+    id="walletStatus"
+    class="status"
+  ></div>
+
+
+  <p class="notice">
+    Payment submissions are reviewed before your CreditGenie balance is credited.
+  </p>
+
+
+  <div class="card-head section-gap">
+
+    <h2 style="font-size:20px">
+      DEPOSIT HISTORY
+    </h2>
+
+    <span
+      class="pill"
+      id="depositCount"
+    >
+      0
+    </span>
+
+  </div>
+
+
+  <div id="depositHistory">
+    <div class="empty">
+      Loading deposits…
+    </div>
+  </div>
+
+</section>
+
+
+<!-- ADMIN -->
+<section
+  class="card"
+  id="adminPanel"
+>
+
+  <div class="admin-banner">
+
+    <div class="admin-title">
+      🛠 ADMIN CONTROL CENTER
+    </div>
+
+    <div class="admin-sub">
+      View members, send Telegram messages, review profile searches,
+      and verify Bitcoin deposits.
+    </div>
+
+  </div>
+
+
+  <div class="stats">
+
+    <div class="stat">
+
+      <div
+        class="stat-number"
+        id="statUsers"
+      >
+        —
+      </div>
+
+      <div class="stat-label">
+        USERS
+      </div>
+
+    </div>
+
+
+    <div class="stat">
+
+      <div
+        class="stat-number"
+        id="statDeposits"
+      >
+        —
+      </div>
+
+      <div class="stat-label">
+        DEPOSITS
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- MEMBERS -->
+  <div class="card-head">
+
+    <h2>
+      ADMIN MEMBERS
+    </h2>
+
+    <span
+      class="pill"
+      id="memberCount"
+    >
+      0 members
+    </span>
+
+  </div>
+
+
+  <div class="actions">
+
+    <button
+      class="btn-small btn-blue"
+      id="refreshMembersBtn"
+      type="button"
+    >
+      REFRESH MEMBERS
+    </button>
+
+  </div>
+
+
+  <div
+    id="membersStatus"
+    class="status"
+    role="status"
+  ></div>
+
+
+  <div id="membersList">
+    <div class="empty">
+      Loading members…
+    </div>
+  </div>
+
+
+  <div class="admin-buttons section-gap">
+
+    <button
+      id="membersPrevBtn"
+      class="btn-small btn-blue"
+      type="button"
+      disabled
+    >
+      PREVIOUS
+    </button>
+
+    <button
+      id="membersNextBtn"
+      class="btn-small btn-blue"
+      type="button"
+      disabled
+    >
+      NEXT
+    </button>
+
+  </div>
+
+  <p
+    id="membersPageLabel"
+    class="notice"
+  ></p>
+
+
+  <!-- MESSAGE MEMBER -->
+  <form
+    id="memberMessageForm"
+    class="admin-editor"
+    hidden
+  >
+
+    <h3 id="messageRecipient"></h3>
+
+    <label
+      class="admin-editor-title"
+      for="memberMessage"
+    >
+      TELEGRAM MESSAGE
+    </label>
+
+    <textarea
+      id="memberMessage"
+      maxlength="4096"
+      required
+      placeholder="Write a message to this member…"
+    ></textarea>
+
+
+    <div class="admin-buttons">
+
+      <button
+        id="sendMemberMessageBtn"
+        class="btn-small"
+        type="submit"
+      >
+        SEND MESSAGE
+      </button>
+
+      <button
+        id="cancelMemberMessageBtn"
+        class="btn-small btn-blue"
+        type="button"
+      >
+        CLOSE
+      </button>
+
+    </div>
+
+
+    <div
+      id="memberMessageStatus"
+      class="status"
+      role="status"
+      aria-live="polite"
+    ></div>
+
+  </form>
+
+
+  <!-- PROFILE SEARCH QUEUE -->
+  <div class="card-head section-gap">
+
+    <h2>
+      PROFILE SEARCH QUEUE
+    </h2>
+
+    <span
+      class="pill"
+      id="characterQueueCount"
+    >
+      0 pending
+    </span>
+
+  </div>
+
+
+  <button
+    id="refreshCharacterQueueBtn"
+    class="btn-small btn-blue"
+    type="button"
+  >
+    REFRESH PROFILE QUEUE
+  </button>
+
+
+  <div
+    id="characterQueueStatus"
+    class="status"
+    role="status"
+    aria-live="polite"
+  ></div>
+
+
+  <div id="characterQueue">
+    <div class="empty">
+      Loading profile searches…
+    </div>
+  </div>
+
+
+  <!-- DEPOSIT QUEUE -->
+  <div class="card-head section-gap">
+
+    <h2>
+      BITCOIN DEPOSIT QUEUE
+    </h2>
+
+    <span
+      class="pill"
+      id="adminDepositCount"
+    >
+      0 pending
+    </span>
+
+  </div>
+
+
+  <div id="adminDeposits">
+    <div class="empty">
+      Loading deposit queue…
+    </div>
+  </div>
+
+</section>
+
+</div>
+
+
+<script>
+
+const tg = window.Telegram?.WebApp;
+
+if (tg) {
+  tg.ready();
+  tg.expand();
+
+  try {
+    tg.setHeaderColor('#14212b');
+    tg.setBackgroundColor('#14212b');
+  } catch (_) {}
 }
 
 
-PROFILE_SEARCH_PRICE_CENTS = 1200
+const initData = tg?.initData || '';
 
+const $ =
+  id => document.getElementById(id);
 
-if not BOT_TOKEN:
 
-    raise RuntimeError(
-        "BOT_TOKEN is missing"
-    )
+let currentUser = null;
+let adminEnabled = false;
+let currentDepositAddress = '';
 
 
-# =================================================
-# LOGGING
-# =================================================
+const headers = () => ({
+  'Content-Type':'application/json',
+  'X-Telegram-Init-Data':initData
+});
 
-logging.basicConfig(
-    level=logging.INFO
-)
 
-logging.getLogger(
-    "httpx"
-).setLevel(
-    logging.WARNING
-)
+async function api(path, options = {}) {
 
-logging.getLogger(
-    "httpcore"
-).setLevel(
-    logging.WARNING
-)
+  const res =
+    await fetch(
+      path,
+      {
+        ...options,
 
-logger = logging.getLogger(
-    "creditgenie"
-)
-
-
-# =================================================
-# HELPERS
-# =================================================
-
-def now_iso():
-
-    return datetime.now(
-        timezone.utc
-    ).isoformat(
-        timespec="seconds"
-    )
-
-
-def money(
-    cents
-):
-
-    return (
-        f"${cents / 100:,.2f}"
-    )
-
-
-def db():
-
-    Path(
-        DB_PATH
-    ).parent.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    con = sqlite3.connect(
-        DB_PATH
-    )
-
-    con.row_factory = (
-        sqlite3.Row
-    )
-
-    return con
-
-
-def is_admin(
-    telegram_id
-):
-
-    try:
-
-        return int(
-            telegram_id
-        ) in ADMIN_IDS
-
-    except (
-        TypeError,
-        ValueError
-    ):
-
-        return False
-
-
-# =================================================
-# DATABASE
-# =================================================
-
-def init_db():
-
-    with db() as con:
-
-        con.executescript(
-            """
-            PRAGMA journal_mode=WAL;
-
-
-            CREATE TABLE IF NOT EXISTS users(
-
-                id INTEGER
-                    PRIMARY KEY
-                    AUTOINCREMENT,
-
-                telegram_id INTEGER
-                    NOT NULL
-                    UNIQUE,
-
-                username TEXT,
-
-                first_name TEXT,
-
-                balance_cents INTEGER
-                    NOT NULL
-                    DEFAULT 0,
-
-                created_at TEXT
-                    NOT NULL
-            );
-
-
-            CREATE TABLE IF NOT EXISTS
-            character_requests(
-
-                id INTEGER
-                    PRIMARY KEY
-                    AUTOINCREMENT,
-
-                user_id INTEGER
-                    NOT NULL
-                    REFERENCES users(id),
-
-                character_name TEXT
-                    NOT NULL,
-
-                game TEXT
-                    NOT NULL,
-
-                character_id TEXT
-                    NOT NULL,
-
-                status TEXT
-                    NOT NULL
-                    DEFAULT 'pending'
-
-                    CHECK(
-                        status IN(
-                            'pending',
-                            'available',
-                            'unavailable'
-                        )
-                    ),
-
-                created_at TEXT
-                    NOT NULL,
-
-                updated_at TEXT
-                    NOT NULL,
-
-                reviewed_by INTEGER
-            );
-
-
-            CREATE INDEX IF NOT EXISTS
-            idx_characters_user
-
-            ON character_requests(
-                user_id,
-                id DESC
-            );
-
-
-            CREATE INDEX IF NOT EXISTS
-            idx_characters_pending
-
-            ON character_requests(
-                status,
-                id
-            );
-
-
-            CREATE TABLE IF NOT EXISTS
-            bitcoin_deposits(
-
-                id INTEGER
-                    PRIMARY KEY
-                    AUTOINCREMENT,
-
-                user_id INTEGER
-                    NOT NULL
-                    REFERENCES users(id),
-
-                txid TEXT
-                    NOT NULL
-                    UNIQUE,
-
-                amount_cents INTEGER
-                    NOT NULL
-                    DEFAULT 0,
-
-                status TEXT
-                    NOT NULL
-                    DEFAULT 'pending',
-
-                created_at TEXT
-                    NOT NULL,
-
-                updated_at TEXT
-                    NOT NULL
-            );
-
-
-            CREATE INDEX IF NOT EXISTS
-            idx_bitcoin_deposits_user
-
-            ON bitcoin_deposits(
-                user_id,
-                id DESC
-            );
-
-
-            CREATE INDEX IF NOT EXISTS
-            idx_bitcoin_deposits_status
-
-            ON bitcoin_deposits(
-                status,
-                id ASC
-            );
-            """
-        )
-
-
-# =================================================
-# TELEGRAM AUTH
-# =================================================
-
-def verify_init_data(
-    init_data: str
-):
-
-    if not init_data:
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Open this page "
-                "from Telegram."
-            )
-        )
-
-
-    pairs = dict(
-        parse_qsl(
-            init_data,
-            keep_blank_values=True
-        )
-    )
-
-
-    received_hash = (
-        pairs.pop(
-            "hash",
-            None
-        )
-    )
-
-
-    if not received_hash:
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Missing Telegram "
-                "signature."
-            )
-        )
-
-
-    data_check_string = (
-        "\n".join(
-            f"{key}={pairs[key]}"
-            for key in sorted(
-                pairs
-            )
-        )
-    )
-
-
-    secret_key = hmac.new(
-        b"WebAppData",
-        BOT_TOKEN.encode(),
-        hashlib.sha256
-    ).digest()
-
-
-    calculated_hash = hmac.new(
-        secret_key,
-        data_check_string.encode(),
-        hashlib.sha256
-    ).hexdigest()
-
-
-    if not hmac.compare_digest(
-        calculated_hash,
-        received_hash
-    ):
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Invalid Telegram "
-                "signature."
-            )
-        )
-
-
-    try:
-
-        auth_date = int(
-            pairs.get(
-                "auth_date",
-                "0"
-            )
-        )
-
-    except (
-        TypeError,
-        ValueError
-    ):
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Invalid Telegram "
-                "session."
-            )
-        )
-
-
-    age = (
-        time.time()
-        -
-        auth_date
-    )
-
-
-    if (
-        auth_date <= 0
-        or
-        age < -60
-        or
-        age > 86400
-    ):
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Session expired. "
-                "Reopen the Mini App "
-                "from Telegram."
-            )
-        )
-
-
-    try:
-
-        user = json.loads(
-            pairs.get(
-                "user",
-                "{}"
-            )
-        )
-
-    except Exception:
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Invalid Telegram "
-                "user data."
-            )
-        )
-
-
-    if (
-        not isinstance(
-            user,
-            dict
-        )
-        or
-        not isinstance(
-            user.get("id"),
-            int
-        )
-        or
-        user["id"] <= 0
-    ):
-
-        raise HTTPException(
-            status_code=401,
-            detail=(
-                "Telegram user "
-                "not found."
-            )
-        )
-
-
-    return user
-
-
-# =================================================
-# ADMIN AUTH
-# =================================================
-
-def require_admin(
-    init_data: str
-):
-
-    tg = verify_init_data(
-        init_data
-    )
-
-
-    if not is_admin(
-        tg.get("id")
-    ):
-
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "Admin access required."
-            )
-        )
-
-
-    return tg
-
-
-# =================================================
-# USERS
-# =================================================
-
-def get_or_create_user(
-    tg
-):
-
-    telegram_id = int(
-        tg["id"]
-    )
-
-
-    with db() as con:
-
-        con.execute(
-            """
-            INSERT INTO users(
-                telegram_id,
-                username,
-                first_name,
-                created_at
-            )
-
-            VALUES(
-                ?, ?, ?, ?
-            )
-
-            ON CONFLICT(telegram_id)
-
-            DO UPDATE SET
-
-                username =
-                    excluded.username,
-
-                first_name =
-                    excluded.first_name
-            """,
-            (
-                telegram_id,
-
-                tg.get(
-                    "username"
-                ),
-
-                tg.get(
-                    "first_name",
-                    ""
-                ),
-
-                now_iso()
-            )
-        )
-
-
-        return con.execute(
-            """
-            SELECT *
-
-            FROM users
-
-            WHERE telegram_id=?
-            """,
-            (
-                telegram_id,
-            )
-        ).fetchone()
-
-
-# =================================================
-# MODELS
-# =================================================
-
-class BitcoinDepositRequest(
-    BaseModel
-):
-
-    txid: str = Field(
-        min_length=10,
-        max_length=150
-    )
-
-
-class CreditDepositRequest(
-    BaseModel
-):
-
-    deposit_id: int = Field(
-        gt=0
-    )
-
-    amount_cents: int = Field(
-        gt=0,
-        le=1000000
-    )
-
-
-class MemberResponse(
-    BaseModel
-):
-
-    id: int
-
-    first_name: (
-        str | None
-    )
-
-    username: (
-        str | None
-    )
-
-    balance_cents: int
-
-    balance: str
-
-    joined_at: str
-
-
-class MembersResponse(
-    BaseModel
-):
-
-    members: (
-        list[
-            MemberResponse
-        ]
-    )
-
-    total: int
-
-    page: int
-
-    page_size: int
-
-
-class AdminMessageRequest(
-    BaseModel
-):
-
-    message: str = Field(
-        min_length=1,
-        max_length=4096
-    )
-
-
-    @field_validator(
-        "message"
-    )
-
-    @classmethod
-    def clean_message(
-        cls,
-        value
-    ):
-
-        value = (
-            value.strip()
-        )
-
-
-        if not value:
-
-            raise ValueError(
-                "Enter a message "
-                "before sending."
-            )
-
-
-        if (
-            len(
-                value.encode(
-                    "utf-16-le"
-                )
-            )
-            //
-            2
-            >
-            4096
-        ):
-
-            raise ValueError(
-                "Message is too long "
-                "(maximum 4096 characters)."
-            )
-
-
-        return value
-
-
-class AdminMessageResponse(
-    BaseModel
-):
-
-    ok: bool
-
-    member_id: int
-
-    message_id: int
-
-
-# =================================================
-# PROFILE SEARCH MODEL
-# =================================================
-
-class CharacterRequestInput(
-    BaseModel
-):
-
-    """
-    Internal DB field mapping:
-
-    character_name = Name
-    game           = Birth Year
-    character_id   = State
-    """
-
-    model_config = {
-        "extra":
-            "forbid"
-    }
-
-
-    character_name: str = Field(
-        min_length=1,
-        max_length=80
-    )
-
-
-    game: str = Field(
-        min_length=4,
-        max_length=4,
-        pattern=r"^\d{4}$"
-    )
-
-
-    character_id: str = Field(
-        min_length=2,
-        max_length=2,
-        pattern=r"^[A-Za-z]{2}$"
-    )
-
-
-    @field_validator(
-        "character_name",
-        mode="before"
-    )
-
-    @classmethod
-    def clean_name(
-        cls,
-        value
-    ):
-
-        if not isinstance(
-            value,
-            str
-        ):
-
-            raise ValueError(
-                "Enter a name."
-            )
-
-
-        value = (
-            value.strip()
-        )
-
-
-        if (
-            not value
-            or
-            any(
-                ord(c) < 32
-                for c in value
-            )
-        ):
-
-            raise ValueError(
-                "Enter a valid name."
-            )
-
-
-        return value
-
-
-    @field_validator(
-        "game",
-        mode="before"
-    )
-
-    @classmethod
-    def clean_birth_year(
-        cls,
-        value
-    ):
-
-        if not isinstance(
-            value,
-            str
-        ):
-
-            raise ValueError(
-                "Enter a valid "
-                "4-digit birth year."
-            )
-
-
-        value = (
-            value.strip()
-        )
-
-
-        if (
-            not value.isdigit()
-            or
-            len(value) != 4
-        ):
-
-            raise ValueError(
-                "Enter a valid "
-                "4-digit birth year."
-            )
-
-
-        year = int(
-            value
-        )
-
-
-        current_year = (
-            datetime.now(
-                timezone.utc
-            ).year
-        )
-
-
-        if (
-            year < 1900
-            or
-            year > current_year
-        ):
-
-            raise ValueError(
-                "Enter a valid "
-                "birth year."
-            )
-
-
-        return value
-
-
-    @field_validator(
-        "character_id",
-        mode="before"
-    )
-
-    @classmethod
-    def clean_state(
-        cls,
-        value
-    ):
-
-        if not isinstance(
-            value,
-            str
-        ):
-
-            raise ValueError(
-                "Enter a 2-letter "
-                "state code."
-            )
-
-
-        value = (
-            value
-            .strip()
-            .upper()
-        )
-
-
-        if (
-            len(value) != 2
-            or
-            not value.isalpha()
-        ):
-
-            raise ValueError(
-                "Enter a 2-letter "
-                "state code. "
-                "Example: NV."
-            )
-
-
-        return value
-
-
-class CharacterDecisionInput(
-    BaseModel
-):
-
-    model_config = {
-        "extra":
-            "forbid"
-    }
-
-
-    status: Literal[
-        "available",
-        "unavailable"
-    ]
-
-
-# =================================================
-# TELEGRAM /START
-# =================================================
-
-async def start(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    get_or_create_user(
-        update
-        .effective_user
-        .to_dict()
-    )
-
-
-    if not MINI_APP_URL:
-
-        await (
-            update
-            .message
-            .reply_text(
-                "CreditGenie is online, "
-                "but MINI_APP_URL is "
-                "not configured yet."
-            )
-        )
-
-        return
-
-
-    keyboard = (
-        InlineKeyboardMarkup(
-            [
-                [
-                    InlineKeyboardButton(
-                        "🧞 Open CreditGenie",
-
-                        web_app=
-                            WebAppInfo(
-                                url=
-                                    MINI_APP_URL
-                            )
-                    )
-                ]
-            ]
-        )
-    )
-
-
-    await (
-        update
-        .message
-        .reply_text(
-            "🧞 CreditGenie\n\n"
-
-            "Open the Mini App to "
-            "manage your balance, "
-            "deposits, and "
-            "profile searches.",
-
-            reply_markup=
-                keyboard
-        )
-    )
-
-
-# =================================================
-# TELEGRAM /ADMIN
-# =================================================
-
-async def admin(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(
-        update
-        .effective_user
-        .id
-    ):
-
-        await (
-            update
-            .message
-            .reply_text(
-                "Admin access required."
-            )
-        )
-
-        return
-
-
-    with db() as con:
-
-        users = con.execute(
-            """
-            SELECT COUNT(*)
-            FROM users
-            """
-        ).fetchone()[0]
-
-
-        deposits = con.execute(
-            """
-            SELECT COUNT(*)
-
-            FROM bitcoin_deposits
-
-            WHERE status='pending'
-            """
-        ).fetchone()[0]
-
-
-        searches = con.execute(
-            """
-            SELECT COUNT(*)
-
-            FROM character_requests
-
-            WHERE status='pending'
-            """
-        ).fetchone()[0]
-
-
-    await (
-        update
-        .message
-        .reply_text(
-            "🛠 CreditGenie Admin\n\n"
-
-            f"Members: {users}\n"
-
-            f"Pending profile searches: "
-            f"{searches}\n"
-
-            f"Pending deposits: "
-            f"{deposits}\n\n"
-
-            "Open the Mini App's "
-            "Admin Control Center "
-            "to review activity."
-        )
-    )
-
-
-# =================================================
-# TELEGRAM APP
-# =================================================
-
-telegram_bot = (
-    Application
-    .builder()
-    .token(
-        BOT_TOKEN
-    )
-    .build()
-)
-
-
-telegram_bot.add_handler(
-    CommandHandler(
-        "start",
-        start
-    )
-)
-
-
-telegram_bot.add_handler(
-    CommandHandler(
-        "admin",
-        admin
-    )
-)
-
-
-# =================================================
-# FASTAPI LIFESPAN
-# =================================================
-
-@asynccontextmanager
-async def lifespan(
-    app: FastAPI
-):
-
-    init_db()
-
-
-    await (
-        telegram_bot
-        .initialize()
-    )
-
-
-    await (
-        telegram_bot
-        .start()
-    )
-
-
-    if (
-        telegram_bot
-        .updater
-    ):
-
-        await (
-            telegram_bot
-            .updater
-            .start_polling(
-                drop_pending_updates=True
-            )
-        )
-
-
-    try:
-
-        yield
-
-
-    finally:
-
-        if (
-            telegram_bot
-            .updater
-        ):
-
-            await (
-                telegram_bot
-                .updater
-                .stop()
-            )
-
-
-        await (
-            telegram_bot
-            .stop()
-        )
-
-
-        await (
-            telegram_bot
-            .shutdown()
-        )
-
-
-# =================================================
-# FASTAPI
-# =================================================
-
-api = FastAPI(
-    title="CreditGenie",
-    lifespan=lifespan
-)
-
-
-# =================================================
-# BASIC ROUTES
-# =================================================
-
-@api.get("/")
-async def root():
-
-    return {
-        "ok": True,
-        "service": "CreditGenie"
-    }
-
-
-@api.get("/health")
-async def health():
-
-    with db() as con:
-
-        con.execute(
-            "SELECT 1"
-        ).fetchone()
-
-
-    return {
-        "ok": True
-    }
-
-
-@api.get("/app")
-async def mini_app():
-
-    return FileResponse(
-        "index.html",
-
-        media_type=
-            "text/html",
-
-        headers={
-            "Cache-Control":
-                "no-store"
+        headers:{
+          ...headers(),
+          ...(options.headers || {})
         }
+      }
+    );
+
+  const data =
+    await res
+      .json()
+      .catch(() => ({}));
+
+  if (!res.ok) {
+
+    let message =
+      data.detail ||
+      'Request failed';
+
+    if (Array.isArray(data.detail)) {
+      message =
+        data.detail
+          .map(x => x.msg || 'Invalid information')
+          .join(' ');
+    }
+
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+
+function esc(v = '') {
+
+  return String(v)
+    .replace(
+      /[&<>"']/g,
+      s => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[s])
+    );
+}
+
+
+function prettyTime(value) {
+
+  if (!value) {
+    return '';
+  }
+
+  const d =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      d.getTime()
     )
+  ) {
+    return value;
+  }
+
+  return d.toLocaleString();
+}
 
 
-# =================================================
-# CURRENT USER
-# =================================================
+function shortTxid(txid = '') {
 
-@api.get("/api/me")
-async def me(
+  if (txid.length <= 22) {
+    return txid;
+  }
 
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
-
-):
-
-    tg = verify_init_data(
-        x_telegram_init_data
-    )
+  return (
+    `${txid.slice(0,12)}…` +
+    `${txid.slice(-10)}`
+  );
+}
 
 
-    user = get_or_create_user(
-        tg
-    )
+function depositStatusLabel(status) {
+
+  if (status === 'credited') {
+    return 'Credited';
+  }
+
+  if (status === 'rejected') {
+    return 'Rejected';
+  }
+
+  return 'Pending';
+}
 
 
-    return {
+/* ==========================================
+   USER
+========================================== */
 
-        "first_name":
-            user[
-                "first_name"
-            ],
+async function loadMe() {
 
-        "balance":
-            money(
-                user[
-                    "balance_cents"
-                ]
-            ),
+  try {
 
-        "balance_cents":
-            user[
-                "balance_cents"
-            ],
+    const me =
+      await api('/api/me');
 
-        "support":
-            SUPPORT_USERNAME,
+    currentUser =
+      me;
 
-        "is_admin":
-            is_admin(
-                tg["id"]
-            ),
+    $('account').textContent =
+      me.first_name
+        ? `Hi, ${me.first_name}`
+        : '';
 
-        "profile_search_price":
-            money(
-                PROFILE_SEARCH_PRICE_CENTS
-            ),
+    adminEnabled =
+      Boolean(me.is_admin);
 
-        "profile_search_price_cents":
-            PROFILE_SEARCH_PRICE_CENTS
+    if (adminEnabled) {
+
+      $('adminPanel').style.display =
+        'block';
+
+      await Promise.all([
+        loadAdminStats(),
+        loadAdminMembers(),
+        loadAdminDeposits()
+      ]);
+
+    } else {
+
+      $('adminPanel').style.display =
+        'none';
 
     }
 
+  } catch (e) {
 
-# =================================================
-# WALLET
-# =================================================
+    $('status').textContent =
+      e.message;
 
-@api.get("/api/wallet")
-async def wallet(
-
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
-
-):
-
-    tg = verify_init_data(
-        x_telegram_init_data
-    )
+  }
+}
 
 
-    user = get_or_create_user(
-        tg
-    )
+/* ==========================================
+   WALLET
+========================================== */
+
+async function loadWallet() {
+
+  try {
+
+    const data =
+      await api('/api/wallet');
+
+    currentDepositAddress =
+      data.deposit_address || '';
+
+    $('walletBalance').textContent =
+      data.balance || '$0.00';
+
+    $('walletBalanceLarge').textContent =
+      data.balance || '$0.00';
+
+    $('btcAddress').textContent =
+      currentDepositAddress ||
+      'Bitcoin deposit address is not configured.';
+
+  } catch (e) {
+
+    $('walletStatus').textContent =
+      e.message;
+
+  }
+}
 
 
-    return {
+$('copyAddressBtn')
+  .addEventListener(
+    'click',
+    async () => {
 
-        "ok":
-            True,
+      if (!currentDepositAddress) {
 
-        "balance":
-            money(
-                user[
-                    "balance_cents"
-                ]
-            ),
+        $('walletStatus').textContent =
+          'Bitcoin deposit address is not configured.';
 
-        "balance_cents":
-            user[
-                "balance_cents"
-            ],
+        return;
+      }
 
-        "deposit_address":
-            BTC_DEPOSIT_ADDRESS
+      try {
 
-    }
+        await navigator.clipboard
+          .writeText(
+            currentDepositAddress
+          );
 
+        $('walletStatus').textContent =
+          'Bitcoin address copied.';
 
-# =================================================
-# SUBMIT BITCOIN DEPOSIT
-# =================================================
+      } catch (_) {
 
-@api.post("/api/deposit")
-async def submit_bitcoin_deposit(
+        $('walletStatus').textContent =
+          'Press and hold the address to copy it.';
 
-    req:
-        BitcoinDepositRequest,
-
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
-
-):
-
-    tg = verify_init_data(
-        x_telegram_init_data
-    )
-
-
-    user = get_or_create_user(
-        tg
-    )
-
-
-    txid = (
-        req.txid
-        .strip()
-        .lower()
-    )
-
-
-    if (
-        len(txid) != 64
-        or
-        any(
-            c not in
-            "0123456789abcdef"
-
-            for c in txid
-        )
-    ):
-
-        raise HTTPException(
-            status_code=400,
-
-            detail=(
-                "Enter a valid "
-                "Bitcoin transaction ID."
-            )
-        )
-
-
-    with db() as con:
-
-        existing = con.execute(
-            """
-            SELECT id
-
-            FROM bitcoin_deposits
-
-            WHERE txid=?
-            """,
-            (
-                txid,
-            )
-        ).fetchone()
-
-
-        if existing:
-
-            raise HTTPException(
-                status_code=409,
-
-                detail=(
-                    "This Bitcoin transaction "
-                    "has already been submitted."
-                )
-            )
-
-
-        stamp = (
-            now_iso()
-        )
-
-
-        cur = con.execute(
-            """
-            INSERT INTO bitcoin_deposits(
-
-                user_id,
-                txid,
-                amount_cents,
-                status,
-                created_at,
-                updated_at
-
-            )
-
-            VALUES(
-                ?,
-                ?,
-                0,
-                'pending',
-                ?,
-                ?
-            )
-            """,
-            (
-                user[
-                    "id"
-                ],
-
-                txid,
-
-                stamp,
-
-                stamp
-            )
-        )
-
-
-        deposit_id = (
-            cur.lastrowid
-        )
-
-
-    return {
-
-        "ok":
-            True,
-
-        "deposit_id":
-            deposit_id,
-
-        "status":
-            "pending",
-
-        "message":
-            (
-                "Bitcoin transaction "
-                "submitted for verification."
-            )
+      }
 
     }
+  );
 
 
-# =================================================
-# USER DEPOSITS
-# =================================================
+$('submitDepositBtn')
+  .addEventListener(
+    'click',
+    async () => {
 
-@api.get("/api/deposits")
-async def my_bitcoin_deposits(
+      const btn =
+        $('submitDepositBtn');
 
-    x_telegram_init_data: str =
-        Header(
-            default=""
+      const txid =
+        $('depositTxid')
+          .value
+          .trim();
+
+      if (!txid) {
+
+        $('walletStatus').textContent =
+          'Enter your Bitcoin transaction ID.';
+
+        return;
+      }
+
+      btn.disabled =
+        true;
+
+      $('walletStatus').textContent =
+        'Submitting payment…';
+
+      try {
+
+        const data =
+          await api(
+            '/api/deposit',
+            {
+              method:'POST',
+
+              body:
+                JSON.stringify({
+                  txid
+                })
+            }
+          );
+
+        $('walletStatus').textContent =
+          `Deposit #${data.deposit_id} submitted for verification.`;
+
+        $('depositTxid').value =
+          '';
+
+        await loadDeposits();
+
+        if (adminEnabled) {
+
+          await Promise.all([
+            loadAdminStats(),
+            loadAdminDeposits()
+          ]);
+
+        }
+
+      } catch (e) {
+
+        $('walletStatus').textContent =
+          e.message;
+
+      } finally {
+
+        btn.disabled =
+          false;
+
+      }
+
+    }
+  );
+
+
+async function loadDeposits() {
+
+  try {
+
+    const data =
+      await api('/api/deposits');
+
+    const rows =
+      data.deposits || [];
+
+    $('depositCount').textContent =
+      rows.length;
+
+    if (!rows.length) {
+
+      $('depositHistory').innerHTML =
+        '<div class="empty">No Bitcoin deposits yet.</div>';
+
+      return;
+    }
+
+    $('depositHistory').innerHTML =
+      rows.map(
+        d => `
+
+          <div class="deposit-item">
+
+            <div class="request-top">
+
+              <b>
+                Deposit #${esc(d.id)}
+              </b>
+
+              <span
+                class="status-pill ${
+                  d.status === 'credited'
+                    ? 'completed'
+                    : d.status === 'rejected'
+                    ? 'rejected'
+                    : 'pending'
+                }"
+              >
+                ${esc(depositStatusLabel(d.status))}
+              </span>
+
+            </div>
+
+            <div class="txid">
+              ${esc(shortTxid(d.txid))}
+            </div>
+
+            <div class="row">
+              ${
+                d.status === 'credited'
+                  ? `Credited: ${esc(d.amount)}`
+                  : 'Waiting for verification…'
+              }
+            </div>
+
+            <div class="row">
+              Submitted:
+              ${esc(prettyTime(d.created_at))}
+            </div>
+
+          </div>
+
+        `
+      ).join('');
+
+  } catch (e) {
+
+    $('depositHistory').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
+
+  }
+}
+
+
+/* ==========================================
+   ADMIN STATS
+========================================== */
+
+async function loadAdminStats() {
+
+  if (!adminEnabled) {
+    return;
+  }
+
+  try {
+
+    const data =
+      await api('/api/admin/stats');
+
+    $('statUsers').textContent =
+      data.users ?? 0;
+
+    $('statDeposits').textContent =
+      data.pending_deposits ?? 0;
+
+    $('adminDepositCount').textContent =
+      `${data.pending_deposits ?? 0} pending`;
+
+  } catch (e) {
+
+    $('membersStatus').textContent =
+      e.message;
+
+  }
+}
+
+
+/* ==========================================
+   ADMIN MEMBERS
+========================================== */
+
+let membersPage = 1;
+let membersTotalPages = 1;
+let membersBusy = false;
+let visibleMembers = new Map();
+
+let messageMember = null;
+let messageSending = false;
+
+
+async function loadAdminMembers(
+  page = membersPage
+) {
+
+  if (
+    !adminEnabled ||
+    membersBusy
+  ) {
+    return;
+  }
+
+  membersBusy =
+    true;
+
+  $('refreshMembersBtn').disabled =
+    true;
+
+  $('membersPrevBtn').disabled =
+    true;
+
+  $('membersNextBtn').disabled =
+    true;
+
+  $('membersStatus').textContent =
+    'Loading members…';
+
+  try {
+
+    const data =
+      await api(
+        `/api/admin/members?page=${page}&page_size=50`
+      );
+
+    membersPage =
+      data.page;
+
+    membersTotalPages =
+      Math.max(
+        1,
+        Math.ceil(
+          data.total /
+          data.page_size
         )
+      );
 
-):
+    visibleMembers =
+      new Map(
+        data.members.map(
+          member => [
+            member.id,
+            member
+          ]
+        )
+      );
 
-    tg = verify_init_data(
-        x_telegram_init_data
-    )
+    $('memberCount').textContent =
+      `${data.total} members`;
 
+    $('statUsers').textContent =
+      data.total;
 
-    user = get_or_create_user(
-        tg
-    )
+    $('membersPageLabel').textContent =
+      `Page ${membersPage} of ${membersTotalPages}`;
 
+    $('membersList').innerHTML =
+      data.members.length
+        ?
+        data.members.map(
+          member => `
 
-    with db() as con:
+            <div class="admin-deposit">
 
-        rows = con.execute(
-            """
-            SELECT
+              <div class="admin-name">
+                ${esc(
+                  member.first_name ||
+                  'Telegram member'
+                )}
+              </div>
 
-                id,
-                txid,
-                amount_cents,
-                status,
-                created_at,
-                updated_at
-
-            FROM bitcoin_deposits
-
-            WHERE user_id=?
-
-            ORDER BY
-                id DESC
-
-            LIMIT 25
-            """,
-            (
-                user[
-                    "id"
-                ],
-            )
-        ).fetchall()
-
-
-    return {
-
-        "ok":
-            True,
-
-        "deposits":
-            [
-                {
-
-                    **dict(row),
-
-                    "amount":
-                        money(
-                            row[
-                                "amount_cents"
-                            ]
-                        )
-
+              <div class="admin-meta">
+                Username:
+                ${
+                  member.username
+                    ? '@' + esc(member.username)
+                    : 'Not set'
                 }
+              </div>
 
-                for row
-                in rows
-            ]
+              <div class="admin-meta">
+                Balance:
+                ${esc(member.balance)}
+              </div>
 
-    }
+              <div class="admin-meta">
+                Joined:
+                ${esc(prettyTime(member.joined_at))}
+              </div>
 
+              <div class="admin-meta">
+                Member #${Number(member.id)}
+              </div>
 
-# =================================================
-# ADMIN STATS
-# =================================================
+              <div class="actions">
 
-@api.get("/api/admin/stats")
-async def admin_stats(
+                <button
+                  type="button"
+                  class="btn-small"
+                  data-message-member="${Number(member.id)}"
+                >
+                  MESSAGE MEMBER
+                </button>
 
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
+              </div>
 
-):
+            </div>
 
-    require_admin(
-        x_telegram_init_data
-    )
+          `
+        ).join('')
+        :
+        '<div class="empty">No registered members yet.</div>';
 
+    $('membersStatus').textContent =
+      '';
 
-    with db() as con:
+  } catch (e) {
 
-        users = con.execute(
-            """
-            SELECT COUNT(*)
-            FROM users
-            """
-        ).fetchone()[0]
+    $('membersStatus').textContent =
+      e.message;
 
+  } finally {
 
-        pending_deposits = (
-            con.execute(
-                """
-                SELECT COUNT(*)
+    membersBusy =
+      false;
 
-                FROM bitcoin_deposits
+    $('refreshMembersBtn').disabled =
+      false;
 
-                WHERE status='pending'
-                """
-            )
-            .fetchone()[0]
-        )
+    $('membersPrevBtn').disabled =
+      membersPage <= 1;
 
+    $('membersNextBtn').disabled =
+      membersPage >= membersTotalPages;
 
-        pending_profile_searches = (
-            con.execute(
-                """
-                SELECT COUNT(*)
-
-                FROM character_requests
-
-                WHERE status='pending'
-                """
-            )
-            .fetchone()[0]
-        )
+  }
+}
 
 
-    return {
-
-        "ok":
-            True,
-
-        "users":
-            users,
-
-        "pending_deposits":
-            pending_deposits,
-
-        "pending_profile_searches":
-            pending_profile_searches
-
-    }
+$('refreshMembersBtn')
+  .addEventListener(
+    'click',
+    () => loadAdminMembers()
+  );
 
 
-# =================================================
-# ADMIN DEPOSIT QUEUE
-# =================================================
-
-@api.get("/api/admin/deposits")
-async def admin_deposits(
-
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
-
-):
-
-    require_admin(
-        x_telegram_init_data
-    )
+$('membersPrevBtn')
+  .addEventListener(
+    'click',
+    () =>
+      loadAdminMembers(
+        membersPage - 1
+      )
+  );
 
 
-    with db() as con:
-
-        rows = con.execute(
-            """
-            SELECT
-
-                d.id,
-                d.txid,
-                d.amount_cents,
-                d.status,
-                d.created_at,
-                d.updated_at,
-
-                u.telegram_id,
-                u.first_name,
-                u.username
-
-            FROM bitcoin_deposits d
-
-            JOIN users u
-
-                ON
-                u.id =
-                d.user_id
-
-            WHERE
-                d.status='pending'
-
-            ORDER BY
-
-                d.created_at ASC,
-
-                d.id ASC
-            """
-        ).fetchall()
+$('membersNextBtn')
+  .addEventListener(
+    'click',
+    () =>
+      loadAdminMembers(
+        membersPage + 1
+      )
+  );
 
 
-    return {
+$('membersList')
+  .addEventListener(
+    'click',
+    e => {
 
-        "ok":
-            True,
+      const button =
+        e.target.closest(
+          '[data-message-member]'
+        );
 
-        "count":
-            len(rows),
+      if (
+        !button ||
+        messageSending
+      ) {
+        return;
+      }
 
-        "deposits":
-            [
+      const member =
+        visibleMembers.get(
+          Number(
+            button.dataset.messageMember
+          )
+        );
 
-                {
+      if (!member) {
+        return;
+      }
 
-                    **dict(row),
+      messageMember =
+        member;
 
-                    "amount":
-                        money(
-                            row[
-                                "amount_cents"
-                            ]
-                        )
+      $('messageRecipient').textContent =
+        `To: ${
+          member.first_name ||
+          'Telegram member'
+        }${
+          member.username
+            ? ' (@' +
+              member.username +
+              ')'
+            : ''
+        } — Member #${member.id}`;
 
-                }
+      $('memberMessage').value =
+        '';
 
-                for row
-                in rows
+      $('memberMessageStatus').textContent =
+        '';
 
-            ]
+      $('memberMessageForm').hidden =
+        false;
+
+      $('memberMessageForm')
+        .scrollIntoView({
+          behavior:'smooth',
+          block:'center'
+        });
+
+      $('memberMessage').focus();
 
     }
+  );
 
 
-# =================================================
-# ADMIN CREDIT DEPOSIT
-# =================================================
+$('cancelMemberMessageBtn')
+  .addEventListener(
+    'click',
+    () => {
 
-@api.post(
-    "/api/admin/credit-deposit"
-)
-async def credit_deposit(
+      if (messageSending) {
+        return;
+      }
 
-    req:
-        CreditDepositRequest,
+      messageMember =
+        null;
 
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
+      $('memberMessage').value =
+        '';
 
-):
-
-    admin_tg = require_admin(
-        x_telegram_init_data
-    )
-
-
-    with db() as con:
-
-        con.execute(
-            "BEGIN IMMEDIATE"
-        )
-
-
-        deposit = con.execute(
-            """
-            SELECT
-
-                d.*,
-
-                u.telegram_id
-
-            FROM bitcoin_deposits d
-
-            JOIN users u
-
-                ON
-                u.id =
-                d.user_id
-
-            WHERE
-                d.id=?
-            """,
-            (
-                req.deposit_id,
-            )
-        ).fetchone()
-
-
-        if not deposit:
-
-            raise HTTPException(
-                status_code=404,
-
-                detail=(
-                    "Deposit not found."
-                )
-            )
-
-
-        if (
-            deposit[
-                "status"
-            ]
-            !=
-            "pending"
-        ):
-
-            raise HTTPException(
-                status_code=409,
-
-                detail=(
-                    "Deposit has already "
-                    "been processed."
-                )
-            )
-
-
-        updated = con.execute(
-            """
-            UPDATE bitcoin_deposits
-
-            SET
-
-                amount_cents=?,
-
-                status='credited',
-
-                updated_at=?
-
-            WHERE
-                id=?
-
-            AND
-                status='pending'
-            """,
-            (
-                req.amount_cents,
-
-                now_iso(),
-
-                req.deposit_id
-            )
-        )
-
-
-        if (
-            updated.rowcount
-            !=
-            1
-        ):
-
-            raise HTTPException(
-                status_code=409,
-
-                detail=(
-                    "Deposit has already "
-                    "been processed."
-                )
-            )
-
-
-        con.execute(
-            """
-            UPDATE users
-
-            SET
-
-                balance_cents =
-                    balance_cents + ?
-
-            WHERE
-                id=?
-            """,
-            (
-                req.amount_cents,
-
-                deposit[
-                    "user_id"
-                ]
-            )
-        )
-
-
-        updated_user = con.execute(
-            """
-            SELECT
-                balance_cents
-
-            FROM users
-
-            WHERE
-                id=?
-            """,
-            (
-                deposit[
-                    "user_id"
-                ],
-            )
-        ).fetchone()
-
-
-    try:
-
-        await (
-            telegram_bot
-            .bot
-            .send_message(
-
-                chat_id=
-                    deposit[
-                        "telegram_id"
-                    ],
-
-                text=(
-                    "₿ Bitcoin Deposit Credited\n\n"
-
-                    f"Amount credited: "
-                    f"{money(req.amount_cents)}\n"
-
-                    f"New balance: "
-                    f"{money(updated_user['balance_cents'])}\n\n"
-
-                    "Open CreditGenie "
-                    "to continue."
-                )
-
-            )
-        )
-
-    except Exception as exc:
-
-        logger.warning(
-            "Could not notify user "
-            "for deposit %s (%s)",
-
-            req.deposit_id,
-
-            type(exc).__name__
-        )
-
-
-    logger.info(
-        "Deposit %s credited "
-        "by admin %s",
-
-        req.deposit_id,
-
-        admin_tg.get(
-            "id"
-        )
-    )
-
-
-    return {
-
-        "ok":
-            True,
-
-        "deposit_id":
-            req.deposit_id,
-
-        "status":
-            "credited",
-
-        "credited":
-            money(
-                req.amount_cents
-            ),
-
-        "balance":
-            money(
-                updated_user[
-                    "balance_cents"
-                ]
-            )
+      $('memberMessageForm').hidden =
+        true;
 
     }
+  );
 
 
-# =================================================
-# ADMIN MEMBERS
-# =================================================
+$('memberMessageForm')
+  .addEventListener(
+    'submit',
+    async e => {
 
-@api.get(
-    "/api/admin/members",
-    response_model=
-        MembersResponse
-)
-async def admin_members(
+      e.preventDefault();
 
-    page: int =
-        Query(
-            default=1,
-            ge=1
-        ),
+      if (
+        !adminEnabled ||
+        !messageMember ||
+        messageSending
+      ) {
+        return;
+      }
 
-    page_size: int =
-        Query(
-            default=50,
-            ge=1,
-            le=100
-        ),
+      const message =
+        $('memberMessage')
+          .value
+          .trim();
 
-    x_telegram_init_data: str =
-        Header(
-            default=""
+      if (
+        !message ||
+        message.length > 4096
+      ) {
+
+        $('memberMessageStatus').dataset.state =
+          'error';
+
+        $('memberMessageStatus').textContent =
+          'Enter a message of 1–4096 characters.';
+
+        return;
+      }
+
+      const recipient =
+        messageMember;
+
+      if (
+        !window.confirm(
+          `Send this Telegram message to ${
+            recipient.first_name ||
+            'member'
+          }?`
         )
+      ) {
+        return;
+      }
 
-):
+      messageSending =
+        true;
 
-    require_admin(
-        x_telegram_init_data
-    )
+      $('sendMemberMessageBtn').disabled =
+        true;
 
+      $('cancelMemberMessageBtn').disabled =
+        true;
 
-    with db() as con:
+      $('memberMessage').disabled =
+        true;
 
-        total = con.execute(
-            """
-            SELECT COUNT(*)
-            FROM users
-            """
-        ).fetchone()[0]
+      $('memberMessageStatus').dataset.state =
+        '';
 
+      $('memberMessageStatus').textContent =
+        'Sending…';
 
-        rows = con.execute(
-            """
-            SELECT
+      try {
 
-                id,
-                first_name,
-                username,
-                balance_cents,
+        const result =
+          await api(
+            `/api/admin/members/${recipient.id}/message`,
+            {
+              method:'POST',
 
-                created_at
-                    AS joined_at
+              body:
+                JSON.stringify({
+                  message
+                })
+            }
+          );
 
-            FROM users
+        const recipientName =
+          recipient.first_name ||
+          `Member #${recipient.id}`;
 
-            ORDER BY
-                id DESC
+        $('memberMessageStatus').dataset.state =
+          'success';
 
-            LIMIT ?
-            OFFSET ?
-            """,
-            (
-                page_size,
+        $('memberMessageStatus').textContent =
+          `✅ Message sent to ${recipientName}.
+Telegram message ID: ${result.message_id}
+Confirmed at ${new Date().toLocaleString()}.
+This confirms sending, not that the member has read it.`;
 
-                (
-                    page - 1
-                )
-                *
-                page_size
-            )
-        ).fetchall()
+        $('memberMessage').value =
+          '';
 
+        try {
+          tg?.HapticFeedback
+            ?.notificationOccurred(
+              'success'
+            );
+        } catch (_) {}
 
-    return {
+      } catch (e) {
 
-        "members":
-            [
+        $('memberMessageStatus').dataset.state =
+          'error';
 
-                {
+        $('memberMessageStatus').textContent =
+          e.message;
 
-                    **dict(row),
+      } finally {
 
-                    "balance":
-                        money(
-                            row[
-                                "balance_cents"
-                            ]
-                        )
+        messageSending =
+          false;
 
-                }
+        $('sendMemberMessageBtn').disabled =
+          false;
 
-                for row
-                in rows
+        $('cancelMemberMessageBtn').disabled =
+          false;
 
-            ],
+        $('memberMessage').disabled =
+          false;
 
-        "total":
-            total,
-
-        "page":
-            page,
-
-        "page_size":
-            page_size
+      }
 
     }
+  );
 
 
-# =================================================
-# ADMIN MESSAGE MEMBER
-# =================================================
+/* ==========================================
+   ADMIN DEPOSITS
+========================================== */
 
-@api.post(
-    "/api/admin/members/{member_id}/message",
+async function loadAdminDeposits() {
 
-    response_model=
-        AdminMessageResponse
-)
-async def admin_message_member(
+  if (!adminEnabled) {
+    return;
+  }
 
-    member_id: int,
+  try {
 
-    req:
-        AdminMessageRequest,
+    const data =
+      await api('/api/admin/deposits');
 
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
+    const rows =
+      data.deposits || [];
 
-):
+    $('adminDepositCount').textContent =
+      `${rows.length} pending`;
 
-    admin_tg = require_admin(
-        x_telegram_init_data
+    if (!rows.length) {
+
+      $('adminDeposits').innerHTML =
+        '<div class="empty">✅ No pending Bitcoin deposits.</div>';
+
+      return;
+    }
+
+    $('adminDeposits').innerHTML =
+      rows.map(
+        d => {
+
+          let requestedBy =
+            d.first_name ||
+            'Telegram User';
+
+          if (d.username) {
+            requestedBy +=
+              ` (@${d.username})`;
+          }
+
+          return `
+
+            <div class="admin-deposit">
+
+              <div class="admin-request-head">
+
+                <b>
+                  Deposit #${Number(d.id)}
+                </b>
+
+                <span class="status-pill pending">
+                  Pending
+                </span>
+
+              </div>
+
+              <div class="admin-meta">
+                User:
+                ${esc(requestedBy)}
+              </div>
+
+              <div class="admin-meta">
+                Submitted:
+                ${esc(prettyTime(d.created_at))}
+              </div>
+
+              <div class="txid">
+                ${esc(d.txid)}
+              </div>
+
+              <div class="admin-editor">
+
+                <div class="admin-editor-title">
+                  CREDIT AMOUNT IN USD
+                </div>
+
+                <input
+                  id="credit-${Number(d.id)}"
+                  inputmode="decimal"
+                  placeholder="Example: 25.00"
+                >
+
+                <div class="actions">
+
+                  <button
+                    class="btn-small"
+                    id="credit-btn-${Number(d.id)}"
+                    onclick="creditAdminDeposit(${Number(d.id)})"
+                    type="button"
+                  >
+                    CREDIT BALANCE
+                  </button>
+
+                </div>
+
+                <div
+                  class="status"
+                  id="deposit-status-${Number(d.id)}"
+                ></div>
+
+              </div>
+
+            </div>
+
+          `;
+
+        }
+      ).join('');
+
+  } catch (e) {
+
+    $('adminDeposits').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
+
+  }
+}
+
+
+async function creditAdminDeposit(
+  depositId
+) {
+
+  const input =
+    $(`credit-${depositId}`);
+
+  const btn =
+    $(`credit-btn-${depositId}`);
+
+  const status =
+    $(`deposit-status-${depositId}`);
+
+  const dollars =
+    Number.parseFloat(
+      input?.value?.trim()
+    );
+
+  if (
+    !Number.isFinite(dollars) ||
+    dollars <= 0
+  ) {
+
+    status.textContent =
+      'Enter a valid USD amount.';
+
+    return;
+  }
+
+  const amountCents =
+    Math.round(
+      dollars * 100
+    );
+
+  if (
+    amountCents > 1000000
+  ) {
+
+    status.textContent =
+      'Maximum credit is $10,000.00.';
+
+    return;
+  }
+
+  if (
+    !window.confirm(
+      `Credit $${dollars.toFixed(2)} for Deposit #${depositId}?`
     )
+  ) {
+    return;
+  }
+
+  btn.disabled =
+    true;
+
+  status.textContent =
+    'Crediting balance…';
+
+  try {
+
+    const data =
+      await api(
+        '/api/admin/credit-deposit',
+        {
+          method:'POST',
+
+          body:
+            JSON.stringify({
+              deposit_id:
+                depositId,
+
+              amount_cents:
+                amountCents
+            })
+        }
+      );
+
+    status.textContent =
+      `${data.credited} credited successfully.`;
+
+    await Promise.all([
+      loadAdminStats(),
+      loadAdminDeposits(),
+      loadWallet(),
+      loadDeposits(),
+      loadAdminMembers()
+    ]);
+
+  } catch (e) {
+
+    status.textContent =
+      e.message;
+
+  } finally {
+
+    btn.disabled =
+      false;
+
+  }
+}
 
 
-    with db() as con:
+/* ==========================================
+   PROFILE SEARCH
+   Backend field mapping:
 
-        member = con.execute(
-            """
-            SELECT
-                telegram_id
+   character_name = Name
+   game           = Birth Year
+   character_id   = State
+========================================== */
 
-            FROM users
+let characterSubmitting =
+  false;
 
-            WHERE
-                id=?
-            """,
-            (
-                member_id,
-            )
-        ).fetchone()
+let characterDecisionBusy =
+  false;
 
+let characterQueueLoading =
+  false;
 
-    if not member:
-
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                "Member not found."
-            )
-        )
+let characterHistoryLoading =
+  false;
 
 
-    try:
-
-        sent = await (
-            telegram_bot
-            .bot
-            .send_message(
-
-                chat_id=
-                    member[
-                        "telegram_id"
-                    ],
-
-                text=
-                    req.message,
-
-                parse_mode=
-                    None
-
-            )
-        )
+const characterLabels = {
+  pending:'Pending admin review',
+  available:'Found',
+  unavailable:'Not Found'
+};
 
 
-    except Forbidden:
+function profileDetails(r) {
 
-        raise HTTPException(
-            status_code=409,
+  return `
 
-            detail=(
-                "This member blocked "
-                "the bot or has not "
-                "allowed messages. "
-                "Ask them to open "
-                "CreditGenieBot and "
-                "press Start."
-            )
-        )
+    <div class="admin-name">
+      ${esc(r.character_name)}
+    </div>
 
+    <div class="row">
+      Birth Year:
+      ${esc(r.game)}
+    </div>
 
-    except BadRequest:
+    <div class="row">
+      State:
+      ${esc(r.character_id)}
+    </div>
 
-        raise HTTPException(
-            status_code=400,
+    <div class="row">
+      Submitted:
+      ${esc(prettyTime(r.created_at))}
+    </div>
 
-            detail=(
-                "Telegram could not "
-                "accept this message."
-            )
-        )
+  `;
 
-
-    except RetryAfter as exc:
-
-        delay = (
-            exc.retry_after
-        )
+}
 
 
-        seconds = int(
-            delay.total_seconds()
+async function loadCharacterHistory() {
 
-            if hasattr(
-                delay,
-                "total_seconds"
-            )
+  if (
+    !currentUser ||
+    characterHistoryLoading
+  ) {
+    return;
+  }
 
-            else
-            delay
-        ) + 1
+  characterHistoryLoading =
+    true;
 
+  try {
 
-        raise HTTPException(
-            status_code=429,
+    const data =
+      await api(
+        '/api/character-requests'
+      );
 
-            detail=(
-                "Telegram rate limit "
-                f"reached. Wait {seconds} "
-                "seconds before trying again."
-            ),
+    $('characterHistory').innerHTML =
+      data.requests.length
+        ?
+        data.requests.map(
+          r => `
 
-            headers={
-                "Retry-After":
-                    str(
-                        seconds
+            <div class="request-item">
+
+              <div class="request-top">
+
+                <b>
+                  Profile Search #${Number(r.id)}
+                </b>
+
+                <span
+                  class="status-pill ${
+                    r.status === 'available'
+                      ? 'completed'
+                      : r.status === 'unavailable'
+                      ? 'rejected'
+                      : 'pending'
+                  }"
+                >
+                  ${
+                    esc(
+                      characterLabels[r.status]
+                      ||
+                      r.status
                     )
+                  }
+                </span>
+
+              </div>
+
+              ${profileDetails(r)}
+
+              ${
+                r.status !== 'pending'
+                  ?
+                  `<div class="row">
+                    Reviewed:
+                    ${esc(prettyTime(r.updated_at))}
+                  </div>`
+                  :
+                  ''
+              }
+
+            </div>
+
+          `
+        ).join('')
+        :
+        '<div class="empty">No profile searches yet.</div>';
+
+  } catch (e) {
+
+    $('characterHistory').textContent =
+      e.message;
+
+  } finally {
+
+    characterHistoryLoading =
+      false;
+
+  }
+}
+
+
+async function loadCharacterQueue() {
+
+  if (
+    !adminEnabled ||
+    characterQueueLoading
+  ) {
+    return;
+  }
+
+  characterQueueLoading =
+    true;
+
+  $('refreshCharacterQueueBtn').disabled =
+    true;
+
+  try {
+
+    const data =
+      await api(
+        '/api/admin/character-requests'
+      );
+
+    $('characterQueueCount').textContent =
+      `${data.total} pending`;
+
+    $('characterQueue').innerHTML =
+      data.requests.length
+        ?
+        data.requests.map(
+          r => `
+
+            <div class="admin-request">
+
+              <b>
+                Profile Search #${Number(r.id)}
+              </b>
+
+              ${profileDetails(r)}
+
+              <div class="admin-requested-by">
+                From:
+                ${esc(
+                  r.first_name ||
+                  'Member'
+                )}
+                ${
+                  r.username
+                    ? ' (@' +
+                      esc(r.username) +
+                      ')'
+                    : ''
+                }
+              </div>
+
+              <div class="admin-buttons section-gap">
+
+                <button
+                  type="button"
+                  class="btn-small"
+                  data-character-request="${Number(r.id)}"
+                  data-decision="available"
+                >
+                  FOUND
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-small btn-red"
+                  data-character-request="${Number(r.id)}"
+                  data-decision="unavailable"
+                >
+                  NOT FOUND
+                </button>
+
+              </div>
+
+            </div>
+
+          `
+        ).join('')
+        :
+        '<div class="empty">No pending profile searches.</div>';
+
+  } catch (e) {
+
+    $('characterQueueStatus').textContent =
+      e.message;
+
+  } finally {
+
+    characterQueueLoading =
+      false;
+
+    $('refreshCharacterQueueBtn').disabled =
+      false;
+
+  }
+}
+
+
+/* PURCHASE PROFILE SEARCH */
+
+$('characterRequestForm')
+  .addEventListener(
+    'submit',
+    async e => {
+
+      e.preventDefault();
+
+      if (characterSubmitting) {
+        return;
+      }
+
+      if (!currentUser) {
+
+        $('characterStatus').textContent =
+          'Reopen the Mini App from Telegram to submit a search.';
+
+        return;
+      }
+
+      const name =
+        $('characterName')
+          .value
+          .trim();
+
+      const birthYear =
+        $('characterGame')
+          .value
+          .trim();
+
+      const state =
+        $('characterId')
+          .value
+          .trim()
+          .toUpperCase();
+
+      if (!name) {
+
+        $('characterStatus').textContent =
+          'Enter a name.';
+
+        return;
+      }
+
+      const currentYear =
+        new Date().getFullYear();
+
+      const yearNumber =
+        Number(birthYear);
+
+      if (
+        !/^\d{4}$/.test(birthYear) ||
+        yearNumber < 1900 ||
+        yearNumber > currentYear
+      ) {
+
+        $('characterStatus').textContent =
+          'Enter a valid 4-digit birth year.';
+
+        return;
+      }
+
+      if (
+        !/^[A-Z]{2}$/.test(state)
+      ) {
+
+        $('characterStatus').textContent =
+          'Enter a 2-letter state code. Example: NV.';
+
+        return;
+      }
+
+      if (
+        !window.confirm(
+          'Purchase this profile search for $12.00?'
+        )
+      ) {
+        return;
+      }
+
+      characterSubmitting =
+        true;
+
+      $('submitCharacterBtn').disabled =
+        true;
+
+      $('characterStatus').textContent =
+        'Purchasing profile search…';
+
+      try {
+
+        const data =
+          await api(
+            '/api/character-requests',
+            {
+              method:'POST',
+
+              body:
+                JSON.stringify({
+                  character_name:
+                    name,
+
+                  game:
+                    birthYear,
+
+                  character_id:
+                    state
+                })
             }
-        )
+          );
 
+        if (
+          data.already_pending
+        ) {
 
-    except (
-        TimedOut,
-        NetworkError
-    ):
+          $('characterStatus').textContent =
+            `Profile Search #${data.request_id} is already pending. No additional charge was made.`;
 
-        raise HTTPException(
-            status_code=502,
+        } else {
 
-            detail=(
-                "Telegram did not "
-                "confirm delivery. "
-                "The message may have "
-                "arrived."
-            )
-        )
+          $('characterStatus').textContent =
+            `✅ Profile Search #${data.request_id} purchased for $12.00 and submitted for admin review.`;
 
+        }
 
-    except TelegramError:
+        $('characterRequestForm').reset();
 
-        raise HTTPException(
-            status_code=502,
+        await Promise.all([
+          loadWallet(),
+          loadMe(),
+          loadCharacterHistory(),
+          loadCharacterQueue()
+        ]);
 
-            detail=(
-                "Telegram could not "
-                "send the message."
-            )
-        )
+      } catch (e) {
 
+        $('characterStatus').textContent =
+          e.message;
 
-    logger.info(
-        "Admin %s sent a "
-        "message to member %s",
+      } finally {
 
-        admin_tg["id"],
+        characterSubmitting =
+          false;
 
-        member_id
-    )
+        $('submitCharacterBtn').disabled =
+          false;
 
-
-    return {
-
-        "ok":
-            True,
-
-        "member_id":
-            member_id,
-
-        "message_id":
-            sent.message_id
+      }
 
     }
+  );
 
 
-# =================================================
-# $12 PROFILE SEARCH
-# =================================================
+$('refreshCharacterQueueBtn')
+  .addEventListener(
+    'click',
+    loadCharacterQueue
+  );
 
-@api.post(
-    "/api/character-requests"
-)
-async def create_character_request(
 
-    req:
-        CharacterRequestInput,
+$('characterQueue')
+  .addEventListener(
+    'click',
+    async e => {
 
-    x_telegram_init_data: str =
-        Header(
-            default=""
+      const button =
+        e.target.closest(
+          '[data-character-request]'
+        );
+
+      if (
+        !button ||
+        !adminEnabled ||
+        characterDecisionBusy
+      ) {
+        return;
+      }
+
+      const id =
+        Number(
+          button.dataset
+            .characterRequest
+        );
+
+      const decision =
+        button.dataset
+          .decision;
+
+      if (
+        ![
+          'available',
+          'unavailable'
+        ].includes(decision)
+      ) {
+        return;
+      }
+
+      const resultLabel =
+        decision === 'available'
+          ? 'FOUND'
+          : 'NOT FOUND';
+
+      if (
+        !window.confirm(
+          `Mark Profile Search #${id} as ${resultLabel}?`
         )
+      ) {
+        return;
+      }
 
-):
+      characterDecisionBusy =
+        true;
 
-    user = get_or_create_user(
-        verify_init_data(
-            x_telegram_init_data
-        )
-    )
-
-
-    with db() as con:
-
-        con.execute(
-            "BEGIN IMMEDIATE"
-        )
-
-
-        # Prevent duplicate pending
-        # searches and duplicate charges.
-
-        existing = con.execute(
-            """
-            SELECT id
-
-            FROM character_requests
-
-            WHERE
-                user_id=?
-
-            AND
-                character_name=?
-                COLLATE NOCASE
-
-            AND
-                game=?
-
-            AND
-                character_id=?
-                COLLATE NOCASE
-
-            AND
-                status='pending'
-            """,
-            (
-                user[
-                    "id"
-                ],
-
-                req.character_name,
-
-                req.game,
-
-                req.character_id
+      const buttons =
+        Array.from(
+          $('characterQueue')
+            .querySelectorAll(
+              'button'
             )
-        ).fetchone()
+        );
 
+      buttons.forEach(
+        b => b.disabled = true
+      );
 
-        if existing:
+      $('refreshCharacterQueueBtn').disabled =
+        true;
 
-            return {
+      $('characterQueueStatus').textContent =
+        'Saving profile search result…';
 
-                "ok":
-                    True,
+      try {
 
-                "request_id":
-                    existing[
-                        "id"
-                    ],
+        const data =
+          await api(
+            `/api/admin/character-requests/${id}/decision`,
+            {
+              method:'POST',
 
-                "status":
-                    "pending",
-
-                "already_pending":
-                    True,
-
-                "charged":
-                    "$0.00",
-
-                "charged_cents":
-                    0
-
+              body:
+                JSON.stringify({
+                  status:
+                    decision
+                })
             }
+          );
 
-
-        pending = (
-            con.execute(
-                """
-                SELECT COUNT(*)
-
-                FROM character_requests
-
-                WHERE
-                    user_id=?
-
-                AND
-                    status='pending'
-                """,
-                (
-                    user[
-                        "id"
-                    ],
-                )
-            )
-            .fetchone()[0]
-        )
-
-
-        if (
-            pending >= 20
-        ):
-
-            raise HTTPException(
-                status_code=429,
-
-                detail=(
-                    "You already have "
-                    "20 pending profile "
-                    "searches. Wait for "
-                    "admin review."
-                )
-            )
-
-
-        balance_row = (
-            con.execute(
-                """
-                SELECT
-                    balance_cents
-
-                FROM users
-
-                WHERE
-                    id=?
-                """,
-                (
-                    user[
-                        "id"
-                    ],
-                )
-            )
-            .fetchone()
-        )
-
-
-        current_balance = (
-
-            balance_row[
-                "balance_cents"
+        $('characterQueueStatus').textContent =
+          `✅ Profile Search #${id}: ${
+            characterLabels[
+              data.status
             ]
+          }. ${
+            data.notification_sent
+              ? 'Telegram notification sent.'
+              : 'Result saved.'
+          }`;
 
-            if balance_row
+      } catch (e) {
 
-            else 0
+        $('characterQueueStatus').textContent =
+          e.message;
 
-        )
+      } finally {
 
+        characterDecisionBusy =
+          false;
 
-        if (
-            current_balance
-            <
-            PROFILE_SEARCH_PRICE_CENTS
-        ):
+        buttons.forEach(
+          b => b.disabled = false
+        );
 
-            raise HTTPException(
-                status_code=402,
+        $('refreshCharacterQueueBtn').disabled =
+          false;
 
-                detail=(
-                    "Insufficient balance. "
-                    "Each profile search "
-                    "costs $12.00."
-                )
-            )
+        await Promise.all([
+          loadCharacterQueue(),
+          loadCharacterHistory()
+        ]);
 
+      }
 
-        updated = con.execute(
-            """
-            UPDATE users
-
-            SET
-                balance_cents =
-                    balance_cents - ?
-
-            WHERE
-                id=?
-
-            AND
-                balance_cents >= ?
-            """,
-            (
-                PROFILE_SEARCH_PRICE_CENTS,
-
-                user[
-                    "id"
-                ],
-
-                PROFILE_SEARCH_PRICE_CENTS
-            )
-        )
+    }
+  );
 
 
-        if (
-            updated.rowcount
-            !=
-            1
-        ):
+/* ==========================================
+   START
+========================================== */
 
-            raise HTTPException(
-                status_code=402,
+async function startApp() {
 
-                detail=(
-                    "Insufficient balance. "
-                    "Each profile search "
-                    "costs $12.00."
-                )
-            )
+  await loadMe();
 
+  await Promise.all([
+    loadWallet(),
+    loadDeposits(),
+    loadCharacterHistory(),
+    loadCharacterQueue()
+  ]);
 
-        stamp = (
-            now_iso()
-        )
+}
+
+startApp();
 
 
-        cur = con.execute(
-            """
-            INSERT INTO
-            character_requests(
+/* ==========================================
+   AUTO REFRESH
+========================================== */
 
-                user_id,
+setInterval(
+  async () => {
 
-                character_name,
+    await Promise.all([
+      loadWallet(),
+      loadDeposits(),
+      loadCharacterHistory(),
+      loadCharacterQueue()
+    ]);
 
-                game,
+    if (adminEnabled) {
 
-                character_id,
-
-                created_at,
-
-                updated_at
-
-            )
-
-            VALUES(
-                ?, ?, ?, ?, ?, ?
-            )
-            """,
-            (
-                user[
-                    "id"
-                ],
-
-                req.character_name,
-
-                req.game,
-
-                req.character_id,
-
-                stamp,
-
-                stamp
-            )
-        )
-
-
-        request_id = (
-            cur.lastrowid
-        )
-
-
-        new_balance = (
-            current_balance
-            -
-            PROFILE_SEARCH_PRICE_CENTS
-        )
-
-
-    return {
-
-        "ok":
-            True,
-
-        "request_id":
-            request_id,
-
-        "status":
-            "pending",
-
-        "already_pending":
-            False,
-
-        "charged":
-            money(
-                PROFILE_SEARCH_PRICE_CENTS
-            ),
-
-        "charged_cents":
-            PROFILE_SEARCH_PRICE_CENTS,
-
-        "balance":
-            money(
-                new_balance
-            ),
-
-        "balance_cents":
-            new_balance
+      await Promise.all([
+        loadAdminStats(),
+        loadAdminMembers(),
+        loadAdminDeposits()
+      ]);
 
     }
 
+  },
+  10000
+);
 
-# =================================================
-# MEMBER PROFILE SEARCH HISTORY
-# =================================================
+</script>
 
-@api.get(
-    "/api/character-requests"
-)
-async def my_character_requests(
-
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
-
-):
-
-    user = get_or_create_user(
-        verify_init_data(
-            x_telegram_init_data
-        )
-    )
-
-
-    with db() as con:
-
-        rows = con.execute(
-            """
-            SELECT
-
-                id,
-
-                character_name,
-
-                game,
-
-                character_id,
-
-                status,
-
-                created_at,
-
-                updated_at
-
-            FROM character_requests
-
-            WHERE
-                user_id=?
-
-            ORDER BY
-                id DESC
-
-            LIMIT 50
-            """,
-            (
-                user[
-                    "id"
-                ],
-            )
-        ).fetchall()
-
-
-    return {
-
-        "requests":
-            [
-
-                dict(row)
-
-                for row
-                in rows
-
-            ]
-
-    }
-
-
-# =================================================
-# ADMIN PROFILE SEARCH QUEUE
-# =================================================
-
-@api.get(
-    "/api/admin/character-requests"
-)
-async def admin_character_requests(
-
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
-
-):
-
-    require_admin(
-        x_telegram_init_data
-    )
-
-
-    with db() as con:
-
-        total = (
-            con.execute(
-                """
-                SELECT COUNT(*)
-
-                FROM character_requests
-
-                WHERE
-                    status='pending'
-                """
-            )
-            .fetchone()[0]
-        )
-
-
-        rows = con.execute(
-            """
-            SELECT
-
-                c.id,
-
-                c.character_name,
-
-                c.game,
-
-                c.character_id,
-
-                c.status,
-
-                c.created_at,
-
-                u.first_name,
-
-                u.username
-
-            FROM character_requests c
-
-            JOIN users u
-
-                ON
-                u.id =
-                c.user_id
-
-            WHERE
-                c.status='pending'
-
-            ORDER BY
-                c.id ASC
-
-            LIMIT 100
-            """
-        ).fetchall()
-
-
-    return {
-
-        "requests":
-            [
-
-                dict(row)
-
-                for row
-                in rows
-
-            ],
-
-        "total":
-            total
-
-    }
-
-
-# =================================================
-# ADMIN PROFILE SEARCH RESULT
-# =================================================
-
-@api.post(
-    "/api/admin/character-requests/{request_id}/decision"
-)
-async def decide_character_request(
-
-    request_id: int,
-
-    req:
-        CharacterDecisionInput,
-
-    x_telegram_init_data: str =
-        Header(
-            default=""
-        )
-
-):
-
-    admin_tg = require_admin(
-        x_telegram_init_data
-    )
-
-
-    with db() as con:
-
-        con.execute(
-            "BEGIN IMMEDIATE"
-        )
-
-
-        row = con.execute(
-            """
-            SELECT
-
-                c.*,
-
-                u.telegram_id
-
-            FROM character_requests c
-
-            JOIN users u
-
-                ON
-                u.id =
-                c.user_id
-
-            WHERE
-                c.id=?
-            """,
-            (
-                request_id,
-            )
-        ).fetchone()
-
-
-        if not row:
-
-            raise HTTPException(
-                status_code=404,
-
-                detail=(
-                    "Profile search "
-                    "not found."
-                )
-            )
-
-
-        if (
-            row[
-                "status"
-            ]
-            !=
-            "pending"
-        ):
-
-            raise HTTPException(
-                status_code=409,
-
-                detail=(
-                    "This profile search "
-                    "was already reviewed. "
-                    "Refresh the queue."
-                )
-            )
-
-
-        updated = con.execute(
-            """
-            UPDATE character_requests
-
-            SET
-
-                status=?,
-
-                updated_at=?,
-
-                reviewed_by=?
-
-            WHERE
-                id=?
-
-            AND
-                status='pending'
-            """,
-            (
-                req.status,
-
-                now_iso(),
-
-                admin_tg[
-                    "id"
-                ],
-
-                request_id
-            )
-        )
-
-
-        if (
-            updated.rowcount
-            !=
-            1
-        ):
-
-            raise HTTPException(
-                status_code=409,
-
-                detail=(
-                    "This profile search "
-                    "was already reviewed."
-                )
-            )
-
-
-    result_label = (
-
-        "Found"
-
-        if
-        req.status
-        ==
-        "available"
-
-        else
-        "Not Found"
-
-    )
-
-
-    notified = False
-
-
-    try:
-
-        await (
-            telegram_bot
-            .bot
-            .send_message(
-
-                chat_id=
-                    row[
-                        "telegram_id"
-                    ],
-
-                parse_mode=
-                    None,
-
-                text=(
-                    f"🔎 Profile Search #{request_id}\n\n"
-
-                    f"Name: "
-                    f"{row['character_name']}\n"
-
-                    f"Birth Year: "
-                    f"{row['game']}\n"
-
-                    f"State: "
-                    f"{row['character_id']}\n\n"
-
-                    f"Admin result: "
-                    f"{result_label}\n\n"
-
-                    "Open CreditGenie "
-                    "to view your "
-                    "profile searches."
-                ),
-
-                read_timeout=
-                    10,
-
-                connect_timeout=
-                    5
-            )
-        )
-
-
-        notified = (
-            True
-        )
-
-
-    except Exception as exc:
-
-        logger.warning(
-            "Profile search %s "
-            "notification "
-            "unconfirmed (%s)",
-
-            request_id,
-
-            type(exc).__name__
-        )
-
-
-    return {
-
-        "ok":
-            True,
-
-        "request_id":
-            request_id,
-
-        "status":
-            req.status,
-
-        "notification_sent":
-            notified
-
-    }
+</body>
+</html>
