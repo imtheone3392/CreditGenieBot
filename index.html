@@ -2,10 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1,viewport-fit=cover"
->
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>CreditGenie</title>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -36,13 +33,7 @@ html,body{
   margin:0;
   background:var(--bg);
   color:var(--text);
-  font-family:
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    Arial,
-    sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
 }
 
 body{
@@ -66,12 +57,7 @@ body{
   width:42px;
   height:42px;
   border-radius:13px;
-  background:
-    linear-gradient(
-      145deg,
-      #63d73b,
-      #308819
-    );
+  background:linear-gradient(145deg,#63d73b,#308819);
   display:grid;
   place-items:center;
   font-size:24px;
@@ -194,7 +180,7 @@ button{
   border:0;
   border-radius:13px;
   background:var(--green);
-  color:#fff;
+  color:white;
   padding:16px 26px;
   font-size:18px;
   font-weight:800;
@@ -296,11 +282,7 @@ button:disabled{
   margin-top:10px;
   overflow-wrap:anywhere;
   word-break:break-word;
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   color:#dce3e8;
 }
 
@@ -314,11 +296,7 @@ button:disabled{
 }
 
 .txid{
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
   overflow-wrap:anywhere;
   color:#cbd2d8;
   font-size:12px;
@@ -351,12 +329,7 @@ button:disabled{
   margin-bottom:16px;
   padding:14px;
   border-radius:14px;
-  background:
-    linear-gradient(
-      135deg,
-      #273b4a,
-      #17222b
-    );
+  background:linear-gradient(135deg,#273b4a,#17222b);
   border:1px solid #395269;
 }
 
@@ -496,12 +469,8 @@ button:disabled{
 
 <div class="wrap">
 
-<!-- BRAND -->
 <div class="brand">
-
-  <div class="logo">
-    🧞
-  </div>
+  <div class="logo">🧞</div>
 
   <div>
     <h1>CreditGenie</h1>
@@ -509,7 +478,6 @@ button:disabled{
     <p id="account"></p>
     <p id="status" role="status"></p>
   </div>
-
 </div>
 
 
@@ -517,7 +485,6 @@ button:disabled{
 <section class="card">
 
   <div class="card-head">
-
     <h2>
       SINGLE PROFILE<br>
       SEARCH
@@ -526,18 +493,12 @@ button:disabled{
     <span class="pill">
       Admin review
     </span>
-
   </div>
-
 
   <form
     id="characterRequestForm"
     class="grid"
   >
-
-    <!-- Internal field:
-         character_name
-         Used as profile Name -->
 
     <input
       id="characterName"
@@ -547,36 +508,27 @@ button:disabled{
       autocomplete="off"
     >
 
-
-    <!-- Internal field:
-         game
-         Used as Birthdate -->
-
     <input
       id="characterGame"
-      maxlength="10"
+      maxlength="4"
       required
       inputmode="numeric"
-      placeholder="Birthdate (MM/DD/YYYY)"
+      pattern="[0-9]{4}"
+      placeholder="Birth Year"
       autocomplete="off"
     >
 
-
-    <!-- Internal field:
-         character_id
-         Used as Region -->
-
     <input
       id="characterId"
-      maxlength="64"
+      maxlength="2"
       required
-      pattern="[A-Za-z0-9_.\-]+"
-      placeholder="Region"
+      inputmode="text"
+      pattern="[A-Za-z]{2}"
+      placeholder="State (2 letters)"
       autocomplete="address-level1"
       autocapitalize="characters"
       spellcheck="false"
     >
-
 
     <button
       id="submitCharacterBtn"
@@ -587,7 +539,6 @@ button:disabled{
 
   </form>
 
-
   <div
     id="characterStatus"
     class="status"
@@ -595,36 +546,26 @@ button:disabled{
     aria-live="polite"
   ></div>
 
-
   <div class="card-head section-gap">
-
     <h2 style="font-size:20px">
       MY PROFILE SEARCHES
     </h2>
-
   </div>
 
-
   <div id="characterHistory">
-
     <div class="empty">
       Loading profile searches…
     </div>
-
   </div>
 
 </section>
-
 
 
 <!-- BITCOIN WALLET -->
 <section class="card">
 
   <div class="card-head">
-
-    <h2>
-      ₿ BITCOIN WALLET
-    </h2>
+    <h2>₿ BITCOIN WALLET</h2>
 
     <span
       class="pill"
@@ -632,9 +573,7 @@ button:disabled{
     >
       $0.00
     </span>
-
   </div>
-
 
   <div class="wallet-summary">
 
@@ -655,11 +594,9 @@ button:disabled{
 
   </div>
 
-
   <div class="admin-editor-title">
     BITCOIN RECEIVING ADDRESS
   </div>
-
 
   <div
     class="address-box"
@@ -667,7 +604,6 @@ button:disabled{
   >
     Loading…
   </div>
-
 
   <div class="actions">
 
@@ -681,11 +617,9 @@ button:disabled{
 
   </div>
 
-
   <div class="admin-editor-title section-gap">
     SUBMIT BITCOIN TRANSACTION ID
   </div>
-
 
   <input
     id="depositTxid"
@@ -695,7 +629,6 @@ button:disabled{
     spellcheck="false"
     placeholder="64-character Bitcoin transaction ID"
   >
-
 
   <div class="actions">
 
@@ -708,18 +641,15 @@ button:disabled{
 
   </div>
 
-
   <div
     id="walletStatus"
     class="status"
   ></div>
 
-
   <p class="notice">
     Payment submissions are reviewed before your
     CreditGenie balance is credited.
   </p>
-
 
   <div class="card-head section-gap">
 
@@ -736,17 +666,13 @@ button:disabled{
 
   </div>
 
-
   <div id="depositHistory">
-
     <div class="empty">
       Loading deposits…
     </div>
-
   </div>
 
 </section>
-
 
 
 <!-- ADMIN PANEL -->
@@ -762,18 +688,15 @@ button:disabled{
     </div>
 
     <div class="admin-sub">
-      View members, send individual Telegram
-      messages, review profile searches, and
-      verify Bitcoin deposits.
+      View members, send individual Telegram messages,
+      review profile searches, and verify Bitcoin deposits.
     </div>
 
   </div>
 
-
   <div class="stats">
 
     <div class="stat">
-
       <div
         class="stat-number"
         id="statUsers"
@@ -784,12 +707,9 @@ button:disabled{
       <div class="stat-label">
         USERS
       </div>
-
     </div>
 
-
     <div class="stat">
-
       <div
         class="stat-number"
         id="statDeposits"
@@ -800,14 +720,12 @@ button:disabled{
       <div class="stat-label">
         DEPOSITS
       </div>
-
     </div>
 
   </div>
 
 
-
-  <!-- ADMIN MEMBERS -->
+  <!-- MEMBERS -->
   <div class="card-head">
 
     <h2>
@@ -823,7 +741,6 @@ button:disabled{
 
   </div>
 
-
   <div class="actions">
 
     <button
@@ -836,22 +753,17 @@ button:disabled{
 
   </div>
 
-
   <div
     id="membersStatus"
     class="status"
     role="status"
   ></div>
 
-
   <div id="membersList">
-
     <div class="empty">
       Loading members…
     </div>
-
   </div>
-
 
   <div class="admin-buttons section-gap">
 
@@ -875,15 +787,13 @@ button:disabled{
 
   </div>
 
-
   <p
     id="membersPageLabel"
     class="notice"
   ></p>
 
 
-
-  <!-- MEMBER MESSAGE -->
+  <!-- MESSAGE MEMBER -->
   <form
     id="memberMessageForm"
     class="admin-editor"
@@ -906,7 +816,6 @@ button:disabled{
       placeholder="Write a message to this member…"
     ></textarea>
 
-
     <div class="admin-buttons">
 
       <button
@@ -927,7 +836,6 @@ button:disabled{
 
     </div>
 
-
     <div
       id="memberMessageStatus"
       class="status"
@@ -936,7 +844,6 @@ button:disabled{
     ></div>
 
   </form>
-
 
 
   <!-- PROFILE SEARCH QUEUE -->
@@ -955,7 +862,6 @@ button:disabled{
 
   </div>
 
-
   <button
     id="refreshCharacterQueueBtn"
     type="button"
@@ -964,12 +870,9 @@ button:disabled{
     REFRESH PROFILE QUEUE
   </button>
 
-
   <p class="notice">
-    Showing pending profile searches for
-    admin review.
+    Showing pending profile searches for admin review.
   </p>
-
 
   <div
     id="characterQueueStatus"
@@ -978,18 +881,14 @@ button:disabled{
     aria-live="polite"
   ></div>
 
-
   <div id="characterQueue">
-
     <div class="empty">
       Loading profile searches…
     </div>
-
   </div>
 
 
-
-  <!-- BITCOIN DEPOSIT QUEUE -->
+  <!-- BITCOIN QUEUE -->
   <div class="card-head section-gap">
 
     <h2>
@@ -1005,27 +904,20 @@ button:disabled{
 
   </div>
 
-
   <p class="notice">
-    Verify the transaction on the Bitcoin
-    network and confirm it paid your
-    receiving address before crediting
-    a balance.
+    Verify the transaction on the Bitcoin network and confirm
+    it paid your receiving address before crediting a balance.
   </p>
-
 
   <div
     id="adminDepositStatus"
     class="queue-status"
   ></div>
 
-
   <div id="adminDeposits">
-
     <div class="empty">
       Loading deposit queue…
     </div>
-
   </div>
 
 </section>
@@ -1033,59 +925,45 @@ button:disabled{
 </div>
 
 
-
 <script>
 
 const tg =
   window.Telegram?.WebApp;
 
-
 if (tg) {
 
   tg.ready();
-
   tg.expand();
 
   try {
 
-    tg.setHeaderColor(
-      '#14212b'
-    );
-
-    tg.setBackgroundColor(
-      '#14212b'
-    );
+    tg.setHeaderColor('#14212b');
+    tg.setBackgroundColor('#14212b');
 
   } catch (e) {}
 
 }
 
-
 const initData =
   tg?.initData || '';
 
-
 const $ =
-  id =>
-    document.getElementById(id);
+  id => document.getElementById(id);
 
+let currentUser =
+  null;
 
-let currentUser = null;
+let adminEnabled =
+  false;
 
-let adminEnabled = false;
+let currentDepositAddress =
+  '';
 
-let currentDepositAddress = '';
-
-
-
-const headers = () => ({
-  'Content-Type':
-    'application/json',
-
-  'X-Telegram-Init-Data':
-    initData
-});
-
+const headers =
+  () => ({
+    'Content-Type':'application/json',
+    'X-Telegram-Init-Data':initData
+  });
 
 
 async function api(
@@ -1106,14 +984,12 @@ async function api(
       }
     );
 
-
   const data =
     await res
       .json()
       .catch(
         () => ({})
       );
-
 
   if (!res.ok) {
 
@@ -1130,11 +1006,8 @@ async function api(
 
   }
 
-
   return data;
-
 }
-
 
 
 function esc(v = '') {
@@ -1154,17 +1027,14 @@ function esc(v = '') {
 }
 
 
-
 function prettyTime(value) {
 
   if (!value) {
     return '';
   }
 
-
   const d =
     new Date(value);
-
 
   if (
     Number.isNaN(
@@ -1174,11 +1044,8 @@ function prettyTime(value) {
     return value;
   }
 
-
   return d.toLocaleString();
-
 }
-
 
 
 function statusLabel(status) {
@@ -1189,13 +1056,11 @@ function statusLabel(status) {
     return 'Complete';
   }
 
-
   if (
     status === 'credited'
   ) {
     return 'Credited';
   }
-
 
   if (
     status === 'rejected'
@@ -1203,11 +1068,8 @@ function statusLabel(status) {
     return 'Rejected';
   }
 
-
   return 'Pending';
-
 }
-
 
 
 function shortTxid(
@@ -1220,19 +1082,14 @@ function shortTxid(
     return txid;
   }
 
-
   return (
     `${txid.slice(0,12)}…` +
     `${txid.slice(-10)}`
   );
-
 }
 
 
-
-/* ================================
-   CURRENT USER
-================================ */
+/* CURRENT USER */
 
 async function loadMe() {
 
@@ -1243,9 +1100,8 @@ async function loadMe() {
         '/api/me'
       );
 
-
-    currentUser = me;
-
+    currentUser =
+      me;
 
     $('account')
       .textContent =
@@ -1255,22 +1111,18 @@ async function loadMe() {
         :
         '';
 
-
     adminEnabled =
       Boolean(
         me.is_admin
       );
-
 
     if (
       adminEnabled
     ) {
 
       $('adminPanel')
-        .style
-        .display =
+        .style.display =
           'block';
-
 
       await Promise.all([
         loadAdminStats(),
@@ -1281,8 +1133,7 @@ async function loadMe() {
     } else {
 
       $('adminPanel')
-        .style
-        .display =
+        .style.display =
           'none';
 
     }
@@ -1298,10 +1149,7 @@ async function loadMe() {
 }
 
 
-
-/* ================================
-   WALLET
-================================ */
+/* WALLET */
 
 async function loadWallet() {
 
@@ -1312,22 +1160,18 @@ async function loadWallet() {
         '/api/wallet'
       );
 
-
     currentDepositAddress =
       data.deposit_address || '';
-
 
     $('walletBalance')
       .textContent =
         data.balance ||
         '$0.00';
 
-
     $('walletBalanceLarge')
       .textContent =
         data.balance ||
         '$0.00';
-
 
     $('btcAddress')
       .textContent =
@@ -1344,7 +1188,6 @@ async function loadWallet() {
   }
 
 }
-
 
 
 $('copyAddressBtn')
@@ -1364,15 +1207,12 @@ $('copyAddressBtn')
 
       }
 
-
       try {
 
-        await navigator
-          .clipboard
+        await navigator.clipboard
           .writeText(
             currentDepositAddress
           );
-
 
         $('walletStatus')
           .textContent =
@@ -1390,7 +1230,6 @@ $('copyAddressBtn')
   );
 
 
-
 $('submitDepositBtn')
   .addEventListener(
     'click',
@@ -1399,12 +1238,10 @@ $('submitDepositBtn')
       const btn =
         $('submitDepositBtn');
 
-
       const txid =
         $('depositTxid')
           .value
           .trim();
-
 
       if (!txid) {
 
@@ -1416,14 +1253,12 @@ $('submitDepositBtn')
 
       }
 
-
-      btn.disabled = true;
-
+      btn.disabled =
+        true;
 
       $('walletStatus')
         .textContent =
           'Submitting payment…';
-
 
       try {
 
@@ -1440,18 +1275,15 @@ $('submitDepositBtn')
             }
           );
 
-
         $('walletStatus')
           .textContent =
             `Deposit #${data.deposit_id} submitted for verification.`;
 
-
         $('depositTxid')
-          .value = '';
-
+          .value =
+            '';
 
         await loadDeposits();
-
 
         if (
           adminEnabled
@@ -1481,7 +1313,6 @@ $('submitDepositBtn')
   );
 
 
-
 async function loadDeposits() {
 
   try {
@@ -1491,15 +1322,12 @@ async function loadDeposits() {
         '/api/deposits'
       );
 
-
     const rows =
       data.deposits || [];
-
 
     $('depositCount')
       .textContent =
         rows.length;
-
 
     if (
       !rows.length
@@ -1513,7 +1341,6 @@ async function loadDeposits() {
 
     }
 
-
     $('depositHistory')
       .innerHTML =
         rows
@@ -1524,16 +1351,15 @@ async function loadDeposits() {
                 d.status === 'credited'
                 ?
                 `<div class="row">
-                  Credited:
-                  ${esc(d.amount)}
+                  Credited: ${esc(d.amount)}
                 </div>`
                 :
                 `<div class="row">
                   Waiting for verification…
                 </div>`;
 
-
               return `
+
                 <div class="deposit-item">
 
                   <div class="request-top">
@@ -1550,7 +1376,6 @@ async function loadDeposits() {
 
                   </div>
 
-
                   <div
                     class="txid"
                     title="${esc(d.txid)}"
@@ -1558,9 +1383,7 @@ async function loadDeposits() {
                     ${esc(shortTxid(d.txid))}
                   </div>
 
-
                   ${amount}
-
 
                   <div class="row">
                     Submitted:
@@ -1568,6 +1391,7 @@ async function loadDeposits() {
                   </div>
 
                 </div>
+
               `;
 
             }
@@ -1587,10 +1411,7 @@ async function loadDeposits() {
 }
 
 
-
-/* ================================
-   ADMIN STATS
-================================ */
+/* ADMIN STATS */
 
 async function loadAdminStats() {
 
@@ -1600,7 +1421,6 @@ async function loadAdminStats() {
     return;
   }
 
-
   try {
 
     const data =
@@ -1608,16 +1428,13 @@ async function loadAdminStats() {
         '/api/admin/stats'
       );
 
-
     $('statUsers')
       .textContent =
         data.users ?? 0;
 
-
     $('statDeposits')
       .textContent =
         data.pending_deposits ?? 0;
-
 
     $('adminDepositCount')
       .textContent =
@@ -1634,24 +1451,25 @@ async function loadAdminStats() {
 }
 
 
+/* ADMIN MEMBERS */
 
-/* ================================
-   ADMIN MEMBERS
-================================ */
+let membersPage =
+  1;
 
-let membersPage = 1;
+let membersTotalPages =
+  1;
 
-let membersTotalPages = 1;
-
-let membersBusy = false;
+let membersBusy =
+  false;
 
 let visibleMembers =
   new Map();
 
-let messageMember = null;
+let messageMember =
+  null;
 
-let messageSending = false;
-
+let messageSending =
+  false;
 
 
 async function loadAdminMembers(
@@ -1665,30 +1483,24 @@ async function loadAdminMembers(
     return;
   }
 
-
   membersBusy =
     true;
-
 
   $('refreshMembersBtn')
     .disabled =
       true;
 
-
   $('membersPrevBtn')
     .disabled =
       true;
-
 
   $('membersNextBtn')
     .disabled =
       true;
 
-
   $('membersStatus')
     .textContent =
       'Loading members…';
-
 
   try {
 
@@ -1697,10 +1509,8 @@ async function loadAdminMembers(
         `/api/admin/members?page=${page}&page_size=50`
       );
 
-
     membersPage =
       data.page;
-
 
     membersTotalPages =
       Math.max(
@@ -1711,33 +1521,27 @@ async function loadAdminMembers(
         )
       );
 
-
     visibleMembers =
       new Map(
-        data.members
-          .map(
-            m => [
-              m.id,
-              m
-            ]
-          )
+        data.members.map(
+          m => [
+            m.id,
+            m
+          ]
+        )
       );
-
 
     $('memberCount')
       .textContent =
         `${data.total} members`;
 
-
     $('statUsers')
       .textContent =
         data.total;
 
-
     $('membersPageLabel')
       .textContent =
         `Page ${membersPage} of ${membersTotalPages}`;
-
 
     $('membersList')
       .innerHTML =
@@ -1802,7 +1606,6 @@ async function loadAdminMembers(
         :
         '<div class="empty">No registered members yet.</div>';
 
-
     $('membersStatus')
       .textContent =
         '';
@@ -1818,16 +1621,13 @@ async function loadAdminMembers(
     membersBusy =
       false;
 
-
     $('refreshMembersBtn')
       .disabled =
         false;
 
-
     $('membersPrevBtn')
       .disabled =
         membersPage <= 1;
-
 
     $('membersNextBtn')
       .disabled =
@@ -1839,12 +1639,10 @@ async function loadAdminMembers(
 }
 
 
-
 $('refreshMembersBtn')
   .addEventListener(
     'click',
-    () =>
-      loadAdminMembers()
+    () => loadAdminMembers()
   );
 
 
@@ -1868,7 +1666,6 @@ $('membersNextBtn')
   );
 
 
-
 $('membersList')
   .addEventListener(
     'click',
@@ -1879,14 +1676,12 @@ $('membersList')
           '[data-message-member]'
         );
 
-
       if (
         !button ||
         messageSending
       ) {
         return;
       }
-
 
       const member =
         visibleMembers.get(
@@ -1895,15 +1690,12 @@ $('membersList')
           )
         );
 
-
       if (!member) {
         return;
       }
 
-
       messageMember =
         member;
-
 
       $('messageRecipient')
         .textContent =
@@ -1920,21 +1712,17 @@ $('membersList')
             ''
           } — Member #${member.id}`;
 
-
       $('memberMessage')
         .value =
           '';
-
 
       $('memberMessageStatus')
         .textContent =
           '';
 
-
       $('memberMessageForm')
         .hidden =
           false;
-
 
       $('memberMessageForm')
         .scrollIntoView({
@@ -1942,13 +1730,11 @@ $('membersList')
           block:'center'
         });
 
-
       $('memberMessage')
         .focus();
 
     }
   );
-
 
 
 $('cancelMemberMessageBtn')
@@ -1962,15 +1748,12 @@ $('cancelMemberMessageBtn')
         return;
       }
 
-
       messageMember =
         null;
-
 
       $('memberMessage')
         .value =
           '';
-
 
       $('memberMessageForm')
         .hidden =
@@ -1980,14 +1763,12 @@ $('cancelMemberMessageBtn')
   );
 
 
-
 $('memberMessageForm')
   .addEventListener(
     'submit',
     async e => {
 
       e.preventDefault();
-
 
       if (
         !adminEnabled ||
@@ -1997,12 +1778,10 @@ $('memberMessageForm')
         return;
       }
 
-
       const message =
         $('memberMessage')
           .value
           .trim();
-
 
       if (
         !message ||
@@ -2017,10 +1796,8 @@ $('memberMessageForm')
 
       }
 
-
       const recipient =
         messageMember;
-
 
       if (
         !window.confirm(
@@ -2033,35 +1810,28 @@ $('memberMessageForm')
         return;
       }
 
-
       messageSending =
         true;
-
 
       $('sendMemberMessageBtn')
         .disabled =
           true;
 
-
       $('cancelMemberMessageBtn')
         .disabled =
           true;
-
 
       $('memberMessage')
         .disabled =
           true;
 
-
       $('memberMessageStatus')
         .dataset.state =
           'pending';
 
-
       $('memberMessageStatus')
         .textContent =
           'Sending…';
-
 
       try {
 
@@ -2078,16 +1848,13 @@ $('memberMessageForm')
             }
           );
 
-
         const recipientName =
           recipient.first_name ||
           `Member #${recipient.id}`;
 
-
         $('memberMessageStatus')
           .dataset.state =
             'success';
-
 
         $('memberMessageStatus')
           .textContent =
@@ -2096,11 +1863,9 @@ Telegram message ID: ${result.message_id}
 Confirmed at ${new Date().toLocaleString()}.
 This confirms sending, not that the member has read it.`;
 
-
         $('memberMessage')
           .value =
             '';
-
 
         try {
 
@@ -2111,13 +1876,11 @@ This confirms sending, not that the member has read it.`;
 
         } catch (_) {}
 
-
       } catch (e) {
 
         $('memberMessageStatus')
           .dataset.state =
             'error';
-
 
         $('memberMessageStatus')
           .textContent =
@@ -2128,16 +1891,13 @@ This confirms sending, not that the member has read it.`;
         messageSending =
           false;
 
-
         $('sendMemberMessageBtn')
           .disabled =
             false;
 
-
         $('cancelMemberMessageBtn')
           .disabled =
             false;
-
 
         $('memberMessage')
           .disabled =
@@ -2149,10 +1909,7 @@ This confirms sending, not that the member has read it.`;
   );
 
 
-
-/* ================================
-   ADMIN DEPOSIT QUEUE
-================================ */
+/* ADMIN DEPOSITS */
 
 async function loadAdminDeposits() {
 
@@ -2162,7 +1919,6 @@ async function loadAdminDeposits() {
     return;
   }
 
-
   try {
 
     const data =
@@ -2170,15 +1926,12 @@ async function loadAdminDeposits() {
         '/api/admin/deposits'
       );
 
-
     const rows =
       data.deposits || [];
-
 
     $('adminDepositCount')
       .textContent =
         `${rows.length} pending`;
-
 
     if (
       !rows.length
@@ -2192,7 +1945,6 @@ async function loadAdminDeposits() {
 
     }
 
-
     $('adminDeposits')
       .innerHTML =
         rows
@@ -2203,7 +1955,6 @@ async function loadAdminDeposits() {
                 d.first_name ||
                 'Telegram User';
 
-
               if (
                 d.username
               ) {
@@ -2212,7 +1963,6 @@ async function loadAdminDeposits() {
                   ` (@${d.username})`;
 
               }
-
 
               return `
 
@@ -2230,23 +1980,19 @@ async function loadAdminDeposits() {
 
                   </div>
 
-
                   <div class="admin-meta">
                     User:
                     ${esc(requestedBy)}
                   </div>
-
 
                   <div class="admin-meta">
                     Submitted:
                     ${esc(prettyTime(d.created_at))}
                   </div>
 
-
                   <div class="txid">
                     ${esc(d.txid)}
                   </div>
-
 
                   <div class="admin-editor">
 
@@ -2254,13 +2000,11 @@ async function loadAdminDeposits() {
                       CREDIT AMOUNT IN USD
                     </div>
 
-
                     <input
                       id="credit-${esc(d.id)}"
                       inputmode="decimal"
                       placeholder="Example: 25.00"
                     >
-
 
                     <div class="actions">
 
@@ -2274,7 +2018,6 @@ async function loadAdminDeposits() {
                       </button>
 
                     </div>
-
 
                     <div
                       class="status"
@@ -2304,7 +2047,6 @@ async function loadAdminDeposits() {
 }
 
 
-
 async function creditAdminDeposit(
   depositId
 ) {
@@ -2312,20 +2054,16 @@ async function creditAdminDeposit(
   const input =
     $(`credit-${depositId}`);
 
-
   const btn =
     $(`credit-btn-${depositId}`);
 
-
   const status =
     $(`deposit-status-${depositId}`);
-
 
   const dollars =
     Number.parseFloat(
       input?.value?.trim()
     );
-
 
   if (
     !Number.isFinite(dollars) ||
@@ -2339,12 +2077,10 @@ async function creditAdminDeposit(
 
   }
 
-
   const amountCents =
     Math.round(
       dollars * 100
     );
-
 
   if (
     amountCents > 1000000
@@ -2357,7 +2093,6 @@ async function creditAdminDeposit(
 
   }
 
-
   if (
     !window.confirm(
       `Credit $${dollars.toFixed(2)} for Deposit #${depositId}?`
@@ -2366,14 +2101,11 @@ async function creditAdminDeposit(
     return;
   }
 
-
   btn.disabled =
     true;
 
-
   status.textContent =
     'Crediting balance…';
-
 
   try {
 
@@ -2394,10 +2126,8 @@ async function creditAdminDeposit(
         }
       );
 
-
     status.textContent =
       `${data.credited} credited successfully.`;
-
 
     await Promise.all([
       loadAdminStats(),
@@ -2412,7 +2142,6 @@ async function creditAdminDeposit(
     status.textContent =
       e.message;
 
-
     btn.disabled =
       false;
 
@@ -2421,15 +2150,13 @@ async function creditAdminDeposit(
 }
 
 
-
-/* ================================
-   PROFILE SEARCH
-   Existing backend field mapping:
+/* PROFILE SEARCH
+   Existing backend mapping:
 
    character_name = Name
-   game           = Birthdate
-   character_id   = Region
-================================ */
+   game           = Birth Year
+   character_id   = State
+*/
 
 let characterSubmitting =
   false;
@@ -2443,7 +2170,6 @@ let characterQueueLoading =
 let characterHistoryLoading =
   false;
 
-
 const characterLabels = {
   pending:
     'Pending admin review',
@@ -2456,7 +2182,6 @@ const characterLabels = {
 };
 
 
-
 function profileDetails(r) {
 
   return `
@@ -2466,12 +2191,12 @@ function profileDetails(r) {
     </div>
 
     <div class="row">
-      Birthdate:
+      Birth Year:
       ${esc(r.game)}
     </div>
 
     <div class="row">
-      Region:
+      State:
       ${esc(r.character_id)}
     </div>
 
@@ -2489,7 +2214,6 @@ function profileDetails(r) {
 }
 
 
-
 async function loadCharacterHistory() {
 
   if (
@@ -2499,10 +2223,8 @@ async function loadCharacterHistory() {
     return;
   }
 
-
   characterHistoryLoading =
     true;
-
 
   try {
 
@@ -2510,7 +2232,6 @@ async function loadCharacterHistory() {
       await api(
         '/api/character-requests'
       );
-
 
     $('characterHistory')
       .innerHTML =
@@ -2554,9 +2275,7 @@ async function loadCharacterHistory() {
 
                 </div>
 
-
                 ${profileDetails(r)}
-
 
                 ${
                   r.status !== 'pending'
@@ -2599,7 +2318,6 @@ async function loadCharacterHistory() {
 }
 
 
-
 async function loadCharacterQueue() {
 
   if (
@@ -2610,15 +2328,12 @@ async function loadCharacterQueue() {
     return;
   }
 
-
   characterQueueLoading =
     true;
-
 
   $('refreshCharacterQueueBtn')
     .disabled =
       true;
-
 
   try {
 
@@ -2627,11 +2342,9 @@ async function loadCharacterQueue() {
         '/api/admin/character-requests'
       );
 
-
     $('characterQueueCount')
       .textContent =
         `${data.total} pending`;
-
 
     $('characterQueue')
       .innerHTML =
@@ -2647,9 +2360,7 @@ async function loadCharacterQueue() {
                   Profile Search #${Number(r.id)}
                 </b>
 
-
                 ${profileDetails(r)}
-
 
                 <div class="admin-requested-by">
 
@@ -2671,7 +2382,6 @@ async function loadCharacterQueue() {
 
                 </div>
 
-
                 <div class="admin-buttons section-gap">
 
                   <button
@@ -2682,7 +2392,6 @@ async function loadCharacterQueue() {
                   >
                     FOUND
                   </button>
-
 
                   <button
                     type="button"
@@ -2714,7 +2423,6 @@ async function loadCharacterQueue() {
     characterQueueLoading =
       false;
 
-
     $('refreshCharacterQueueBtn')
       .disabled =
         false;
@@ -2724,8 +2432,7 @@ async function loadCharacterQueue() {
 }
 
 
-
-/* PROFILE SEARCH SUBMIT */
+/* SUBMIT PROFILE SEARCH */
 
 $('characterRequestForm')
   .addEventListener(
@@ -2734,13 +2441,11 @@ $('characterRequestForm')
 
       e.preventDefault();
 
-
       if (
         characterSubmitting
       ) {
         return;
       }
-
 
       if (
         !currentUser
@@ -2754,28 +2459,21 @@ $('characterRequestForm')
 
       }
 
-
       const name =
         $('characterName')
           .value
           .trim();
 
-
-      const birthdate =
+      const birthYear =
         $('characterGame')
           .value
           .trim();
 
-
-      const region =
+      const state =
         $('characterId')
           .value
-          .trim();
-
-
-      const dobPattern =
-        /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
-
+          .trim()
+          .toUpperCase();
 
       if (!name) {
 
@@ -2787,41 +2485,35 @@ $('characterRequestForm')
 
       }
 
-
       if (
-        !dobPattern.test(
-          birthdate
-        )
+        !/^(19|20)\d{2}$/
+          .test(
+            birthYear
+          )
       ) {
 
         $('characterStatus')
           .textContent =
-            'Enter birthdate as MM/DD/YYYY.';
+            'Enter a valid 4-digit birth year.';
 
         return;
 
       }
 
-
-      /*
-        The current backend allows:
-        letters, numbers, underscore,
-        period and hyphen for this field.
-      */
-
       if (
-        !/^[A-Za-z0-9_.-]{1,64}$/
-          .test(region)
+        !/^[A-Z]{2}$/
+          .test(
+            state
+          )
       ) {
 
         $('characterStatus')
           .textContent =
-            'Enter a valid region. Example: NV, Nevada, Southwest, Las-Vegas.';
+            'Enter a 2-letter state code. Example: NV.';
 
         return;
 
       }
-
 
       const payload = {
 
@@ -2829,27 +2521,23 @@ $('characterRequestForm')
           name,
 
         game:
-          birthdate,
+          birthYear,
 
         character_id:
-          region
+          state
 
       };
 
-
       characterSubmitting =
         true;
-
 
       $('submitCharacterBtn')
         .disabled =
           true;
 
-
       $('characterStatus')
         .textContent =
           'Submitting profile search…';
-
 
       try {
 
@@ -2866,7 +2554,6 @@ $('characterRequestForm')
             }
           );
 
-
         $('characterStatus')
           .textContent =
             data.already_pending
@@ -2875,10 +2562,8 @@ $('characterRequestForm')
             :
             `✅ Profile Search #${data.request_id} submitted for admin review.`;
 
-
         $('characterRequestForm')
           .reset();
-
 
         await Promise.all([
           loadCharacterHistory(),
@@ -2896,7 +2581,6 @@ $('characterRequestForm')
         characterSubmitting =
           false;
 
-
         $('submitCharacterBtn')
           .disabled =
             false;
@@ -2907,13 +2591,11 @@ $('characterRequestForm')
   );
 
 
-
 $('refreshCharacterQueueBtn')
   .addEventListener(
     'click',
     loadCharacterQueue
   );
-
 
 
 $('characterQueue')
@@ -2926,7 +2608,6 @@ $('characterQueue')
           '[data-character-request]'
         );
 
-
       if (
         !button ||
         !adminEnabled ||
@@ -2936,18 +2617,15 @@ $('characterQueue')
         return;
       }
 
-
       const id =
         Number(
           button.dataset
             .characterRequest
         );
 
-
       const decision =
         button.dataset
           .decision;
-
 
       if (
         ![
@@ -2960,15 +2638,12 @@ $('characterQueue')
         return;
       }
 
-
       const resultText =
-        decision ===
-        'available'
+        decision === 'available'
         ?
         'FOUND'
         :
         'NOT FOUND';
-
 
       if (
         !window.confirm(
@@ -2978,10 +2653,8 @@ $('characterQueue')
         return;
       }
 
-
       characterDecisionBusy =
         true;
-
 
       const buttons =
         Array.from(
@@ -2991,23 +2664,19 @@ $('characterQueue')
             )
         );
 
-
       buttons.forEach(
         b =>
           b.disabled =
             true
       );
 
-
       $('refreshCharacterQueueBtn')
         .disabled =
           true;
 
-
       $('characterQueueStatus')
         .textContent =
           'Saving profile search result…';
-
 
       try {
 
@@ -3024,7 +2693,6 @@ $('characterQueue')
                 })
             }
           );
-
 
         $('characterQueueStatus')
           .textContent =
@@ -3051,18 +2719,15 @@ $('characterQueue')
         characterDecisionBusy =
           false;
 
-
         buttons.forEach(
           b =>
             b.disabled =
               false
         );
 
-
         $('refreshCharacterQueueBtn')
           .disabled =
             false;
-
 
         await Promise.all([
           loadCharacterQueue(),
@@ -3075,15 +2740,11 @@ $('characterQueue')
   );
 
 
-
-/* ================================
-   INITIAL LOAD
-================================ */
+/* INITIAL LOAD */
 
 async function startApp() {
 
   await loadMe();
-
 
   await Promise.all([
     loadWallet(),
@@ -3094,14 +2755,10 @@ async function startApp() {
 
 }
 
-
 startApp();
 
 
-
-/* ================================
-   AUTO REFRESH
-================================ */
+/* AUTO REFRESH */
 
 setInterval(
   async () => {
@@ -3112,7 +2769,6 @@ setInterval(
       loadCharacterHistory(),
       loadCharacterQueue()
     ]);
-
 
     if (
       adminEnabled
