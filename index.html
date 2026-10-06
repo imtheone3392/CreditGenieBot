@@ -20,14 +20,11 @@
   --blue:#2d7bdc;
   --blue2:#1f5fae;
   --input:#172029;
-  --yellow:#d4a82f;
   --red:#c74b4b;
   --red2:#963838;
 }
 
-*{
-  box-sizing:border-box;
-}
+*{box-sizing:border-box}
 
 html,body{
   margin:0;
@@ -102,9 +99,7 @@ body{
   gap:13px;
 }
 
-input,
-select,
-textarea{
+input,select,textarea{
   width:100%;
   border:1px solid var(--line);
   border-radius:14px;
@@ -115,8 +110,7 @@ textarea{
   outline:none;
 }
 
-input,
-select{
+input,select{
   height:58px;
 }
 
@@ -205,17 +199,9 @@ button:disabled{
   box-shadow:0 6px 0 var(--blue2);
 }
 
-.btn-blue:active{
-  box-shadow:0 4px 0 var(--blue2);
-}
-
 .btn-red{
   background:var(--red);
   box-shadow:0 6px 0 var(--red2);
-}
-
-.btn-red:active{
-  box-shadow:0 4px 0 var(--red2);
 }
 
 .btn-small{
@@ -286,12 +272,14 @@ button:disabled{
   color:#dce3e8;
 }
 
-.deposit-item{
+.deposit-item,
+.request-item{
   padding:14px 0;
   border-bottom:1px solid var(--line);
 }
 
-.deposit-item:last-child{
+.deposit-item:last-child,
+.request-item:last-child{
   border-bottom:0;
 }
 
@@ -301,15 +289,6 @@ button:disabled{
   color:#cbd2d8;
   font-size:12px;
   margin-top:6px;
-}
-
-.request-item{
-  padding:16px 0;
-  border-bottom:1px solid var(--line);
-}
-
-.request-item:last-child{
-  border-bottom:0;
 }
 
 .request-top,
@@ -379,12 +358,6 @@ button:disabled{
   margin-bottom:14px;
 }
 
-.admin-request-title,
-.admin-deposit-title{
-  font-size:18px;
-  font-weight:800;
-}
-
 .admin-name{
   font-size:19px;
   font-weight:800;
@@ -428,12 +401,6 @@ button:disabled{
   gap:10px;
 }
 
-.queue-status{
-  color:var(--muted);
-  margin-bottom:14px;
-  font-size:13px;
-}
-
 .section-gap{
   margin-top:24px;
 }
@@ -456,12 +423,6 @@ button:disabled{
   background:#351f23;
   border-color:#c74b4b;
 }
-
-@media(min-width:700px){
-  .stats{
-    grid-template-columns:repeat(2,1fr);
-  }
-}
 </style>
 </head>
 
@@ -476,23 +437,25 @@ button:disabled{
     <h1>CreditGenie</h1>
     <p>Member accounts and Bitcoin wallet</p>
     <p id="account"></p>
-    <p id="status" role="status"></p>
+    <p id="status"></p>
   </div>
 </div>
 
 
-<!-- SINGLE PROFILE SEARCH -->
+<!-- PROFILE SEARCH -->
 <section class="card">
 
   <div class="card-head">
+
     <h2>
       SINGLE PROFILE<br>
       SEARCH
     </h2>
 
     <span class="pill">
-      Admin review
+      $12.00 / search
     </span>
+
   </div>
 
   <form
@@ -522,7 +485,6 @@ button:disabled{
       id="characterId"
       maxlength="2"
       required
-      inputmode="text"
       pattern="[A-Za-z]{2}"
       placeholder="State (2 letters)"
       autocomplete="address-level1"
@@ -530,11 +492,16 @@ button:disabled{
       spellcheck="false"
     >
 
+    <p class="help">
+      Each profile search costs $12.00.
+      The charge is deducted from your CreditGenie balance when the search is submitted.
+    </p>
+
     <button
       id="submitCharacterBtn"
       type="submit"
     >
-      SUBMIT SEARCH
+      PURCHASE & SUBMIT SEARCH
     </button>
 
   </form>
@@ -542,30 +509,36 @@ button:disabled{
   <div
     id="characterStatus"
     class="status"
-    role="status"
     aria-live="polite"
   ></div>
 
   <div class="card-head section-gap">
+
     <h2 style="font-size:20px">
       MY PROFILE SEARCHES
     </h2>
+
   </div>
 
   <div id="characterHistory">
+
     <div class="empty">
       Loading profile searches…
     </div>
+
   </div>
 
 </section>
 
 
-<!-- BITCOIN WALLET -->
+<!-- WALLET -->
 <section class="card">
 
   <div class="card-head">
-    <h2>₿ BITCOIN WALLET</h2>
+
+    <h2>
+      ₿ BITCOIN WALLET
+    </h2>
 
     <span
       class="pill"
@@ -573,6 +546,7 @@ button:disabled{
     >
       $0.00
     </span>
+
   </div>
 
   <div class="wallet-summary">
@@ -646,11 +620,6 @@ button:disabled{
     class="status"
   ></div>
 
-  <p class="notice">
-    Payment submissions are reviewed before your
-    CreditGenie balance is credited.
-  </p>
-
   <div class="card-head section-gap">
 
     <h2 style="font-size:20px">
@@ -667,15 +636,17 @@ button:disabled{
   </div>
 
   <div id="depositHistory">
+
     <div class="empty">
       Loading deposits…
     </div>
+
   </div>
 
 </section>
 
 
-<!-- ADMIN PANEL -->
+<!-- ADMIN -->
 <section
   class="card"
   id="adminPanel"
@@ -688,8 +659,8 @@ button:disabled{
     </div>
 
     <div class="admin-sub">
-      View members, send individual Telegram messages,
-      review profile searches, and verify Bitcoin deposits.
+      View members, message members, review profile searches,
+      and verify Bitcoin deposits.
     </div>
 
   </div>
@@ -697,6 +668,7 @@ button:disabled{
   <div class="stats">
 
     <div class="stat">
+
       <div
         class="stat-number"
         id="statUsers"
@@ -707,9 +679,11 @@ button:disabled{
       <div class="stat-label">
         USERS
       </div>
+
     </div>
 
     <div class="stat">
+
       <div
         class="stat-number"
         id="statDeposits"
@@ -720,12 +694,12 @@ button:disabled{
       <div class="stat-label">
         DEPOSITS
       </div>
+
     </div>
 
   </div>
 
 
-  <!-- MEMBERS -->
   <div class="card-head">
 
     <h2>
@@ -756,13 +730,14 @@ button:disabled{
   <div
     id="membersStatus"
     class="status"
-    role="status"
   ></div>
 
   <div id="membersList">
+
     <div class="empty">
       Loading members…
     </div>
+
   </div>
 
   <div class="admin-buttons section-gap">
@@ -793,7 +768,6 @@ button:disabled{
   ></p>
 
 
-  <!-- MESSAGE MEMBER -->
   <form
     id="memberMessageForm"
     class="admin-editor"
@@ -801,13 +775,6 @@ button:disabled{
   >
 
     <h3 id="messageRecipient"></h3>
-
-    <label
-      class="admin-editor-title"
-      for="memberMessage"
-    >
-      TELEGRAM MESSAGE
-    </label>
 
     <textarea
       id="memberMessage"
@@ -839,14 +806,11 @@ button:disabled{
     <div
       id="memberMessageStatus"
       class="status"
-      role="status"
-      aria-live="polite"
     ></div>
 
   </form>
 
 
-  <!-- PROFILE SEARCH QUEUE -->
   <div class="card-head section-gap">
 
     <h2>
@@ -864,31 +828,26 @@ button:disabled{
 
   <button
     id="refreshCharacterQueueBtn"
-    type="button"
     class="btn-small btn-blue"
+    type="button"
   >
     REFRESH PROFILE QUEUE
   </button>
 
-  <p class="notice">
-    Showing pending profile searches for admin review.
-  </p>
-
   <div
     id="characterQueueStatus"
     class="status"
-    role="status"
-    aria-live="polite"
   ></div>
 
   <div id="characterQueue">
+
     <div class="empty">
       Loading profile searches…
     </div>
+
   </div>
 
 
-  <!-- BITCOIN QUEUE -->
   <div class="card-head section-gap">
 
     <h2>
@@ -904,20 +863,12 @@ button:disabled{
 
   </div>
 
-  <p class="notice">
-    Verify the transaction on the Bitcoin network and confirm
-    it paid your receiving address before crediting a balance.
-  </p>
-
-  <div
-    id="adminDepositStatus"
-    class="queue-status"
-  ></div>
-
   <div id="adminDeposits">
+
     <div class="empty">
-      Loading deposit queue…
+      Loading deposits…
     </div>
+
   </div>
 
 </section>
@@ -927,202 +878,108 @@ button:disabled{
 
 <script>
 
-const tg =
-  window.Telegram?.WebApp;
+const tg = window.Telegram?.WebApp;
 
 if (tg) {
-
   tg.ready();
   tg.expand();
 
   try {
-
     tg.setHeaderColor('#14212b');
     tg.setBackgroundColor('#14212b');
-
-  } catch (e) {}
-
+  } catch (_) {}
 }
 
-const initData =
-  tg?.initData || '';
+const initData = tg?.initData || '';
+const $ = id => document.getElementById(id);
 
-const $ =
-  id => document.getElementById(id);
+let currentUser = null;
+let adminEnabled = false;
+let currentDepositAddress = '';
 
-let currentUser =
-  null;
+const headers = () => ({
+  'Content-Type':'application/json',
+  'X-Telegram-Init-Data':initData
+});
 
-let adminEnabled =
-  false;
+async function api(path, options = {}) {
 
-let currentDepositAddress =
-  '';
-
-const headers =
-  () => ({
-    'Content-Type':'application/json',
-    'X-Telegram-Init-Data':initData
+  const res = await fetch(path,{
+    ...options,
+    headers:{
+      ...headers(),
+      ...(options.headers || {})
+    }
   });
 
-
-async function api(
-  path,
-  options = {}
-) {
-
-  const res =
-    await fetch(
-      path,
-      {
-        ...options,
-
-        headers:{
-          ...headers(),
-          ...(options.headers || {})
-        }
-      }
-    );
-
-  const data =
-    await res
-      .json()
-      .catch(
-        () => ({})
-      );
+  const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-
     throw new Error(
       Array.isArray(data.detail)
-        ?
-        'Check the required fields and text lengths.'
-        :
-        (
-          data.detail ||
-          'Request failed'
-        )
+      ? 'Check the information entered.'
+      : data.detail || 'Request failed'
     );
-
   }
 
   return data;
 }
 
-
-function esc(v = '') {
-
-  return String(v)
-    .replace(
-      /[&<>"']/g,
-      s => ({
-        '&':'&amp;',
-        '<':'&lt;',
-        '>':'&gt;',
-        '"':'&quot;',
-        "'":'&#39;'
-      }[s])
-    );
-
+function esc(v='') {
+  return String(v).replace(/[&<>"']/g,s => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[s]));
 }
-
 
 function prettyTime(value) {
 
-  if (!value) {
-    return '';
-  }
+  if (!value) return '';
 
-  const d =
-    new Date(value);
+  const date = new Date(value);
 
-  if (
-    Number.isNaN(
-      d.getTime()
-    )
-  ) {
+  if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return d.toLocaleString();
+  return date.toLocaleString();
 }
 
+function shortTxid(txid='') {
 
-function statusLabel(status) {
-
-  if (
-    status === 'completed'
-  ) {
-    return 'Complete';
-  }
-
-  if (
-    status === 'credited'
-  ) {
-    return 'Credited';
-  }
-
-  if (
-    status === 'rejected'
-  ) {
-    return 'Rejected';
-  }
-
-  return 'Pending';
-}
-
-
-function shortTxid(
-  txid = ''
-) {
-
-  if (
-    txid.length <= 22
-  ) {
+  if (txid.length <= 22) {
     return txid;
   }
 
-  return (
-    `${txid.slice(0,12)}…` +
-    `${txid.slice(-10)}`
-  );
+  return `${txid.slice(0,12)}…${txid.slice(-10)}`;
 }
 
 
-/* CURRENT USER */
+/* USER */
 
 async function loadMe() {
 
   try {
 
-    const me =
-      await api(
-        '/api/me'
-      );
+    const me = await api('/api/me');
 
-    currentUser =
-      me;
+    currentUser = me;
 
-    $('account')
-      .textContent =
-        me.first_name
-        ?
-        `Hi, ${me.first_name}`
-        :
-        '';
+    $('account').textContent =
+      me.first_name
+      ? `Hi, ${me.first_name}`
+      : '';
 
     adminEnabled =
-      Boolean(
-        me.is_admin
-      );
+      Boolean(me.is_admin);
 
-    if (
-      adminEnabled
-    ) {
+    if (adminEnabled) {
 
-      $('adminPanel')
-        .style.display =
-          'block';
+      $('adminPanel').style.display =
+        'block';
 
       await Promise.all([
         loadAdminStats(),
@@ -1132,20 +989,17 @@ async function loadMe() {
 
     } else {
 
-      $('adminPanel')
-        .style.display =
-          'none';
+      $('adminPanel').style.display =
+        'none';
 
     }
 
-  } catch (e) {
+  } catch(e) {
 
-    $('status')
-      .textContent =
-        e.message;
+    $('status').textContent =
+      e.message;
 
   }
-
 }
 
 
@@ -1156,161 +1010,122 @@ async function loadWallet() {
   try {
 
     const data =
-      await api(
-        '/api/wallet'
-      );
+      await api('/api/wallet');
 
     currentDepositAddress =
       data.deposit_address || '';
 
-    $('walletBalance')
-      .textContent =
-        data.balance ||
-        '$0.00';
+    $('walletBalance').textContent =
+      data.balance || '$0.00';
 
-    $('walletBalanceLarge')
-      .textContent =
-        data.balance ||
-        '$0.00';
+    $('walletBalanceLarge').textContent =
+      data.balance || '$0.00';
 
-    $('btcAddress')
-      .textContent =
-        currentDepositAddress
-        ||
-        'Bitcoin deposit address is not configured.';
+    $('btcAddress').textContent =
+      currentDepositAddress ||
+      'Bitcoin deposit address is not configured.';
 
-  } catch (e) {
+  } catch(e) {
 
-    $('walletStatus')
-      .textContent =
-        e.message;
+    $('walletStatus').textContent =
+      e.message;
 
   }
-
 }
 
 
-$('copyAddressBtn')
-  .addEventListener(
-    'click',
-    async () => {
+$('copyAddressBtn').addEventListener(
+  'click',
+  async () => {
 
-      if (
-        !currentDepositAddress
-      ) {
+    if (!currentDepositAddress) {
 
-        $('walletStatus')
-          .textContent =
-            'Bitcoin deposit address is not configured.';
+      $('walletStatus').textContent =
+        'Bitcoin deposit address is not configured.';
 
-        return;
+      return;
+    }
 
-      }
+    try {
 
-      try {
+      await navigator.clipboard.writeText(
+        currentDepositAddress
+      );
 
-        await navigator.clipboard
-          .writeText(
-            currentDepositAddress
-          );
+      $('walletStatus').textContent =
+        'Bitcoin address copied.';
 
-        $('walletStatus')
-          .textContent =
-            'Bitcoin address copied.';
+    } catch(_) {
 
-      } catch (e) {
-
-        $('walletStatus')
-          .textContent =
-            'Could not copy automatically. Press and hold the address to copy it.';
-
-      }
+      $('walletStatus').textContent =
+        'Press and hold the address to copy it.';
 
     }
-  );
+
+  }
+);
 
 
-$('submitDepositBtn')
-  .addEventListener(
-    'click',
-    async () => {
+$('submitDepositBtn').addEventListener(
+  'click',
+  async () => {
 
-      const btn =
-        $('submitDepositBtn');
+    const btn =
+      $('submitDepositBtn');
 
-      const txid =
-        $('depositTxid')
-          .value
-          .trim();
+    const txid =
+      $('depositTxid').value.trim();
 
-      if (!txid) {
+    if (!txid) {
 
-        $('walletStatus')
-          .textContent =
-            'Enter your Bitcoin transaction ID.';
+      $('walletStatus').textContent =
+        'Enter your Bitcoin transaction ID.';
 
-        return;
+      return;
+    }
 
-      }
+    btn.disabled = true;
 
-      btn.disabled =
-        true;
+    $('walletStatus').textContent =
+      'Submitting payment…';
 
-      $('walletStatus')
-        .textContent =
-          'Submitting payment…';
+    try {
 
-      try {
+      const data =
+        await api('/api/deposit',{
+          method:'POST',
+          body:JSON.stringify({txid})
+        });
 
-        const data =
-          await api(
-            '/api/deposit',
-            {
-              method:'POST',
+      $('walletStatus').textContent =
+        `Deposit #${data.deposit_id} submitted for verification.`;
 
-              body:
-                JSON.stringify({
-                  txid
-                })
-            }
-          );
+      $('depositTxid').value = '';
 
-        $('walletStatus')
-          .textContent =
-            `Deposit #${data.deposit_id} submitted for verification.`;
+      await loadDeposits();
 
-        $('depositTxid')
-          .value =
-            '';
+      if (adminEnabled) {
 
-        await loadDeposits();
-
-        if (
-          adminEnabled
-        ) {
-
-          await Promise.all([
-            loadAdminStats(),
-            loadAdminDeposits()
-          ]);
-
-        }
-
-      } catch (e) {
-
-        $('walletStatus')
-          .textContent =
-            e.message;
-
-      } finally {
-
-        btn.disabled =
-          false;
+        await Promise.all([
+          loadAdminStats(),
+          loadAdminDeposits()
+        ]);
 
       }
+
+    } catch(e) {
+
+      $('walletStatus').textContent =
+        e.message;
+
+    } finally {
+
+      btn.disabled = false;
 
     }
-  );
+
+  }
+);
 
 
 async function loadDeposits() {
@@ -1318,93 +1133,64 @@ async function loadDeposits() {
   try {
 
     const data =
-      await api(
-        '/api/deposits'
-      );
+      await api('/api/deposits');
 
     const rows =
       data.deposits || [];
 
-    $('depositCount')
-      .textContent =
-        rows.length;
+    $('depositCount').textContent =
+      rows.length;
 
-    if (
-      !rows.length
-    ) {
+    if (!rows.length) {
 
-      $('depositHistory')
-        .innerHTML =
-          '<div class="empty">No Bitcoin deposits yet.</div>';
+      $('depositHistory').innerHTML =
+        '<div class="empty">No Bitcoin deposits yet.</div>';
 
       return;
-
     }
 
-    $('depositHistory')
-      .innerHTML =
-        rows
-          .map(
-            d => {
+    $('depositHistory').innerHTML =
+      rows.map(d => `
 
-              const amount =
-                d.status === 'credited'
-                ?
-                `<div class="row">
-                  Credited: ${esc(d.amount)}
-                </div>`
-                :
-                `<div class="row">
-                  Waiting for verification…
-                </div>`;
+        <div class="deposit-item">
 
-              return `
+          <div class="request-top">
 
-                <div class="deposit-item">
+            <b>
+              Deposit #${esc(d.id)}
+            </b>
 
-                  <div class="request-top">
+            <span class="status-pill ${esc(d.status)}">
+              ${esc(d.status)}
+            </span>
 
-                    <b>
-                      Deposit #${esc(d.id)}
-                    </b>
+          </div>
 
-                    <span
-                      class="status-pill ${esc(d.status)}"
-                    >
-                      ${esc(statusLabel(d.status))}
-                    </span>
+          <div class="txid">
+            ${esc(shortTxid(d.txid))}
+          </div>
 
-                  </div>
-
-                  <div
-                    class="txid"
-                    title="${esc(d.txid)}"
-                  >
-                    ${esc(shortTxid(d.txid))}
-                  </div>
-
-                  ${amount}
-
-                  <div class="row">
-                    Submitted:
-                    ${esc(prettyTime(d.created_at))}
-                  </div>
-
-                </div>
-
-              `;
-
+          <div class="row">
+            ${
+              d.status === 'credited'
+              ? `Credited: ${esc(d.amount)}`
+              : 'Waiting for verification…'
             }
-          )
-          .join('');
+          </div>
 
-  } catch (e) {
+          <div class="row">
+            Submitted:
+            ${esc(prettyTime(d.created_at))}
+          </div>
 
-    $('depositHistory')
-      .innerHTML =
-        `<div class="empty">
-          ${esc(e.message)}
-        </div>`;
+        </div>
+
+      `).join('');
+
+  } catch(e) {
+
+    $('depositHistory').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
 
   }
 
@@ -1415,92 +1201,50 @@ async function loadDeposits() {
 
 async function loadAdminStats() {
 
-  if (
-    !adminEnabled
-  ) {
-    return;
-  }
+  if (!adminEnabled) return;
 
   try {
 
     const data =
-      await api(
-        '/api/admin/stats'
-      );
+      await api('/api/admin/stats');
 
-    $('statUsers')
-      .textContent =
-        data.users ?? 0;
+    $('statUsers').textContent =
+      data.users ?? 0;
 
-    $('statDeposits')
-      .textContent =
-        data.pending_deposits ?? 0;
+    $('statDeposits').textContent =
+      data.pending_deposits ?? 0;
 
-    $('adminDepositCount')
-      .textContent =
-        `${data.pending_deposits ?? 0} pending`;
+    $('adminDepositCount').textContent =
+      `${data.pending_deposits ?? 0} pending`;
 
-  } catch (e) {
+  } catch(e) {
 
-    $('membersStatus')
-      .textContent =
-        e.message;
+    $('membersStatus').textContent =
+      e.message;
 
   }
 
 }
 
 
-/* ADMIN MEMBERS */
+/* MEMBERS */
 
-let membersPage =
-  1;
-
-let membersTotalPages =
-  1;
-
-let membersBusy =
-  false;
-
-let visibleMembers =
-  new Map();
-
-let messageMember =
-  null;
-
-let messageSending =
-  false;
-
+let membersPage = 1;
+let membersTotalPages = 1;
+let membersBusy = false;
+let visibleMembers = new Map();
+let messageMember = null;
+let messageSending = false;
 
 async function loadAdminMembers(
   page = membersPage
 ) {
 
-  if (
-    !adminEnabled ||
-    membersBusy
-  ) {
+  if (!adminEnabled || membersBusy) {
     return;
   }
 
-  membersBusy =
-    true;
-
-  $('refreshMembersBtn')
-    .disabled =
-      true;
-
-  $('membersPrevBtn')
-    .disabled =
-      true;
-
-  $('membersNextBtn')
-    .disabled =
-      true;
-
-  $('membersStatus')
-    .textContent =
-      'Loading members…';
+  membersBusy = true;
 
   try {
 
@@ -1524,400 +1268,241 @@ async function loadAdminMembers(
     visibleMembers =
       new Map(
         data.members.map(
-          m => [
-            m.id,
-            m
-          ]
+          m => [m.id,m]
         )
       );
 
-    $('memberCount')
-      .textContent =
-        `${data.total} members`;
+    $('memberCount').textContent =
+      `${data.total} members`;
 
-    $('statUsers')
-      .textContent =
-        data.total;
+    $('membersPageLabel').textContent =
+      `Page ${membersPage} of ${membersTotalPages}`;
 
-    $('membersPageLabel')
-      .textContent =
-        `Page ${membersPage} of ${membersTotalPages}`;
+    $('membersList').innerHTML =
+      data.members.length
+      ?
+      data.members.map(m => `
 
-    $('membersList')
-      .innerHTML =
-        data.members.length
-        ?
-        data.members
-          .map(
-            m => `
+        <div class="admin-deposit">
 
-              <div class="admin-deposit">
+          <div class="admin-name">
+            ${esc(
+              m.first_name ||
+              'Telegram member'
+            )}
+          </div>
 
-                <div class="admin-name">
-                  ${esc(
-                    m.first_name ||
-                    'Telegram member'
-                  )}
-                </div>
+          <div class="admin-meta">
+            Username:
+            ${
+              m.username
+              ? '@' + esc(m.username)
+              : 'Not set'
+            }
+          </div>
 
-                <div class="admin-meta">
-                  Username:
-                  ${
-                    m.username
-                    ?
-                    '@' +
-                    esc(m.username)
-                    :
-                    'Not set'
-                  }
-                </div>
+          <div class="admin-meta">
+            Balance:
+            ${esc(m.balance)}
+          </div>
 
-                <div class="admin-meta">
-                  Balance:
-                  ${esc(m.balance)}
-                </div>
+          <div class="admin-meta">
+            Joined:
+            ${esc(prettyTime(m.joined_at))}
+          </div>
 
-                <div class="admin-meta">
-                  Joined:
-                  ${esc(prettyTime(m.joined_at))}
-                </div>
+          <div class="admin-meta">
+            Member #${esc(m.id)}
+          </div>
 
-                <div class="admin-meta">
-                  Member #${esc(m.id)}
-                </div>
+          <div class="actions">
 
-                <div class="actions">
+            <button
+              class="btn-small"
+              data-message-member="${Number(m.id)}"
+              type="button"
+            >
+              MESSAGE MEMBER
+            </button>
 
-                  <button
-                    type="button"
-                    class="btn-small"
-                    data-message-member="${Number(m.id)}"
-                  >
-                    MESSAGE MEMBER
-                  </button>
+          </div>
 
-                </div>
+        </div>
 
-              </div>
+      `).join('')
+      :
+      '<div class="empty">No members yet.</div>';
 
-            `
-          )
-          .join('')
-        :
-        '<div class="empty">No registered members yet.</div>';
+  } catch(e) {
 
-    $('membersStatus')
-      .textContent =
-        '';
-
-  } catch (e) {
-
-    $('membersStatus')
-      .textContent =
-        e.message;
+    $('membersStatus').textContent =
+      e.message;
 
   } finally {
 
-    membersBusy =
-      false;
+    membersBusy = false;
 
-    $('refreshMembersBtn')
-      .disabled =
-        false;
+    $('membersPrevBtn').disabled =
+      membersPage <= 1;
 
-    $('membersPrevBtn')
-      .disabled =
-        membersPage <= 1;
-
-    $('membersNextBtn')
-      .disabled =
-        membersPage >=
-        membersTotalPages;
+    $('membersNextBtn').disabled =
+      membersPage >= membersTotalPages;
 
   }
 
 }
 
 
-$('refreshMembersBtn')
-  .addEventListener(
-    'click',
-    () => loadAdminMembers()
+$('refreshMembersBtn').onclick =
+  () => loadAdminMembers();
+
+$('membersPrevBtn').onclick =
+  () => loadAdminMembers(
+    membersPage - 1
+  );
+
+$('membersNextBtn').onclick =
+  () => loadAdminMembers(
+    membersPage + 1
   );
 
 
-$('membersPrevBtn')
-  .addEventListener(
-    'click',
-    () =>
-      loadAdminMembers(
-        membersPage - 1
-      )
-  );
+$('membersList').addEventListener(
+  'click',
+  e => {
 
+    const button =
+      e.target.closest(
+        '[data-message-member]'
+      );
 
-$('membersNextBtn')
-  .addEventListener(
-    'click',
-    () =>
-      loadAdminMembers(
-        membersPage + 1
-      )
-  );
+    if (!button) return;
 
-
-$('membersList')
-  .addEventListener(
-    'click',
-    e => {
-
-      const button =
-        e.target.closest(
-          '[data-message-member]'
-        );
-
-      if (
-        !button ||
-        messageSending
-      ) {
-        return;
-      }
-
-      const member =
-        visibleMembers.get(
-          Number(
-            button.dataset.messageMember
-          )
-        );
-
-      if (!member) {
-        return;
-      }
-
-      messageMember =
-        member;
-
-      $('messageRecipient')
-        .textContent =
-          `To: ${
-            member.first_name ||
-            'Telegram member'
-          }${
-            member.username
-            ?
-            ' (@' +
-            member.username +
-            ')'
-            :
-            ''
-          } — Member #${member.id}`;
-
-      $('memberMessage')
-        .value =
-          '';
-
-      $('memberMessageStatus')
-        .textContent =
-          '';
-
-      $('memberMessageForm')
-        .hidden =
-          false;
-
-      $('memberMessageForm')
-        .scrollIntoView({
-          behavior:'smooth',
-          block:'center'
-        });
-
-      $('memberMessage')
-        .focus();
-
-    }
-  );
-
-
-$('cancelMemberMessageBtn')
-  .addEventListener(
-    'click',
-    () => {
-
-      if (
-        messageSending
-      ) {
-        return;
-      }
-
-      messageMember =
-        null;
-
-      $('memberMessage')
-        .value =
-          '';
-
-      $('memberMessageForm')
-        .hidden =
-          true;
-
-    }
-  );
-
-
-$('memberMessageForm')
-  .addEventListener(
-    'submit',
-    async e => {
-
-      e.preventDefault();
-
-      if (
-        !adminEnabled ||
-        !messageMember ||
-        messageSending
-      ) {
-        return;
-      }
-
-      const message =
-        $('memberMessage')
-          .value
-          .trim();
-
-      if (
-        !message ||
-        message.length > 4096
-      ) {
-
-        $('memberMessageStatus')
-          .textContent =
-            'Enter a message of 1–4096 characters.';
-
-        return;
-
-      }
-
-      const recipient =
-        messageMember;
-
-      if (
-        !window.confirm(
-          `Send this Telegram message to ${
-            recipient.first_name ||
-            'member'
-          }?`
+    const member =
+      visibleMembers.get(
+        Number(
+          button.dataset.messageMember
         )
-      ) {
-        return;
-      }
+      );
 
-      messageSending =
-        true;
+    if (!member) return;
 
-      $('sendMemberMessageBtn')
-        .disabled =
-          true;
+    messageMember = member;
 
-      $('cancelMemberMessageBtn')
-        .disabled =
-          true;
+    $('messageRecipient').textContent =
+      `To: ${
+        member.first_name ||
+        'Member'
+      }${
+        member.username
+        ? ` (@${member.username})`
+        : ''
+      }`;
 
+    $('memberMessage').value = '';
+
+    $('memberMessageStatus').textContent = '';
+
+    $('memberMessageForm').hidden =
+      false;
+
+    $('memberMessageForm')
+      .scrollIntoView({
+        behavior:'smooth',
+        block:'center'
+      });
+
+  }
+);
+
+
+$('cancelMemberMessageBtn').onclick =
+  () => {
+
+    messageMember = null;
+
+    $('memberMessageForm').hidden =
+      true;
+
+  };
+
+
+$('memberMessageForm').addEventListener(
+  'submit',
+  async e => {
+
+    e.preventDefault();
+
+    if (
+      !messageMember ||
+      messageSending
+    ) {
+      return;
+    }
+
+    const message =
       $('memberMessage')
-        .disabled =
-          true;
+        .value
+        .trim();
+
+    if (!message) return;
+
+    messageSending = true;
+
+    $('memberMessageStatus').textContent =
+      'Sending…';
+
+    try {
+
+      const result =
+        await api(
+          `/api/admin/members/${messageMember.id}/message`,
+          {
+            method:'POST',
+            body:JSON.stringify({
+              message
+            })
+          }
+        );
 
       $('memberMessageStatus')
         .dataset.state =
-          'pending';
+          'success';
 
       $('memberMessageStatus')
         .textContent =
-          'Sending…';
+          `✅ Message sent successfully.
+Telegram message ID: ${result.message_id}`;
 
-      try {
+      $('memberMessage').value =
+        '';
 
-        const result =
-          await api(
-            `/api/admin/members/${recipient.id}/message`,
-            {
-              method:'POST',
+    } catch(e) {
 
-              body:
-                JSON.stringify({
-                  message
-                })
-            }
-          );
+      $('memberMessageStatus')
+        .dataset.state =
+          'error';
 
-        const recipientName =
-          recipient.first_name ||
-          `Member #${recipient.id}`;
+      $('memberMessageStatus')
+        .textContent =
+          e.message;
 
-        $('memberMessageStatus')
-          .dataset.state =
-            'success';
+    } finally {
 
-        $('memberMessageStatus')
-          .textContent =
-            `✅ Message sent to ${recipientName}.
-Telegram message ID: ${result.message_id}
-Confirmed at ${new Date().toLocaleString()}.
-This confirms sending, not that the member has read it.`;
-
-        $('memberMessage')
-          .value =
-            '';
-
-        try {
-
-          tg?.HapticFeedback
-            ?.notificationOccurred(
-              'success'
-            );
-
-        } catch (_) {}
-
-      } catch (e) {
-
-        $('memberMessageStatus')
-          .dataset.state =
-            'error';
-
-        $('memberMessageStatus')
-          .textContent =
-            e.message;
-
-      } finally {
-
-        messageSending =
-          false;
-
-        $('sendMemberMessageBtn')
-          .disabled =
-            false;
-
-        $('cancelMemberMessageBtn')
-          .disabled =
-            false;
-
-        $('memberMessage')
-          .disabled =
-            false;
-
-      }
+      messageSending =
+        false;
 
     }
-  );
+
+  }
+);
 
 
 /* ADMIN DEPOSITS */
 
 async function loadAdminDeposits() {
 
-  if (
-    !adminEnabled
-  ) {
-    return;
-  }
+  if (!adminEnabled) return;
 
   try {
 
@@ -1929,118 +1514,69 @@ async function loadAdminDeposits() {
     const rows =
       data.deposits || [];
 
-    $('adminDepositCount')
-      .textContent =
-        `${rows.length} pending`;
+    $('adminDepositCount').textContent =
+      `${rows.length} pending`;
 
-    if (
-      !rows.length
-    ) {
+    if (!rows.length) {
 
-      $('adminDeposits')
-        .innerHTML =
-          '<div class="empty">✅ No pending Bitcoin deposits.</div>';
+      $('adminDeposits').innerHTML =
+        '<div class="empty">✅ No pending Bitcoin deposits.</div>';
 
       return;
-
     }
 
-    $('adminDeposits')
-      .innerHTML =
-        rows
-          .map(
-            d => {
+    $('adminDeposits').innerHTML =
+      rows.map(d => `
 
-              let requestedBy =
-                d.first_name ||
-                'Telegram User';
+        <div class="admin-deposit">
 
-              if (
-                d.username
-              ) {
+          <b>
+            Deposit #${esc(d.id)}
+          </b>
 
-                requestedBy +=
-                  ` (@${d.username})`;
+          <div class="admin-meta">
+            User:
+            ${esc(
+              d.first_name ||
+              'Telegram User'
+            )}
+          </div>
 
-              }
+          <div class="txid">
+            ${esc(d.txid)}
+          </div>
 
-              return `
+          <input
+            id="credit-${esc(d.id)}"
+            inputmode="decimal"
+            placeholder="Credit amount"
+          >
 
-                <div class="admin-deposit">
+          <div class="actions">
 
-                  <div class="admin-request-head">
+            <button
+              class="btn-small"
+              type="button"
+              onclick="creditAdminDeposit(${Number(d.id)})"
+            >
+              CREDIT BALANCE
+            </button>
 
-                    <div class="admin-deposit-title">
-                      Deposit #${esc(d.id)}
-                    </div>
+          </div>
 
-                    <span class="status-pill pending">
-                      Pending
-                    </span>
+          <div
+            id="deposit-status-${esc(d.id)}"
+            class="status"
+          ></div>
 
-                  </div>
+        </div>
 
-                  <div class="admin-meta">
-                    User:
-                    ${esc(requestedBy)}
-                  </div>
+      `).join('');
 
-                  <div class="admin-meta">
-                    Submitted:
-                    ${esc(prettyTime(d.created_at))}
-                  </div>
+  } catch(e) {
 
-                  <div class="txid">
-                    ${esc(d.txid)}
-                  </div>
-
-                  <div class="admin-editor">
-
-                    <div class="admin-editor-title">
-                      CREDIT AMOUNT IN USD
-                    </div>
-
-                    <input
-                      id="credit-${esc(d.id)}"
-                      inputmode="decimal"
-                      placeholder="Example: 25.00"
-                    >
-
-                    <div class="actions">
-
-                      <button
-                        class="btn-small"
-                        id="credit-btn-${esc(d.id)}"
-                        onclick="creditAdminDeposit(${Number(d.id)})"
-                        type="button"
-                      >
-                        CREDIT BALANCE
-                      </button>
-
-                    </div>
-
-                    <div
-                      class="status"
-                      id="deposit-status-${esc(d.id)}"
-                    ></div>
-
-                  </div>
-
-                </div>
-
-              `;
-
-            }
-          )
-          .join('');
-
-  } catch (e) {
-
-    $('adminDeposits')
-      .innerHTML =
-        `<div class="empty">
-          ${esc(e.message)}
-        </div>`;
+    $('adminDeposits').innerHTML =
+      `<div class="empty">${esc(e.message)}</div>`;
 
   }
 
@@ -2054,15 +1590,12 @@ async function creditAdminDeposit(
   const input =
     $(`credit-${depositId}`);
 
-  const btn =
-    $(`credit-btn-${depositId}`);
-
   const status =
     $(`deposit-status-${depositId}`);
 
   const dollars =
     Number.parseFloat(
-      input?.value?.trim()
+      input.value
     );
 
   if (
@@ -2071,41 +1604,10 @@ async function creditAdminDeposit(
   ) {
 
     status.textContent =
-      'Enter a valid USD amount.';
+      'Enter a valid amount.';
 
     return;
-
   }
-
-  const amountCents =
-    Math.round(
-      dollars * 100
-    );
-
-  if (
-    amountCents > 1000000
-  ) {
-
-    status.textContent =
-      'Maximum credit is $10,000.00.';
-
-    return;
-
-  }
-
-  if (
-    !window.confirm(
-      `Credit $${dollars.toFixed(2)} for Deposit #${depositId}?`
-    )
-  ) {
-    return;
-  }
-
-  btn.disabled =
-    true;
-
-  status.textContent =
-    'Crediting balance…';
 
   try {
 
@@ -2114,15 +1616,15 @@ async function creditAdminDeposit(
         '/api/admin/credit-deposit',
         {
           method:'POST',
+          body:JSON.stringify({
+            deposit_id:
+              depositId,
 
-          body:
-            JSON.stringify({
-              deposit_id:
-                depositId,
-
-              amount_cents:
-                amountCents
-            })
+            amount_cents:
+              Math.round(
+                dollars * 100
+              )
+          })
         }
       );
 
@@ -2130,57 +1632,34 @@ async function creditAdminDeposit(
       `${data.credited} credited successfully.`;
 
     await Promise.all([
-      loadAdminStats(),
-      loadAdminDeposits(),
       loadWallet(),
       loadDeposits(),
+      loadAdminDeposits(),
       loadAdminMembers()
     ]);
 
-  } catch (e) {
+  } catch(e) {
 
     status.textContent =
       e.message;
-
-    btn.disabled =
-      false;
 
   }
 
 }
 
 
-/* PROFILE SEARCH
-   Existing backend mapping:
+/* PROFILE SEARCH */
 
-   character_name = Name
-   game           = Birth Year
-   character_id   = State
-*/
-
-let characterSubmitting =
-  false;
-
-let characterDecisionBusy =
-  false;
-
-let characterQueueLoading =
-  false;
-
-let characterHistoryLoading =
-  false;
+let characterSubmitting = false;
+let characterDecisionBusy = false;
+let characterQueueLoading = false;
+let characterHistoryLoading = false;
 
 const characterLabels = {
-  pending:
-    'Pending admin review',
-
-  available:
-    'Found',
-
-  unavailable:
-    'Not Found'
+  pending:'Pending',
+  available:'Found',
+  unavailable:'Not Found'
 };
-
 
 function profileDetails(r) {
 
@@ -2223,8 +1702,7 @@ async function loadCharacterHistory() {
     return;
   }
 
-  characterHistoryLoading =
-    true;
+  characterHistoryLoading = true;
 
   try {
 
@@ -2233,85 +1711,57 @@ async function loadCharacterHistory() {
         '/api/character-requests'
       );
 
-    $('characterHistory')
-      .innerHTML =
-        data.requests.length
-        ?
-        data.requests
-          .map(
-            r => `
+    $('characterHistory').innerHTML =
+      data.requests.length
+      ?
+      data.requests.map(r => `
 
-              <div class="request-item">
+        <div class="request-item">
 
-                <div class="request-top">
+          <div class="request-top">
 
-                  <b>
-                    Profile Search #${Number(r.id)}
-                  </b>
+            <b>
+              Profile Search #${Number(r.id)}
+            </b>
 
-                  <span
-                    class="status-pill ${
-                      r.status === 'available'
-                        ?
-                        'completed'
-                        :
-                      r.status === 'unavailable'
-                        ?
-                        'rejected'
-                        :
-                        'pending'
-                    }"
-                  >
-                    ${
-                      esc(
-                        characterLabels[
-                          r.status
-                        ]
-                        ||
-                        r.status
-                      )
-                    }
-                  </span>
+            <span
+              class="status-pill ${
+                r.status === 'available'
+                ? 'completed'
+                :
+                r.status === 'unavailable'
+                ? 'rejected'
+                :
+                'pending'
+              }"
+            >
+              ${
+                esc(
+                  characterLabels[r.status]
+                  ||
+                  r.status
+                )
+              }
+            </span>
 
-                </div>
+          </div>
 
-                ${profileDetails(r)}
+          ${profileDetails(r)}
 
-                ${
-                  r.status !== 'pending'
-                  ?
-                  `
-                    <div class="row">
-                      Reviewed:
-                      ${esc(
-                        prettyTime(
-                          r.updated_at
-                        )
-                      )}
-                    </div>
-                  `
-                  :
-                  ''
-                }
+        </div>
 
-              </div>
+      `).join('')
+      :
+      '<div class="empty">No profile searches yet.</div>';
 
-            `
-          )
-          .join('')
-        :
-        '<div class="empty">No profile searches yet.</div>';
+  } catch(e) {
 
-  } catch (e) {
-
-    $('characterHistory')
-      .textContent =
-        e.message;
+    $('characterHistory').textContent =
+      e.message;
 
   } finally {
 
-    characterHistoryLoading =
-      false;
+    characterHistoryLoading = false;
 
   }
 
@@ -2322,18 +1772,12 @@ async function loadCharacterQueue() {
 
   if (
     !adminEnabled ||
-    characterDecisionBusy ||
     characterQueueLoading
   ) {
     return;
   }
 
-  characterQueueLoading =
-    true;
-
-  $('refreshCharacterQueueBtn')
-    .disabled =
-      true;
+  characterQueueLoading = true;
 
   try {
 
@@ -2342,405 +1786,289 @@ async function loadCharacterQueue() {
         '/api/admin/character-requests'
       );
 
-    $('characterQueueCount')
-      .textContent =
-        `${data.total} pending`;
+    $('characterQueueCount').textContent =
+      `${data.total} pending`;
 
-    $('characterQueue')
-      .innerHTML =
-        data.requests.length
-        ?
-        data.requests
-          .map(
-            r => `
+    $('characterQueue').innerHTML =
+      data.requests.length
+      ?
+      data.requests.map(r => `
 
-              <div class="admin-request">
+        <div class="admin-request">
 
-                <b>
-                  Profile Search #${Number(r.id)}
-                </b>
+          <b>
+            Profile Search #${Number(r.id)}
+          </b>
 
-                ${profileDetails(r)}
+          ${profileDetails(r)}
 
-                <div class="admin-requested-by">
+          <div class="admin-requested-by">
+            From:
+            ${esc(
+              r.first_name ||
+              'Member'
+            )}
+          </div>
 
-                  From:
-                  ${esc(
-                    r.first_name ||
-                    'Member'
-                  )}
+          <div class="admin-buttons section-gap">
 
-                  ${
-                    r.username
-                    ?
-                    ' (@' +
-                    esc(r.username) +
-                    ')'
-                    :
-                    ''
-                  }
+            <button
+              class="btn-small"
+              type="button"
+              data-character-request="${Number(r.id)}"
+              data-decision="available"
+            >
+              FOUND
+            </button>
 
-                </div>
+            <button
+              class="btn-small btn-red"
+              type="button"
+              data-character-request="${Number(r.id)}"
+              data-decision="unavailable"
+            >
+              NOT FOUND
+            </button>
 
-                <div class="admin-buttons section-gap">
+          </div>
 
-                  <button
-                    type="button"
-                    class="btn-small"
-                    data-character-request="${Number(r.id)}"
-                    data-decision="available"
-                  >
-                    FOUND
-                  </button>
+        </div>
 
-                  <button
-                    type="button"
-                    class="btn-small btn-red"
-                    data-character-request="${Number(r.id)}"
-                    data-decision="unavailable"
-                  >
-                    NOT FOUND
-                  </button>
+      `).join('')
+      :
+      '<div class="empty">No pending profile searches.</div>';
 
-                </div>
+  } catch(e) {
 
-              </div>
-
-            `
-          )
-          .join('')
-        :
-        '<div class="empty">No pending profile searches.</div>';
-
-  } catch (e) {
-
-    $('characterQueueStatus')
-      .textContent =
-        e.message;
+    $('characterQueueStatus').textContent =
+      e.message;
 
   } finally {
 
-    characterQueueLoading =
-      false;
-
-    $('refreshCharacterQueueBtn')
-      .disabled =
-        false;
+    characterQueueLoading = false;
 
   }
 
 }
 
 
-/* SUBMIT PROFILE SEARCH */
+/* PURCHASE SEARCH */
 
-$('characterRequestForm')
-  .addEventListener(
-    'submit',
-    async e => {
+$('characterRequestForm').addEventListener(
+  'submit',
+  async e => {
 
-      e.preventDefault();
+    e.preventDefault();
 
-      if (
-        characterSubmitting
-      ) {
-        return;
-      }
+    if (
+      characterSubmitting
+    ) {
+      return;
+    }
 
-      if (
-        !currentUser
-      ) {
+    const name =
+      $('characterName')
+        .value
+        .trim();
 
-        $('characterStatus')
-          .textContent =
-            'Reopen the Mini App from Telegram to submit a search.';
+    const birthYear =
+      $('characterGame')
+        .value
+        .trim();
 
-        return;
+    const state =
+      $('characterId')
+        .value
+        .trim()
+        .toUpperCase();
 
-      }
+    if (!name) {
 
-      const name =
-        $('characterName')
-          .value
-          .trim();
+      $('characterStatus').textContent =
+        'Enter a name.';
 
-      const birthYear =
-        $('characterGame')
-          .value
-          .trim();
+      return;
+    }
 
-      const state =
-        $('characterId')
-          .value
-          .trim()
-          .toUpperCase();
+    if (
+      !/^(19|20)\d{2}$/
+        .test(
+          birthYear
+        )
+    ) {
 
-      if (!name) {
+      $('characterStatus').textContent =
+        'Enter a valid 4-digit birth year.';
 
-        $('characterStatus')
-          .textContent =
-            'Enter a name.';
+      return;
+    }
 
-        return;
-
-      }
-
-      if (
-        !/^(19|20)\d{2}$/
-          .test(
-            birthYear
-          )
-      ) {
-
-        $('characterStatus')
-          .textContent =
-            'Enter a valid 4-digit birth year.';
-
-        return;
-
-      }
-
-      if (
-        !/^[A-Z]{2}$/
-          .test(
-            state
-          )
-      ) {
-
-        $('characterStatus')
-          .textContent =
-            'Enter a 2-letter state code. Example: NV.';
-
-        return;
-
-      }
-
-      const payload = {
-
-        character_name:
-          name,
-
-        game:
-          birthYear,
-
-        character_id:
+    if (
+      !/^[A-Z]{2}$/
+        .test(
           state
+        )
+    ) {
 
-      };
+      $('characterStatus').textContent =
+        'Enter a 2-letter state code. Example: NV.';
 
-      characterSubmitting =
-        true;
+      return;
+    }
 
-      $('submitCharacterBtn')
-        .disabled =
-          true;
+    if (
+      !window.confirm(
+        'Purchase this profile search for $12.00?'
+      )
+    ) {
+      return;
+    }
 
-      $('characterStatus')
-        .textContent =
-          'Submitting profile search…';
+    characterSubmitting = true;
 
-      try {
+    $('submitCharacterBtn').disabled =
+      true;
 
-        const data =
-          await api(
-            '/api/character-requests',
-            {
-              method:'POST',
+    $('characterStatus').textContent =
+      'Purchasing profile search…';
 
-              body:
-                JSON.stringify(
-                  payload
-                )
-            }
-          );
+    try {
 
-        $('characterStatus')
-          .textContent =
-            data.already_pending
-            ?
-            `Profile Search #${data.request_id} is already awaiting admin review.`
-            :
-            `✅ Profile Search #${data.request_id} submitted for admin review.`;
+      const data =
+        await api(
+          '/api/character-requests',
+          {
+            method:'POST',
 
-        $('characterRequestForm')
-          .reset();
+            body:
+              JSON.stringify({
+                character_name:
+                  name,
 
-        await Promise.all([
-          loadCharacterHistory(),
-          loadCharacterQueue()
-        ]);
+                game:
+                  birthYear,
 
-      } catch (e) {
+                character_id:
+                  state
+              })
+          }
+        );
 
-        $('characterStatus')
-          .textContent =
-            e.message;
+      if (
+        data.already_pending
+      ) {
 
-      } finally {
+        $('characterStatus').textContent =
+          `Profile Search #${data.request_id} is already pending. No additional charge was made.`;
 
-        characterSubmitting =
-          false;
+      } else {
 
-        $('submitCharacterBtn')
-          .disabled =
-            false;
+        $('characterStatus').textContent =
+          `✅ Profile Search #${data.request_id} purchased for $12.00 and submitted.`;
 
       }
+
+      $('characterRequestForm').reset();
+
+      await Promise.all([
+        loadWallet(),
+        loadMe(),
+        loadCharacterHistory(),
+        loadCharacterQueue()
+      ]);
+
+    } catch(e) {
+
+      $('characterStatus').textContent =
+        e.message;
+
+    } finally {
+
+      characterSubmitting = false;
+
+      $('submitCharacterBtn').disabled =
+        false;
 
     }
-  );
+
+  }
+);
 
 
-$('refreshCharacterQueueBtn')
-  .addEventListener(
-    'click',
-    loadCharacterQueue
-  );
+$('refreshCharacterQueueBtn').onclick =
+  loadCharacterQueue;
 
 
-$('characterQueue')
-  .addEventListener(
-    'click',
-    async e => {
+$('characterQueue').addEventListener(
+  'click',
+  async e => {
 
-      const button =
-        e.target.closest(
-          '[data-character-request]'
-        );
-
-      if (
-        !button ||
-        !adminEnabled ||
-        characterDecisionBusy ||
-        characterQueueLoading
-      ) {
-        return;
-      }
-
-      const id =
-        Number(
-          button.dataset
-            .characterRequest
-        );
-
-      const decision =
-        button.dataset
-          .decision;
-
-      if (
-        ![
-          'available',
-          'unavailable'
-        ].includes(
-          decision
-        )
-      ) {
-        return;
-      }
-
-      const resultText =
-        decision === 'available'
-        ?
-        'FOUND'
-        :
-        'NOT FOUND';
-
-      if (
-        !window.confirm(
-          `Mark Profile Search #${id} as ${resultText}?`
-        )
-      ) {
-        return;
-      }
-
-      characterDecisionBusy =
-        true;
-
-      const buttons =
-        Array.from(
-          $('characterQueue')
-            .querySelectorAll(
-              'button'
-            )
-        );
-
-      buttons.forEach(
-        b =>
-          b.disabled =
-            true
+    const button =
+      e.target.closest(
+        '[data-character-request]'
       );
 
-      $('refreshCharacterQueueBtn')
-        .disabled =
-          true;
+    if (
+      !button ||
+      characterDecisionBusy
+    ) {
+      return;
+    }
 
-      $('characterQueueStatus')
-        .textContent =
-          'Saving profile search result…';
+    const id =
+      Number(
+        button.dataset.characterRequest
+      );
 
-      try {
+    const decision =
+      button.dataset.decision;
 
-        const data =
-          await api(
-            `/api/admin/character-requests/${id}/decision`,
-            {
-              method:'POST',
+    characterDecisionBusy = true;
 
-              body:
-                JSON.stringify({
-                  status:
-                    decision
-                })
-            }
-          );
+    try {
 
-        $('characterQueueStatus')
-          .textContent =
-            `✅ Profile Search #${id}: ${
-              characterLabels[
-                data.status
-              ]
-            }. ${
-              data.notification_sent
-              ?
-              'Telegram notification sent.'
-              :
-              'Result saved in the member history.'
-            }`;
+      const data =
+        await api(
+          `/api/admin/character-requests/${id}/decision`,
+          {
+            method:'POST',
 
-      } catch (e) {
-
-        $('characterQueueStatus')
-          .textContent =
-            e.message;
-
-      } finally {
-
-        characterDecisionBusy =
-          false;
-
-        buttons.forEach(
-          b =>
-            b.disabled =
-              false
+            body:
+              JSON.stringify({
+                status:
+                  decision
+              })
+          }
         );
 
-        $('refreshCharacterQueueBtn')
-          .disabled =
-            false;
+      $('characterQueueStatus').textContent =
+        `✅ Profile Search #${id}: ${
+          characterLabels[
+            data.status
+          ]
+        }`;
 
-        await Promise.all([
-          loadCharacterQueue(),
-          loadCharacterHistory()
-        ]);
+      await Promise.all([
+        loadCharacterQueue(),
+        loadCharacterHistory()
+      ]);
 
-      }
+    } catch(e) {
+
+      $('characterQueueStatus').textContent =
+        e.message;
+
+    } finally {
+
+      characterDecisionBusy = false;
 
     }
-  );
+
+  }
+);
 
 
-/* INITIAL LOAD */
+/* START */
 
 async function startApp() {
 
@@ -2758,8 +2086,6 @@ async function startApp() {
 startApp();
 
 
-/* AUTO REFRESH */
-
 setInterval(
   async () => {
 
@@ -2770,9 +2096,7 @@ setInterval(
       loadCharacterQueue()
     ]);
 
-    if (
-      adminEnabled
-    ) {
+    if (adminEnabled) {
 
       await Promise.all([
         loadAdminStats(),
