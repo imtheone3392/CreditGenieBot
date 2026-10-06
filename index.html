@@ -390,6 +390,25 @@ button:disabled{opacity:.55;cursor:not-allowed}
   </div>
 </div>
 
+<!-- CHARACTER AVAILABILITY -->
+<section class="card">
+  <div class="card-head"><h2>CHARACTER<br>AVAILABILITY</h2><span class="pill">Admin review</span></div>
+  <form id="characterRequestForm" class="grid">
+    <label for="characterName">Character name</label>
+    <input id="characterName" maxlength="80" required placeholder="Character name" autocomplete="off">
+    <label for="characterGame">Game</label>
+    <input id="characterGame" maxlength="80" required placeholder="Game title" autocomplete="off">
+    <label for="characterId">Character ID</label>
+    <input id="characterId" maxlength="64" pattern="[A-Za-z0-9_.\-]+" required placeholder="Character ID or game handle" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <p class="help">Request availability for a fictional game character. An admin will review it and reply Available or Unavailable. Requests are free.</p>
+    <button id="submitCharacterBtn" type="submit">SUBMIT CHARACTER REQUEST</button>
+  </form>
+  <div id="characterStatus" class="status" role="status" aria-live="polite"></div>
+  <div class="card-head section-gap"><h2 style="font-size:20px">MY CHARACTER REQUESTS</h2></div>
+  <p class="notice">Your latest 50 requests. Availability is an admin response, not a reservation.</p>
+  <div id="characterHistory"><div class="empty">Loading character requests…</div></div>
+</section>
+
 <!-- BITCOIN WALLET -->
 <section class="card">
   <div class="card-head">
@@ -502,6 +521,12 @@ button:disabled{opacity:.55;cursor:not-allowed}
     <div id="memberMessageStatus" class="status" role="status" aria-live="polite"></div>
   </form>
 
+  <div class="card-head section-gap"><h2>CHARACTER REQUEST QUEUE</h2><span class="pill" id="characterQueueCount">0 pending</span></div>
+  <button id="refreshCharacterQueueBtn" type="button" class="btn-small btn-blue">REFRESH CHARACTER QUEUE</button>
+  <p class="notice">Showing the oldest 100 pending requests. Mark each character Available or Unavailable to notify the member.</p>
+  <div id="characterQueueStatus" class="status" role="status" aria-live="polite"></div>
+  <div id="characterQueue"><div class="empty">Loading character requests…</div></div>
+
   <div class="card-head section-gap">
     <h2>BITCOIN DEPOSIT QUEUE</h2>
     <span class="pill" id="adminDepositCount">0 pending</span>
@@ -559,7 +584,7 @@ async function api(path, options = {}) {
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new Error(Array.isArray(data.detail) ? 'Check the message length and required fields.' : (data.detail || 'Request failed'));
+    throw new Error(Array.isArray(data.detail) ? 'Check the required fields and text lengths.' : (data.detail || 'Request failed'));
   }
 
   return data;
@@ -1025,13 +1050,104 @@ async function creditAdminDeposit(depositId) {
   }
 }
 
+/* FICTIONAL CHARACTER REQUESTS */
+let characterSubmitting = false;
+let characterDecisionBusy = false;
+let characterQueueLoading = false;
+let characterHistoryLoading = false;
+const characterLabels = {pending:'Pending admin review', available:'Available', unavailable:'Unavailable'};
+function characterDetails(r) {
+  return `<div class="admin-name">${esc(r.character_name)}</div>
+    <div class="row">Game: ${esc(r.game)}</div><div class="row">Character ID: ${esc(r.character_id)}</div>
+    <div class="row">Submitted: ${esc(prettyTime(r.created_at))}</div>`;
+}
+async function loadCharacterHistory() {
+  if (!currentUser || characterHistoryLoading) return;
+  characterHistoryLoading = true;
+  try {
+    const data = await api('/api/character-requests');
+    $('characterHistory').innerHTML = data.requests.length ? data.requests.map(r => `
+      <div class="request-item"><div class="request-top"><b>Request #${Number(r.id)}</b>
+      <span class="status-pill ${r.status === 'available' ? 'completed' : r.status === 'unavailable' ? 'rejected' : 'pending'}">${esc(characterLabels[r.status] || r.status)}</span></div>
+      ${characterDetails(r)}${r.status !== 'pending' ? `<div class="row">Reviewed: ${esc(prettyTime(r.updated_at))}</div>` : ''}</div>`).join('') : '<div class="empty">No character requests yet.</div>';
+  } catch (e) {
+    $('characterHistory').textContent = e.message;
+  } finally { characterHistoryLoading = false; }
+}
+async function loadCharacterQueue() {
+  if (!adminEnabled || characterDecisionBusy || characterQueueLoading) return;
+  characterQueueLoading = true;
+  $('refreshCharacterQueueBtn').disabled = true;
+  try {
+    const data = await api('/api/admin/character-requests');
+    $('characterQueueCount').textContent = `${data.total} pending`;
+    $('characterQueue').innerHTML = data.requests.length ? data.requests.map(r => `
+      <div class="admin-request"><b>Character request #${Number(r.id)}</b>${characterDetails(r)}
+      <div class="admin-requested-by">From: ${esc(r.first_name || 'Member')}${r.username ? ' (@' + esc(r.username) + ')' : ''}</div>
+      <div class="admin-buttons section-gap">
+      <button type="button" class="btn-small" data-character-request="${Number(r.id)}" data-decision="available">AVAILABLE</button>
+      <button type="button" class="btn-small btn-red" data-character-request="${Number(r.id)}" data-decision="unavailable">UNAVAILABLE</button>
+      </div></div>`).join('') : '<div class="empty">No pending character requests.</div>';
+  } catch (e) {
+    $('characterQueueStatus').textContent = e.message;
+  } finally {
+    characterQueueLoading = false;
+    $('refreshCharacterQueueBtn').disabled = false;
+  }
+}
+$('characterRequestForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (characterSubmitting) return;
+  if (!currentUser) { $('characterStatus').textContent = 'Reopen the Mini App from Telegram to submit a request.'; return; }
+  const payload = {character_name:$('characterName').value.trim(), game:$('characterGame').value.trim(), character_id:$('characterId').value.trim()};
+  if (!payload.character_name || !payload.game || !/^[A-Za-z0-9_.-]{1,64}$/.test(payload.character_id)) {
+    $('characterStatus').textContent = 'Enter a character name, game, and character ID (letters, numbers, dots, underscores or hyphens).'; return;
+  }
+  characterSubmitting = true;
+  $('submitCharacterBtn').disabled = true;
+  $('characterStatus').textContent = 'Submitting character request…';
+  try {
+    const data = await api('/api/character-requests', {method:'POST', body:JSON.stringify(payload)});
+    $('characterStatus').textContent = data.already_pending ? `Request #${data.request_id} is already awaiting admin review.` : `✅ Character request #${data.request_id} submitted. An admin will reply with availability.`;
+    $('characterRequestForm').reset();
+    await Promise.all([loadCharacterHistory(), loadCharacterQueue()]);
+  } catch (e) { $('characterStatus').textContent = e.message; }
+  finally { characterSubmitting = false; $('submitCharacterBtn').disabled = false; }
+});
+$('refreshCharacterQueueBtn').addEventListener('click', loadCharacterQueue);
+$('characterQueue').addEventListener('click', async e => {
+  const button = e.target.closest('[data-character-request]');
+  if (!button || !adminEnabled || characterDecisionBusy || characterQueueLoading) return;
+  const id = Number(button.dataset.characterRequest);
+  const decision = button.dataset.decision;
+  if (!['available','unavailable'].includes(decision)) return;
+  if (!window.confirm(`Mark character request #${id} ${decision.toUpperCase()} and notify the member?`)) return;
+  characterDecisionBusy = true;
+  const buttons = Array.from($('characterQueue').querySelectorAll('button'));
+  buttons.forEach(b => b.disabled = true);
+  $('refreshCharacterQueueBtn').disabled = true;
+  $('characterQueueStatus').textContent = 'Saving availability result…';
+  try {
+    const data = await api(`/api/admin/character-requests/${id}/decision`, {method:'POST', body:JSON.stringify({status:decision})});
+    $('characterQueueStatus').textContent = `✅ Request #${id}: ${characterLabels[data.status]}. ` + (data.notification_sent ? 'Telegram notification sent.' : 'Result saved in the member’s request history. Telegram notification could not be confirmed.');
+  } catch (e) { $('characterQueueStatus').textContent = e.message; }
+  finally {
+    characterDecisionBusy = false;
+    buttons.forEach(b => b.disabled = false);
+    $('refreshCharacterQueueBtn').disabled = false;
+    await Promise.all([loadCharacterQueue(), loadCharacterHistory()]);
+  }
+});
+
 /* INITIAL LOAD */
 async function startApp() {
   await loadMe();
 
   await Promise.all([
     loadWallet(),
-    loadDeposits()
+    loadDeposits(),
+    loadCharacterHistory(),
+    loadCharacterQueue()
   ]);
 }
 
@@ -1041,7 +1157,9 @@ startApp();
 setInterval(async () => {
   await Promise.all([
     loadWallet(),
-    loadDeposits()
+    loadDeposits(),
+    loadCharacterHistory(),
+    loadCharacterQueue()
   ]);
 
   if (adminEnabled) {
@@ -1055,4 +1173,5 @@ setInterval(async () => {
 </script>
 </body>
 </html>
+
 
