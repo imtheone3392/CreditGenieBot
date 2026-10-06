@@ -1,160 +1,50 @@
-# CreditGenie Telegram Bot
+# CreditGenie Telegram Mini App
 
-CreditGenie is a starter Telegram bot for searching records that you own or are authorized to access.
+CreditGenie provides member accounts, a Bitcoin deposit workflow, and an admin member directory with individual Telegram messaging. Person lookup, search forms, lookup commands, and the external PeopleFinder link have been removed.
 
-## Included
+## Members and messaging
 
-- Home menu
-- Guided record search
-- Balance
-- Search pricing
-- Search history
-- Account page
-- Support link
-- Basic admin stats
-- Admin command to add authorized records
-- Admin command to add user credit
-- SQLite database
-- Dockerfile
+Open CreditGenieBot in Telegram, press **Start**, then open the Mini App. Members register when they press Start or open the Mini App; existing accounts retain their balance and original joined date.
 
-## Safety / data rules
+Admins listed in the existing `ADMIN_IDS` configuration see **Admin Control Center → Admin Members**. Each entry shows first name, Telegram username (when available), balance, and joined date. Use Previous/Next to view every registered member, and Refresh Members for the latest data.
 
-Do not use this project to store, search, sell, or expose SSNs, passwords, authentication codes,
-full payment-card data, stolen identity information, or similar highly sensitive credentials.
+Select **Message Member**, compose the message, and confirm the named recipient. Messages are sent individually through the existing bot. Telegram requires the recipient to have started or otherwise allowed messages from the bot. A blocked bot, rate limit, or delivery failure is shown in the composer. A timeout can mean the message arrived without a response; verify before resending. List refreshes preserve unsent drafts.
 
-Use it only with records you own or are authorized to access.
+Both member endpoints validate the Telegram Mini App signature and require admin authorization. Sessions older than 24 hours must be reopened from Telegram.
 
-## 1. Install Python
+- `GET /api/admin/members?page=1&page_size=50` — member directory, maximum page size 100.
+- `POST /api/admin/members/{member_id}/message` — JSON body `{"message":"Hello"}`; up to 4096 UTF-16 units.
 
-Use Python 3.11+.
+The directory uses internal member IDs; clients cannot supply an arbitrary Telegram recipient ID.
 
-## 2. Create a virtual environment
+## Wallet and persistence
 
-### Windows
+Bitcoin address configuration, deposit submission/history, manual admin deposit approval, and stored balances retain their existing behavior. Verify payments on the Bitcoin network before crediting balances. Messaging never debits or credits members.
+
+The SQLite database uses the existing `DB_PATH`. Its parent directory is created if missing. The specific accidental `VALUE` form-label prefix before `/var/data/creditgenie.db` is normalized in application code without modifying the environment. No fallback database is used when opening the configured database fails.
+
+Existing tables and historical records are preserved. Retired lookup records have no active API or bot access. No balances are automatically changed or refunds issued as part of this update.
+
+## Run and deploy
+
+Install Python 3.12 and dependencies:
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
 pip install -r requirements.txt
+uvicorn app:api --host 0.0.0.0 --port 8000
 ```
 
-### macOS / Linux
+`python bot.py` starts the same service. Run a single instance because the service uses Telegram polling and SQLite.
+
+Use the existing deployment configuration: `BOT_TOKEN`, `MINI_APP_URL`, `ADMIN_IDS`, `DB_PATH`, `BTC_DEPOSIT_ADDRESS`, and `SUPPORT_USERNAME`. Keep credentials out of source control. `/app` serves the Mini App; `/health` checks database access. The Docker command honors Render's `PORT` and does not print environment values.
+
+On Render, the existing persistent disk is mounted at `/var/data` and deployment follows commits to `main`. No environment values or bot credentials need to be replaced for this update.
+
+## Tests
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt pytest
+python -m pytest -q test_admin_members.py
 ```
 
-## 3. Configure the bot
-
-Copy `.env.example` to `.env`.
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and paste the NEW token that BotFather gave you:
-
-```env
-BOT_TOKEN=your_new_token_here
-ADMIN_IDS=your_telegram_numeric_id
-SEARCH_COST_CENTS=0
-SUPPORT_USERNAME=@YourSupport
-DB_PATH=creditgenie.db
-```
-
-Never post your bot token in chat, screenshots, GitHub, or public messages.
-
-### Find your Telegram numeric ID
-
-Open your bot, press Start, then use Telegram's official/user-ID helper of your choice, or temporarily
-look at the `update.effective_user.id` value in logs if you are developing locally.
-
-## 4. Run CreditGenie
-
-```bash
-python bot.py
-```
-
-Then open your bot in Telegram and send:
-
-```text
-/start
-```
-
-## 5. Admin commands
-
-First, put your Telegram numeric ID in `ADMIN_IDS` and restart the bot.
-
-Admin dashboard:
-
-```text
-/admin
-```
-
-Add an authorized record:
-
-```text
-/addrecord Jane|Doe|NV|Las Vegas|89103|01/01/1990|REF-001|Customer file
-```
-
-Add user credit:
-
-```text
-/addcredit 123456789 25
-```
-
-That example adds $25.00 to Telegram user `123456789`.
-
-## 6. Search pricing
-
-Set:
-
-```env
-SEARCH_COST_CENTS=250
-```
-
-to charge $2.50 from a user's internal bot balance for each completed search.
-
-Leave it at `0` while testing.
-
-## 7. Put it online
-
-You can run this continuously on any VPS or container host that supports Python/Docker.
-
-With Docker:
-
-```bash
-docker build -t creditgenie .
-docker run --env-file .env -v "$(pwd)/data:/app/data" creditgenie
-```
-
-For persistent Docker storage, you can also set:
-
-```env
-DB_PATH=/app/data/creditgenie.db
-```
-
-## Useful commands
-
-- `/start` — home menu
-- `/search` — start a search
-- `/cancel` — cancel a search
-- `/privacy` — privacy/data-use notice
-- `/admin` — admin stats
-- `/addrecord ...` — add an authorized record
-- `/addcredit ...` — change a user's internal balance
-
-## Next upgrades
-
-Good next additions are:
-
-- PostgreSQL instead of SQLite
-- Secure web-based admin dashboard
-- CSV import for authorized records
-- Telegram Stars or a legitimate payment processor
-- Support-ticket workflow
-- Role-based admin permissions
-- Encrypted database backups
-- Audit logs
+Tests use an isolated temporary database, a dummy bot token, signed local test sessions, and a mocked Telegram transport. They do not send real Telegram messages. If the test host uses a SOCKS proxy, install `httpx[socks]` in the test environment too.

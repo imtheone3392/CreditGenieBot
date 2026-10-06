@@ -4,15 +4,18 @@ import hmac
 import hashlib
 import sqlite3
 import logging
+import time
+from pathlib import Path
 
 from datetime import datetime, timezone
 from urllib.parse import parse_qsl
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Query
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from telegram.error import Forbidden, BadRequest, RetryAfter, TimedOut, NetworkError, TelegramError
 
 from telegram import (
     Update,
@@ -49,7 +52,9 @@ DB_PATH = os.getenv(
     "creditgenie.db"
 ).strip()
 
-SEARCH_COST_CENTS = 1200
+# Accept the specific copied form-label typo without mutating the environment.
+if DB_PATH.startswith("VALUE") and DB_PATH[5:].strip() == "/var/data/creditgenie.db":
+    DB_PATH = "/var/data/creditgenie.db"
 
 BTC_DEPOSIT_ADDRESS = os.getenv(
     "BTC_DEPOSIT_ADDRESS",
@@ -84,6 +89,10 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+# Telegram request URLs contain the bot credential; never log them.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 logger = logging.getLogger(
     "creditgenie"
 )
@@ -111,6 +120,7 @@ def money(cents):
 
 def db():
 
+    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(
         DB_PATH
     )
@@ -306,6 +316,14 @@ def verify_init_data(
         )
 
     try:
+        auth_date = int(pairs.get("auth_date", "0"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid Telegram session.")
+    age = time.time() - auth_date
+    if auth_date <= 0 or age < -60 or age > 86400:
+        raise HTTPException(status_code=401, detail="Session expired. Reopen the Mini App from Telegram.")
+
+    try:
 
         user = json.loads(
             pairs.get(
@@ -323,7 +341,7 @@ def verify_init_data(
             )
         )
 
-    if not user.get("id"):
+    if not isinstance(user, dict) or not isinstance(user.get("id"), int) or user["id"] <= 0:
 
         raise HTTPException(
             status_code=401,
@@ -428,40 +446,6 @@ def get_or_create_user(
 # MODELS
 # -------------------------------------------------
 
-class SearchRequest(
-    BaseModel
-):
-
-    first_name: str = Field(
-        min_length=1,
-        max_length=80
-    )
-
-    last_name: str = Field(
-        min_length=1,
-        max_length=80
-    )
-
-    state: str = Field(
-        default="",
-        max_length=2
-    )
-
-    city: str = Field(
-        default="",
-        max_length=100
-    )
-
-    zip: str = Field(
-        default="",
-        max_length=20
-    )
-
-    dob: str = Field(
-        default="",
-        max_length=20
-    )
-
 
 class BitcoinDepositRequest(
     BaseModel
@@ -487,42 +471,6 @@ class CreditDepositRequest(
     )
 
 
-class AdminResultRequest(
-    BaseModel
-):
-
-    request_id: int = Field(
-        gt=0
-    )
-
-    result_text: str = Field(
-        min_length=1,
-        max_length=12000
-    )
-
-    admin_note: str = Field(
-        default="",
-        max_length=2000
-    )
-
-
-class AdminRejectRequest(
-    BaseModel
-):
-
-    request_id: int = Field(
-        gt=0
-    )
-
-    reason: str = Field(
-        default=(
-            "Request could not "
-            "be completed."
-        ),
-        max_length=2000
-    )
-
-
 # -------------------------------------------------
 # TELEGRAM /start
 # -------------------------------------------------
@@ -531,6 +479,8 @@ async def start(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+
+    get_or_create_user(update.effective_user.to_dict())
 
     if not MINI_APP_URL:
 
@@ -557,7 +507,7 @@ async def start(
     await update.message.reply_text(
         "🧞 CreditGenie\n\n"
         "Open the Mini App to manage "
-        "your balance and search requests.",
+        "your balance and deposits.",
         reply_markup=keyboard
     )
 
@@ -566,557 +516,16 @@ async def start(
 # TELEGRAM /admin
 # -------------------------------------------------
 
-async def admin(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            "Admin access required."
-        )
-
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("Admin access required.")
         return
-
     with db() as con:
-
-        users_count = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM users
-            """
-        ).fetchone()["c"]
-
-        pending_count = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM search_requests
-            WHERE status='pending'
-            """
-        ).fetchone()["c"]
-
-        completed_count = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM search_requests
-            WHERE status='completed'
-            """
-        ).fetchone()["c"]
-
-        pending_deposits = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM bitcoin_deposits
-            WHERE status='pending'
-            """
-        ).fetchone()["c"]
-
+        users = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        deposits = con.execute("SELECT COUNT(*) FROM bitcoin_deposits WHERE status='pending'").fetchone()[0]
     await update.message.reply_text(
-        "🛠 CreditGenie Admin\n\n"
-
-        f"Users: {users_count}\n"
-        f"Pending searches: {pending_count}\n"
-        f"Completed searches: {completed_count}\n"
-        f"Pending deposits: {pending_deposits}\n\n"
-
-        "Commands:\n"
-        "/queue\n"
-        "/request 17\n"
-        "/sendresult 17|Result\n"
-        "/reject 17|Reason"
-    )
-
-
-# -------------------------------------------------
-# TELEGRAM /queue
-# -------------------------------------------------
-
-async def queue(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            "Admin access required."
-        )
-
-        return
-
-    with db() as con:
-
-        rows = con.execute(
-            """
-            SELECT
-                sr.id,
-                sr.first_name,
-                sr.last_name,
-                sr.state,
-                sr.city,
-                sr.zip,
-                sr.dob,
-                sr.created_at,
-
-                u.first_name
-                    AS user_first_name,
-
-                u.username
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            WHERE sr.status='pending'
-
-            ORDER BY sr.id ASC
-
-            LIMIT 20
-            """
-        ).fetchall()
-
-    if not rows:
-
-        await update.message.reply_text(
-            "✅ No pending search requests."
-        )
-
-        return
-
-    parts = [
-        "📥 Pending Search Queue"
-    ]
-
-    for row in rows:
-
-        who = (
-            row["user_first_name"]
-            or
-            "User"
-        )
-
-        if row["username"]:
-
-            who += (
-                f" (@{row['username']})"
-            )
-
-        location = ", ".join(
-            x
-            for x in [
-                row["city"],
-                row["state"],
-                row["zip"]
-            ]
-            if x
-        ) or "No location"
-
-        parts.append(
-            f"\n"
-            f"#{row['id']} — "
-            f"{row['first_name']} "
-            f"{row['last_name']}\n"
-
-            f"{location}\n"
-
-            f"DOB: "
-            f"{row['dob'] or '—'}\n"
-
-            f"Requested by: "
-            f"{who}\n"
-
-            f"/request "
-            f"{row['id']}"
-        )
-
-    await update.message.reply_text(
-        "\n".join(parts)
-    )
-
-
-# -------------------------------------------------
-# TELEGRAM /request
-# -------------------------------------------------
-
-async def request_detail(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            "Admin access required."
-        )
-
-        return
-
-    if (
-        not context.args
-        or
-        not context.args[0].isdigit()
-    ):
-
-        await update.message.reply_text(
-            "Usage: /request 17"
-        )
-
-        return
-
-    request_id = int(
-        context.args[0]
-    )
-
-    with db() as con:
-
-        row = con.execute(
-            """
-            SELECT
-                sr.*,
-
-                u.telegram_id,
-
-                u.first_name
-                    AS user_first_name,
-
-                u.username
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            WHERE sr.id=?
-            """,
-            (
-                request_id,
-            )
-        ).fetchone()
-
-    if not row:
-
-        await update.message.reply_text(
-            "Request not found."
-        )
-
-        return
-
-    who = (
-        row["user_first_name"]
-        or
-        "User"
-    )
-
-    if row["username"]:
-
-        who += (
-            f" (@{row['username']})"
-        )
-
-    await update.message.reply_text(
-        f"🔎 Request #{row['id']}\n\n"
-
-        f"Status: {row['status']}\n"
-
-        f"First: {row['first_name']}\n"
-        f"Last: {row['last_name']}\n"
-
-        f"State: {row['state'] or '—'}\n"
-        f"City: {row['city'] or '—'}\n"
-        f"ZIP: {row['zip'] or '—'}\n"
-        f"DOB: {row['dob'] or '—'}\n"
-
-        f"Requested by: {who}\n\n"
-
-        f"Complete:\n"
-        f"/sendresult {row['id']}|Result\n\n"
-
-        f"Reject:\n"
-        f"/reject {row['id']}|Reason"
-    )
-
-
-# -------------------------------------------------
-# TELEGRAM /sendresult
-# -------------------------------------------------
-
-async def sendresult(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            "Admin access required."
-        )
-
-        return
-
-    raw = (
-        update.message.text
-        .partition(" ")[2]
-        .strip()
-    )
-
-    (
-        request_id_text,
-        sep,
-        result_text
-    ) = raw.partition("|")
-
-    if (
-        not sep
-        or
-        not request_id_text.strip().isdigit()
-        or
-        not result_text.strip()
-    ):
-
-        await update.message.reply_text(
-            "Usage:\n"
-            "/sendresult 17|Result"
-        )
-
-        return
-
-    request_id = int(
-        request_id_text.strip()
-    )
-
-    result_text = (
-        result_text.strip()
-    )
-
-    with db() as con:
-
-        row = con.execute(
-            """
-            SELECT
-                sr.id,
-                sr.status,
-                u.telegram_id
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            WHERE sr.id=?
-            """,
-            (
-                request_id,
-            )
-        ).fetchone()
-
-        if not row:
-
-            await update.message.reply_text(
-                "Request not found."
-            )
-
-            return
-
-        if row["status"] != "pending":
-
-            await update.message.reply_text(
-                f"Request #{request_id} "
-                f"is already {row['status']}."
-            )
-
-            return
-
-        con.execute(
-            """
-            UPDATE search_requests
-
-            SET
-                status='completed',
-                result_text=?,
-                admin_note=NULL,
-                updated_at=?
-
-            WHERE id=?
-            """,
-            (
-                result_text,
-                now_iso(),
-                request_id
-            )
-        )
-
-    try:
-
-        await context.bot.send_message(
-            chat_id=row["telegram_id"],
-
-            text=(
-                f"✅ CreditGenie request "
-                f"#{request_id} is complete.\n\n"
-
-                "Open the Mini App "
-                "to view your result."
-            )
-        )
-
-    except Exception as exc:
-
-        logger.warning(
-            "Could not notify user "
-            "for request %s: %s",
-            request_id,
-            exc
-        )
-
-    await update.message.reply_text(
-        f"✅ Request #{request_id} "
-        "completed and saved."
-    )
-
-
-# -------------------------------------------------
-# TELEGRAM /reject
-# -------------------------------------------------
-
-async def reject(
-    update: Update,
-    context: ContextTypes.DEFAULT_TYPE
-):
-
-    if not is_admin(
-        update.effective_user.id
-    ):
-
-        await update.message.reply_text(
-            "Admin access required."
-        )
-
-        return
-
-    raw = (
-        update.message.text
-        .partition(" ")[2]
-        .strip()
-    )
-
-    (
-        request_id_text,
-        sep,
-        reason
-    ) = raw.partition("|")
-
-    if not request_id_text.strip().isdigit():
-
-        await update.message.reply_text(
-            "Usage:\n"
-            "/reject 17|Reason"
-        )
-
-        return
-
-    request_id = int(
-        request_id_text.strip()
-    )
-
-    reason = (
-        reason.strip()
-        if sep and reason.strip()
-        else
-        "Request could not be completed."
-    )
-
-    with db() as con:
-
-        row = con.execute(
-            """
-            SELECT
-                sr.id,
-                sr.status,
-                u.telegram_id
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            WHERE sr.id=?
-            """,
-            (
-                request_id,
-            )
-        ).fetchone()
-
-        if not row:
-
-            await update.message.reply_text(
-                "Request not found."
-            )
-
-            return
-
-        if row["status"] != "pending":
-
-            await update.message.reply_text(
-                f"Request #{request_id} "
-                f"is already {row['status']}."
-            )
-
-            return
-
-        con.execute(
-            """
-            UPDATE search_requests
-
-            SET
-                status='rejected',
-                result_text=NULL,
-                admin_note=?,
-                updated_at=?
-
-            WHERE id=?
-            """,
-            (
-                reason,
-                now_iso(),
-                request_id
-            )
-        )
-
-    try:
-
-        await context.bot.send_message(
-            chat_id=row["telegram_id"],
-
-            text=(
-                f"❌ CreditGenie request "
-                f"#{request_id} was not completed.\n\n"
-
-                f"{reason}"
-            )
-        )
-
-    except Exception as exc:
-
-        logger.warning(
-            "Could not notify user "
-            "for request %s: %s",
-            request_id,
-            exc
-        )
-
-    await update.message.reply_text(
-        f"Request #{request_id} "
-        "marked rejected."
+        f"🛠 CreditGenie Admin\n\nMembers: {users}\nPending deposits: {deposits}\n\n"
+        "Open the Mini App's Admin Control Center to view members, send individual messages, and review deposits."
     )
 
 
@@ -1142,34 +551,6 @@ telegram_bot.add_handler(
     CommandHandler(
         "admin",
         admin
-    )
-)
-
-telegram_bot.add_handler(
-    CommandHandler(
-        "queue",
-        queue
-    )
-)
-
-telegram_bot.add_handler(
-    CommandHandler(
-        "request",
-        request_detail
-    )
-)
-
-telegram_bot.add_handler(
-    CommandHandler(
-        "sendresult",
-        sendresult
-    )
-)
-
-telegram_bot.add_handler(
-    CommandHandler(
-        "reject",
-        reject
     )
 )
 
@@ -1240,9 +621,9 @@ async def root():
 @api.get("/health")
 async def health():
 
-    return {
-        "ok": True
-    }
+    with db() as con:
+        con.execute("SELECT 1 FROM users LIMIT 1").fetchone()
+    return {"ok": True}
 
 
 # -------------------------------------------------
@@ -1289,10 +670,6 @@ async def me(
         "balance_cents":
             user["balance_cents"],
 
-        "search_cost":
-            money(
-                SEARCH_COST_CENTS
-            ),
 
         "support":
             SUPPORT_USERNAME,
@@ -1302,308 +679,6 @@ async def me(
                 tg["id"]
             )
     }
-
-
-# -------------------------------------------------
-# CREATE SEARCH REQUEST
-# -------------------------------------------------
-
-@api.post("/api/search")
-async def search(
-    req: SearchRequest,
-
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    tg = verify_init_data(
-        x_telegram_init_data
-    )
-
-    user = get_or_create_user(
-        tg
-    )
-
-    first = (
-        req.first_name
-        .strip()
-    )
-
-    last = (
-        req.last_name
-        .strip()
-    )
-
-    state = (
-        req.state
-        .strip()
-        .upper()
-    )
-
-    city = (
-        req.city
-        .strip()
-    )
-
-    zipcode = (
-        req.zip
-        .strip()
-    )
-
-    dob = (
-        req.dob
-        .strip()
-    )
-
-    if not first or not last:
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "First and last name "
-                "are required."
-            )
-        )
-
-    if state and (
-        len(state) != 2
-        or
-        not state.isalpha()
-    ):
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "State must be a "
-                "2-letter abbreviation."
-            )
-        )
-
-    with db() as con:
-
-        current_user = con.execute(
-            """
-            SELECT
-                id,
-                balance_cents
-
-            FROM users
-
-            WHERE id=?
-            """,
-            (
-                user["id"],
-            )
-        ).fetchone()
-
-        if not current_user:
-
-            raise HTTPException(
-                status_code=404,
-                detail="User not found."
-            )
-
-        if (
-            current_user["balance_cents"]
-            <
-            SEARCH_COST_CENTS
-        ):
-
-            raise HTTPException(
-                status_code=402,
-                detail=(
-                    "Insufficient Bitcoin balance. "
-                    f"This search costs "
-                    f"{money(SEARCH_COST_CENTS)}."
-                )
-            )
-
-        pending_count = con.execute(
-            """
-            SELECT COUNT(*) AS c
-
-            FROM search_requests
-
-            WHERE
-                user_id=?
-                AND status='pending'
-            """,
-            (
-                user["id"],
-            )
-        ).fetchone()["c"]
-
-        if pending_count >= 5:
-
-            raise HTTPException(
-                status_code=429,
-                detail=(
-                    "You already have "
-                    "5 pending requests."
-                )
-            )
-
-        charged = con.execute(
-            """
-            UPDATE users
-
-            SET balance_cents =
-                balance_cents - ?
-
-            WHERE
-                id=?
-                AND balance_cents >= ?
-            """,
-            (
-                SEARCH_COST_CENTS,
-                user["id"],
-                SEARCH_COST_CENTS
-            )
-        )
-
-        if charged.rowcount != 1:
-
-            raise HTTPException(
-                status_code=402,
-                detail=(
-                    "Insufficient Bitcoin balance."
-                )
-            )
-
-        cur = con.execute(
-            """
-            INSERT INTO search_requests(
-                user_id,
-                first_name,
-                last_name,
-                state,
-                city,
-                zip,
-                dob,
-                status,
-                created_at,
-                updated_at
-            )
-
-            VALUES(
-                ?, ?, ?, ?, ?, ?, ?,
-                'pending',
-                ?, ?
-            )
-            """,
-            (
-                user["id"],
-                first,
-                last,
-                state,
-                city,
-                zipcode,
-                dob,
-                now_iso(),
-                now_iso()
-            )
-        )
-
-        request_id = (
-            cur.lastrowid
-        )
-
-        updated_user = con.execute(
-            """
-            SELECT balance_cents
-            FROM users
-            WHERE id=?
-            """,
-            (
-                user["id"],
-            )
-        ).fetchone()
-
-    return {
-        "ok": True,
-
-        "request_id":
-            request_id,
-
-        "status":
-            "pending",
-
-        "charged":
-            money(
-                SEARCH_COST_CENTS
-            ),
-
-        "balance":
-            money(
-                updated_user[
-                    "balance_cents"
-                ]
-            ),
-
-        "message":
-            (
-                f"{money(SEARCH_COST_CENTS)} "
-                "was charged and your search "
-                "was submitted to the admin queue."
-            )
-    }
-
-
-# -------------------------------------------------
-# USER SEARCH REQUESTS
-# -------------------------------------------------
-
-@api.get("/api/requests")
-async def my_requests(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    tg = verify_init_data(
-        x_telegram_init_data
-    )
-
-    user = get_or_create_user(
-        tg
-    )
-
-    with db() as con:
-
-        rows = con.execute(
-            """
-            SELECT
-                id,
-                first_name,
-                last_name,
-                state,
-                city,
-                zip,
-                dob,
-                status,
-                result_text,
-                admin_note,
-                created_at,
-                updated_at
-
-            FROM search_requests
-
-            WHERE user_id=?
-
-            ORDER BY id DESC
-
-            LIMIT 20
-            """,
-            (
-                user["id"],
-            )
-        ).fetchall()
-
-    return [
-        dict(row)
-        for row in rows
-    ]
 
 
 # =================================================
@@ -1644,10 +719,6 @@ async def wallet(
         "deposit_address":
             BTC_DEPOSIT_ADDRESS,
 
-        "search_cost":
-            money(
-                SEARCH_COST_CENTS
-            )
     }
 
 
@@ -1841,470 +912,12 @@ async def my_bitcoin_deposits(
 # -------------------------------------------------
 
 @api.get("/api/admin/stats")
-async def admin_stats(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    require_admin(
-        x_telegram_init_data
-    )
-
+async def admin_stats(x_telegram_init_data: str = Header(default="")):
+    require_admin(x_telegram_init_data)
     with db() as con:
-
-        users = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM users
-            """
-        ).fetchone()["c"]
-
-        pending = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM search_requests
-            WHERE status='pending'
-            """
-        ).fetchone()["c"]
-
-        completed = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM search_requests
-            WHERE status='completed'
-            """
-        ).fetchone()["c"]
-
-        rejected = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM search_requests
-            WHERE status='rejected'
-            """
-        ).fetchone()["c"]
-
-        pending_deposits = con.execute(
-            """
-            SELECT COUNT(*) AS c
-            FROM bitcoin_deposits
-            WHERE status='pending'
-            """
-        ).fetchone()["c"]
-
-    return {
-        "ok": True,
-        "users": users,
-        "pending": pending,
-        "completed": completed,
-        "rejected": rejected,
-        "pending_deposits":
-            pending_deposits
-    }
-
-
-# -------------------------------------------------
-# ADMIN SEARCH QUEUE
-# -------------------------------------------------
-
-@api.get("/api/admin/queue")
-async def admin_queue(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    require_admin(
-        x_telegram_init_data
-    )
-
-    with db() as con:
-
-        rows = con.execute(
-            """
-            SELECT
-                sr.id,
-                sr.first_name,
-                sr.last_name,
-                sr.state,
-                sr.city,
-                sr.zip,
-                sr.dob,
-                sr.status,
-                sr.created_at,
-                sr.updated_at,
-
-                u.first_name
-                    AS requested_by,
-
-                u.username
-                    AS requested_by_username
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            WHERE sr.status='pending'
-
-            ORDER BY
-                sr.created_at ASC,
-                sr.id ASC
-
-            LIMIT 100
-            """
-        ).fetchall()
-
-    return {
-        "ok": True,
-
-        "count":
-            len(rows),
-
-        "requests": [
-            dict(row)
-            for row in rows
-        ]
-    }
-
-
-# -------------------------------------------------
-# ADMIN REQUEST DETAIL
-# -------------------------------------------------
-
-@api.get(
-    "/api/admin/request/{request_id}"
-)
-async def admin_request_detail(
-    request_id: int,
-
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    require_admin(
-        x_telegram_init_data
-    )
-
-    with db() as con:
-
-        row = con.execute(
-            """
-            SELECT
-                sr.id,
-                sr.first_name,
-                sr.last_name,
-                sr.state,
-                sr.city,
-                sr.zip,
-                sr.dob,
-                sr.status,
-                sr.result_text,
-                sr.admin_note,
-                sr.created_at,
-                sr.updated_at,
-
-                u.first_name
-                    AS requested_by,
-
-                u.username
-                    AS requested_by_username
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            WHERE sr.id=?
-            """,
-            (
-                request_id,
-            )
-        ).fetchone()
-
-    if not row:
-
-        raise HTTPException(
-            status_code=404,
-            detail="Request not found."
-        )
-
-    return {
-        "ok": True,
-        "request": dict(row)
-    }
-
-
-# -------------------------------------------------
-# ADMIN SEND RESULT
-# -------------------------------------------------
-
-@api.post("/api/admin/send-result")
-async def admin_send_result(
-    req: AdminResultRequest,
-
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    admin_tg = require_admin(
-        x_telegram_init_data
-    )
-
-    result_text = (
-        req.result_text
-        .strip()
-    )
-
-    admin_note = (
-        req.admin_note
-        .strip()
-    )
-
-    if not result_text:
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Result text is required."
-            )
-        )
-
-    with db() as con:
-
-        row = con.execute(
-            """
-            SELECT
-                sr.id,
-                sr.status,
-                sr.first_name,
-                sr.last_name,
-
-                u.telegram_id
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            WHERE sr.id=?
-            """,
-            (
-                req.request_id,
-            )
-        ).fetchone()
-
-        if not row:
-
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    "Request not found."
-                )
-            )
-
-        if row["status"] != "pending":
-
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Request is already "
-                    f"{row['status']}."
-                )
-            )
-
-        con.execute(
-            """
-            UPDATE search_requests
-
-            SET
-                status='completed',
-                result_text=?,
-                admin_note=?,
-                updated_at=?
-
-            WHERE
-                id=?
-                AND status='pending'
-            """,
-            (
-                result_text,
-                admin_note or None,
-                now_iso(),
-                req.request_id
-            )
-        )
-
-    try:
-
-        await telegram_bot.bot.send_message(
-            chat_id=row["telegram_id"],
-
-            text=(
-                "✅ CreditGenie Search Complete\n\n"
-
-                f"Request #{req.request_id}\n"
-                f"{row['first_name']} "
-                f"{row['last_name']}\n\n"
-
-                "Open CreditGenie "
-                "to view the result."
-            )
-        )
-
-    except Exception as exc:
-
-        logger.warning(
-            "Could not notify Telegram user "
-            "for request %s: %s",
-            req.request_id,
-            exc
-        )
-
-    logger.info(
-        "Request %s completed by admin %s",
-        req.request_id,
-        admin_tg.get("id")
-    )
-
-    return {
-        "ok": True,
-        "request_id":
-            req.request_id,
-        "status":
-            "completed",
-        "message":
-            "Result sent successfully."
-    }
-
-
-# -------------------------------------------------
-# ADMIN REJECT SEARCH
-# -------------------------------------------------
-
-@api.post("/api/admin/reject")
-async def admin_reject_request(
-    req: AdminRejectRequest,
-
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    admin_tg = require_admin(
-        x_telegram_init_data
-    )
-
-    reason = (
-        req.reason.strip()
-        or
-        "Request could not be completed."
-    )
-
-    with db() as con:
-
-        row = con.execute(
-            """
-            SELECT
-                sr.id,
-                sr.status,
-                sr.first_name,
-                sr.last_name,
-
-                u.telegram_id
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            WHERE sr.id=?
-            """,
-            (
-                req.request_id,
-            )
-        ).fetchone()
-
-        if not row:
-
-            raise HTTPException(
-                status_code=404,
-                detail="Request not found."
-            )
-
-        if row["status"] != "pending":
-
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Request is already "
-                    f"{row['status']}."
-                )
-            )
-
-        con.execute(
-            """
-            UPDATE search_requests
-
-            SET
-                status='rejected',
-                result_text=NULL,
-                admin_note=?,
-                updated_at=?
-
-            WHERE
-                id=?
-                AND status='pending'
-            """,
-            (
-                reason,
-                now_iso(),
-                req.request_id
-            )
-        )
-
-    try:
-
-        await telegram_bot.bot.send_message(
-            chat_id=row["telegram_id"],
-
-            text=(
-                "❌ CreditGenie Request Update\n\n"
-
-                f"Request #{req.request_id}\n"
-                f"{row['first_name']} "
-                f"{row['last_name']}\n\n"
-
-                f"{reason}"
-            )
-        )
-
-    except Exception as exc:
-
-        logger.warning(
-            "Could not notify Telegram user "
-            "for request %s: %s",
-            req.request_id,
-            exc
-        )
-
-    logger.info(
-        "Request %s rejected by admin %s",
-        req.request_id,
-        admin_tg.get("id")
-    )
-
-    return {
-        "ok": True,
-        "request_id":
-            req.request_id,
-        "status":
-            "rejected",
-        "message":
-            "Request rejected."
-    }
+        users = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        pending_deposits = con.execute("SELECT COUNT(*) FROM bitcoin_deposits WHERE status='pending'").fetchone()[0]
+    return {"ok": True, "users": users, "pending_deposits": pending_deposits}
 
 
 # -------------------------------------------------
@@ -2505,10 +1118,9 @@ async def credit_deposit(
     except Exception as exc:
 
         logger.warning(
-            "Could not notify user "
-            "for deposit %s: %s",
+            "Could not notify user for deposit %s (%s)",
             req.deposit_id,
-            exc
+            type(exc).__name__
         )
 
     logger.info(
@@ -2540,59 +1152,90 @@ async def credit_deposit(
     }
 
 
-# -------------------------------------------------
-# ADMIN RECENT SEARCH REQUESTS
-# -------------------------------------------------
+# Admin-only member directory and individual Telegram messages.
+class MemberResponse(BaseModel):
+    id: int
+    first_name: str | None
+    username: str | None
+    balance_cents: int
+    balance: str
+    joined_at: str
 
-@api.get("/api/admin/recent")
-async def admin_recent_requests(
-    x_telegram_init_data: str = Header(
-        default=""
-    )
+
+class MembersResponse(BaseModel):
+    members: list[MemberResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminMessageRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4096)
+
+    @field_validator("message")
+    @classmethod
+    def clean_message(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Enter a message before sending.")
+        # Telegram counts UTF-16 units for its message length limit.
+        if len(value.encode("utf-16-le")) // 2 > 4096:
+            raise ValueError("Message is too long (maximum 4096 characters).")
+        return value
+
+
+class AdminMessageResponse(BaseModel):
+    ok: bool
+    member_id: int
+    message_id: int
+
+
+@api.get("/api/admin/members", response_model=MembersResponse)
+async def admin_members(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=100),
+    x_telegram_init_data: str = Header(default=""),
 ):
-
-    require_admin(
-        x_telegram_init_data
-    )
-
+    require_admin(x_telegram_init_data)
     with db() as con:
-
+        total = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         rows = con.execute(
-            """
-            SELECT
-                sr.id,
-                sr.first_name,
-                sr.last_name,
-                sr.state,
-                sr.city,
-                sr.zip,
-                sr.dob,
-                sr.status,
-                sr.created_at,
-                sr.updated_at,
-
-                u.first_name
-                    AS requested_by,
-
-                u.username
-                    AS requested_by_username
-
-            FROM search_requests sr
-
-            JOIN users u
-                ON u.id=sr.user_id
-
-            ORDER BY sr.id DESC
-
-            LIMIT 50
-            """
+            "SELECT id, first_name, username, balance_cents, created_at AS joined_at "
+            "FROM users ORDER BY id DESC LIMIT ? OFFSET ?",
+            (page_size, (page - 1) * page_size),
         ).fetchall()
-
     return {
-        "ok": True,
-
-        "requests": [
-            dict(row)
-            for row in rows
-        ]
+        "members": [{**dict(row), "balance": money(row["balance_cents"])} for row in rows],
+        "total": total, "page": page, "page_size": page_size,
     }
+
+
+@api.post("/api/admin/members/{member_id}/message", response_model=AdminMessageResponse)
+async def admin_message_member(
+    member_id: int,
+    req: AdminMessageRequest,
+    x_telegram_init_data: str = Header(default=""),
+):
+    admin_tg = require_admin(x_telegram_init_data)
+    with db() as con:
+        member = con.execute("SELECT telegram_id FROM users WHERE id=?", (member_id,)).fetchone()
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found.")
+    try:
+        sent = await telegram_bot.bot.send_message(
+            chat_id=member["telegram_id"], text=req.message, parse_mode=None,
+        )
+    except Forbidden:
+        raise HTTPException(status_code=409, detail="This member blocked the bot or has not allowed messages. Ask them to open CreditGenieBot and press Start.")
+    except BadRequest:
+        raise HTTPException(status_code=400, detail="Telegram could not accept this message. Check the message and ask the member to press Start in the bot.")
+    except RetryAfter as exc:
+        delay = exc.retry_after
+        seconds = int(delay.total_seconds() if hasattr(delay, "total_seconds") else delay) + 1
+        raise HTTPException(status_code=429, detail=f"Telegram rate limit reached. Wait {seconds} seconds before trying again.", headers={"Retry-After": str(seconds)})
+    except (TimedOut, NetworkError):
+        raise HTTPException(status_code=502, detail="Telegram did not confirm delivery. The message may have arrived; check with the member before resending.")
+    except TelegramError:
+        raise HTTPException(status_code=502, detail="Telegram could not send the message. Try again later.")
+    logger.info("Admin %s sent a message to member %s", admin_tg["id"], member_id)
+    return {"ok": True, "member_id": member_id, "message_id": sent.message_id}
