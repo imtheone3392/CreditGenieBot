@@ -2,8 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,viewport-fit=cover"
+>
 <title>CreditGenie</title>
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
@@ -22,16 +26,23 @@
   --yellow:#d4a82f;
   --red:#c74b4b;
   --red2:#963838;
-  --orange:#d78935;
 }
 
-*{box-sizing:border-box}
+*{
+  box-sizing:border-box;
+}
 
 html,body{
   margin:0;
   background:var(--bg);
   color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
 }
 
 body{
@@ -55,15 +66,28 @@ body{
   width:42px;
   height:42px;
   border-radius:13px;
-  background:linear-gradient(145deg,#63d73b,#308819);
+  background:
+    linear-gradient(
+      145deg,
+      #63d73b,
+      #308819
+    );
   display:grid;
   place-items:center;
   font-size:24px;
   box-shadow:0 6px 18px #0005;
 }
 
-.brand h1{font-size:22px;margin:0}
-.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.brand h1{
+  font-size:22px;
+  margin:0;
+}
+
+.brand p{
+  margin:2px 0 0;
+  color:var(--muted);
+  font-size:13px;
+}
 
 .card{
   background:var(--panel);
@@ -92,7 +116,9 @@ body{
   gap:13px;
 }
 
-input,select,textarea{
+input,
+select,
+textarea{
   width:100%;
   border:1px solid var(--line);
   border-radius:14px;
@@ -103,7 +129,10 @@ input,select,textarea{
   outline:none;
 }
 
-input,select{height:58px}
+input,
+select{
+  height:58px;
+}
 
 textarea{
   min-height:130px;
@@ -113,18 +142,46 @@ textarea{
   line-height:1.45;
 }
 
-input::placeholder,textarea::placeholder{color:#aeb6bd}
-input:focus,select:focus,textarea:focus{border-color:#477089}
+input::placeholder,
+textarea::placeholder{
+  color:#aeb6bd;
+}
 
-.help,.notice,.status,.empty,.row{
+input:focus,
+select:focus,
+textarea:focus{
+  border-color:#477089;
+}
+
+.help,
+.notice,
+.status,
+.empty,
+.row{
   color:var(--muted);
   line-height:1.5;
 }
 
-.help{font-size:14px;margin:2px 0 0}
-.notice{font-size:12px;margin-top:14px}
-.status{font-size:14px;margin-top:14px}
-.row{color:#cbd2d8;font-size:14px;margin-top:5px}
+.help{
+  font-size:14px;
+  margin:2px 0 0;
+}
+
+.notice{
+  font-size:12px;
+  margin-top:14px;
+}
+
+.status{
+  font-size:14px;
+  margin-top:14px;
+}
+
+.row{
+  color:#cbd2d8;
+  font-size:14px;
+  margin-top:5px;
+}
 
 .actions{
   display:grid;
@@ -137,7 +194,7 @@ button{
   border:0;
   border-radius:13px;
   background:var(--green);
-  color:white;
+  color:#fff;
   padding:16px 26px;
   font-size:18px;
   font-weight:800;
@@ -152,28 +209,36 @@ button:active{
   box-shadow:0 4px 0 var(--green2);
 }
 
-button:disabled{opacity:.55;cursor:not-allowed}
+button:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
 
 .btn-blue{
   background:var(--blue);
   box-shadow:0 6px 0 var(--blue2);
 }
 
-.btn-blue:active{box-shadow:0 4px 0 var(--blue2)}
+.btn-blue:active{
+  box-shadow:0 4px 0 var(--blue2);
+}
 
 .btn-red{
   background:var(--red);
   box-shadow:0 6px 0 var(--red2);
 }
 
-.btn-red:active{box-shadow:0 4px 0 var(--red2)}
+.btn-red:active{
+  box-shadow:0 4px 0 var(--red2);
+}
 
 .btn-small{
   padding:12px 14px;
   font-size:14px;
 }
 
-.pill,.status-pill{
+.pill,
+.status-pill{
   font-size:12px;
   padding:5px 9px;
   border:1px solid var(--line);
@@ -181,10 +246,22 @@ button:disabled{opacity:.55;cursor:not-allowed}
   white-space:nowrap;
 }
 
-.pill{color:#cbd2d8}
-.status-pill.pending{color:#f1c854}
-.status-pill.credited,.status-pill.completed{color:#62d95a}
-.status-pill.rejected{color:#ff7979}
+.pill{
+  color:#cbd2d8;
+}
+
+.status-pill.pending{
+  color:#f1c854;
+}
+
+.status-pill.credited,
+.status-pill.completed{
+  color:#62d95a;
+}
+
+.status-pill.rejected{
+  color:#ff7979;
+}
 
 .wallet-summary{
   display:grid;
@@ -219,7 +296,11 @@ button:disabled{opacity:.55;cursor:not-allowed}
   margin-top:10px;
   overflow-wrap:anywhere;
   word-break:break-word;
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   color:#dce3e8;
 }
 
@@ -228,10 +309,16 @@ button:disabled{opacity:.55;cursor:not-allowed}
   border-bottom:1px solid var(--line);
 }
 
-.deposit-item:last-child{border-bottom:0}
+.deposit-item:last-child{
+  border-bottom:0;
+}
 
 .txid{
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
   overflow-wrap:anywhere;
   color:#cbd2d8;
   font-size:12px;
@@ -243,9 +330,12 @@ button:disabled{opacity:.55;cursor:not-allowed}
   border-bottom:1px solid var(--line);
 }
 
-.request-item:last-child{border-bottom:0}
+.request-item:last-child{
+  border-bottom:0;
+}
 
-.request-top,.admin-request-head{
+.request-top,
+.admin-request-head{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -253,34 +343,34 @@ button:disabled{opacity:.55;cursor:not-allowed}
   margin-bottom:8px;
 }
 
-.result-text{
-  margin-top:12px;
-  padding:12px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  background:#141d24;
-  color:#f1f4f6;
-  white-space:pre-wrap;
-  line-height:1.45;
-  overflow-wrap:anywhere;
+#adminPanel{
+  display:none;
 }
-
-.rejected-text{color:#ffaaaa}
-
-#adminPanel{display:none}
-
-
 
 .admin-banner{
   margin-bottom:16px;
   padding:14px;
   border-radius:14px;
-  background:linear-gradient(135deg,#273b4a,#17222b);
+  background:
+    linear-gradient(
+      135deg,
+      #273b4a,
+      #17222b
+    );
   border:1px solid #395269;
 }
 
-.admin-title{font-weight:800;font-size:18px;margin-bottom:4px}
-.admin-sub{color:var(--muted);font-size:13px;line-height:1.4}
+.admin-title{
+  font-weight:800;
+  font-size:18px;
+  margin-bottom:4px;
+}
+
+.admin-sub{
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.4;
+}
 
 .stats{
   display:grid;
@@ -296,10 +386,19 @@ button:disabled{opacity:.55;cursor:not-allowed}
   padding:14px;
 }
 
-.stat-number{font-size:24px;font-weight:800}
-.stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+.stat-number{
+  font-size:24px;
+  font-weight:800;
+}
 
-.admin-request,.admin-deposit{
+.stat-label{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:4px;
+}
+
+.admin-request,
+.admin-deposit{
   border:1px solid var(--line);
   border-radius:16px;
   background:#141e26;
@@ -307,7 +406,8 @@ button:disabled{opacity:.55;cursor:not-allowed}
   margin-bottom:14px;
 }
 
-.admin-request-title,.admin-deposit-title{
+.admin-request-title,
+.admin-deposit-title{
   font-size:18px;
   font-weight:800;
 }
@@ -345,7 +445,9 @@ button:disabled{opacity:.55;cursor:not-allowed}
   font-weight:700;
 }
 
-.admin-editor textarea{margin-bottom:12px}
+.admin-editor textarea{
+  margin-bottom:12px;
+}
 
 .admin-buttons{
   display:grid;
@@ -359,7 +461,9 @@ button:disabled{opacity:.55;cursor:not-allowed}
   font-size:13px;
 }
 
-.section-gap{margin-top:24px}
+.section-gap{
+  margin-top:24px;
+}
 
 #memberMessageStatus:not(:empty){
   padding:14px;
@@ -367,76 +471,221 @@ button:disabled{opacity:.55;cursor:not-allowed}
   border-radius:12px;
   white-space:pre-wrap;
 }
-#memberMessageStatus[data-state="success"]{color:#b8f5b3;background:#19351f;border-color:#49a627}
-#memberMessageStatus[data-state="error"]{color:#ffbaba;background:#351f23;border-color:#c74b4b}
+
+#memberMessageStatus[data-state="success"]{
+  color:#b8f5b3;
+  background:#19351f;
+  border-color:#49a627;
+}
+
+#memberMessageStatus[data-state="error"]{
+  color:#ffbaba;
+  background:#351f23;
+  border-color:#c74b4b;
+}
 
 @media(min-width:700px){
-  .grid.two{grid-template-columns:1fr 1fr}
-  .stats{grid-template-columns:repeat(2,1fr)}
+  .stats{
+    grid-template-columns:repeat(2,1fr);
+  }
 }
 </style>
 </head>
 
 <body>
+
 <div class="wrap">
 
+<!-- BRAND -->
 <div class="brand">
-  <div class="logo">🧞</div>
+
+  <div class="logo">
+    🧞
+  </div>
+
   <div>
     <h1>CreditGenie</h1>
     <p>Member accounts and Bitcoin wallet</p>
     <p id="account"></p>
     <p id="status" role="status"></p>
   </div>
+
 </div>
 
-<!-- CHARACTER AVAILABILITY -->
+
+<!-- SINGLE PROFILE SEARCH -->
 <section class="card">
-  <div class="card-head"><h2>CHARACTER<br>AVAILABILITY</h2><span class="pill">Admin review</span></div>
-  <form id="characterRequestForm" class="grid">
-    <label for="characterName">Character name</label>
-    <input id="characterName" maxlength="80" required placeholder="Character name" autocomplete="off">
-    <label for="characterGame">Game</label>
-    <input id="characterGame" maxlength="80" required placeholder="Game title" autocomplete="off">
-    <label for="characterId">Character ID</label>
-    <input id="characterId" maxlength="64" pattern="[A-Za-z0-9_.\-]+" required placeholder="Character ID or game handle" autocomplete="off" autocapitalize="off" spellcheck="false">
-    <p class="help">Request availability for a fictional game character. An admin will review it and reply Available or Unavailable. Requests are free.</p>
-    <button id="submitCharacterBtn" type="submit">SUBMIT CHARACTER REQUEST</button>
+
+  <div class="card-head">
+
+    <h2>
+      SINGLE PROFILE<br>
+      SEARCH
+    </h2>
+
+    <span class="pill">
+      Admin review
+    </span>
+
+  </div>
+
+
+  <form
+    id="characterRequestForm"
+    class="grid"
+  >
+
+    <!-- Internal field:
+         character_name
+         Used as profile Name -->
+
+    <input
+      id="characterName"
+      maxlength="80"
+      required
+      placeholder="Name"
+      autocomplete="off"
+    >
+
+
+    <!-- Internal field:
+         game
+         Used as Birthdate -->
+
+    <input
+      id="characterGame"
+      maxlength="10"
+      required
+      inputmode="numeric"
+      placeholder="Birthdate (MM/DD/YYYY)"
+      autocomplete="off"
+    >
+
+
+    <!-- Internal field:
+         character_id
+         Used as Region -->
+
+    <input
+      id="characterId"
+      maxlength="64"
+      required
+      pattern="[A-Za-z0-9_.\-]+"
+      placeholder="Region"
+      autocomplete="address-level1"
+      autocapitalize="characters"
+      spellcheck="false"
+    >
+
+
+    <button
+      id="submitCharacterBtn"
+      type="submit"
+    >
+      SUBMIT SEARCH
+    </button>
+
   </form>
-  <div id="characterStatus" class="status" role="status" aria-live="polite"></div>
-  <div class="card-head section-gap"><h2 style="font-size:20px">MY CHARACTER REQUESTS</h2></div>
-  <p class="notice">Your latest 50 requests. Availability is an admin response, not a reservation.</p>
-  <div id="characterHistory"><div class="empty">Loading character requests…</div></div>
+
+
+  <div
+    id="characterStatus"
+    class="status"
+    role="status"
+    aria-live="polite"
+  ></div>
+
+
+  <div class="card-head section-gap">
+
+    <h2 style="font-size:20px">
+      MY PROFILE SEARCHES
+    </h2>
+
+  </div>
+
+
+  <div id="characterHistory">
+
+    <div class="empty">
+      Loading profile searches…
+    </div>
+
+  </div>
+
 </section>
+
+
 
 <!-- BITCOIN WALLET -->
 <section class="card">
+
   <div class="card-head">
-    <h2>₿ BITCOIN WALLET</h2>
-    <span class="pill" id="walletBalance">$0.00</span>
+
+    <h2>
+      ₿ BITCOIN WALLET
+    </h2>
+
+    <span
+      class="pill"
+      id="walletBalance"
+    >
+      $0.00
+    </span>
+
   </div>
+
 
   <div class="wallet-summary">
+
     <div class="wallet-box">
-      <div class="wallet-number" id="walletBalanceLarge">$0.00</div>
-      <div class="wallet-label">AVAILABLE BALANCE</div>
+
+      <div
+        class="wallet-number"
+        id="walletBalanceLarge"
+      >
+        $0.00
+      </div>
+
+      <div class="wallet-label">
+        AVAILABLE BALANCE
+      </div>
+
     </div>
 
-
   </div>
 
-  <div class="admin-editor-title">BITCOIN RECEIVING ADDRESS</div>
-  <div class="address-box" id="btcAddress">Loading…</div>
+
+  <div class="admin-editor-title">
+    BITCOIN RECEIVING ADDRESS
+  </div>
+
+
+  <div
+    class="address-box"
+    id="btcAddress"
+  >
+    Loading…
+  </div>
+
 
   <div class="actions">
-    <button class="btn-blue" id="copyAddressBtn" type="button">
+
+    <button
+      class="btn-blue"
+      id="copyAddressBtn"
+      type="button"
+    >
       COPY BTC ADDRESS
     </button>
+
   </div>
+
 
   <div class="admin-editor-title section-gap">
     SUBMIT BITCOIN TRANSACTION ID
   </div>
+
 
   <input
     id="depositTxid"
@@ -447,595 +696,1708 @@ button:disabled{opacity:.55;cursor:not-allowed}
     placeholder="64-character Bitcoin transaction ID"
   >
 
+
   <div class="actions">
-    <button id="submitDepositBtn" type="button">
+
+    <button
+      id="submitDepositBtn"
+      type="button"
+    >
       SUBMIT PAYMENT
     </button>
+
   </div>
 
-  <div id="walletStatus" class="status"></div>
+
+  <div
+    id="walletStatus"
+    class="status"
+  ></div>
+
 
   <p class="notice">
-    Payment submissions are reviewed before your CreditGenie balance is credited.
+    Payment submissions are reviewed before your
+    CreditGenie balance is credited.
   </p>
 
+
   <div class="card-head section-gap">
-    <h2 style="font-size:20px">DEPOSIT HISTORY</h2>
-    <span class="pill" id="depositCount">0</span>
+
+    <h2 style="font-size:20px">
+      DEPOSIT HISTORY
+    </h2>
+
+    <span
+      class="pill"
+      id="depositCount"
+    >
+      0
+    </span>
+
   </div>
+
 
   <div id="depositHistory">
-    <div class="empty">Loading deposits…</div>
+
+    <div class="empty">
+      Loading deposits…
+    </div>
+
   </div>
+
 </section>
+
+
 
 <!-- ADMIN PANEL -->
-<section class="card" id="adminPanel">
+<section
+  class="card"
+  id="adminPanel"
+>
+
   <div class="admin-banner">
-    <div class="admin-title">🛠 ADMIN CONTROL CENTER</div>
-    <div class="admin-sub">
-      View members, send individual Telegram messages, and verify Bitcoin deposits.
+
+    <div class="admin-title">
+      🛠 ADMIN CONTROL CENTER
     </div>
+
+    <div class="admin-sub">
+      View members, send individual Telegram
+      messages, review profile searches, and
+      verify Bitcoin deposits.
+    </div>
+
   </div>
+
 
   <div class="stats">
+
     <div class="stat">
-      <div class="stat-number" id="statUsers">—</div>
-      <div class="stat-label">USERS</div>
+
+      <div
+        class="stat-number"
+        id="statUsers"
+      >
+        —
+      </div>
+
+      <div class="stat-label">
+        USERS
+      </div>
+
     </div>
 
 
-
-
-
-
-
     <div class="stat">
-      <div class="stat-number" id="statDeposits">—</div>
-      <div class="stat-label">DEPOSITS</div>
+
+      <div
+        class="stat-number"
+        id="statDeposits"
+      >
+        —
+      </div>
+
+      <div class="stat-label">
+        DEPOSITS
+      </div>
+
     </div>
+
   </div>
 
+
+
+  <!-- ADMIN MEMBERS -->
   <div class="card-head">
-    <h2>ADMIN MEMBERS</h2>
-    <span class="pill" id="memberCount">0 members</span>
+
+    <h2>
+      ADMIN MEMBERS
+    </h2>
+
+    <span
+      class="pill"
+      id="memberCount"
+    >
+      0 members
+    </span>
+
   </div>
+
+
   <div class="actions">
-    <button class="btn-small btn-blue" id="refreshMembersBtn" type="button">REFRESH MEMBERS</button>
+
+    <button
+      class="btn-small btn-blue"
+      id="refreshMembersBtn"
+      type="button"
+    >
+      REFRESH MEMBERS
+    </button>
+
   </div>
-  <div id="membersStatus" class="status" role="status"></div>
-  <div id="membersList"><div class="empty">Loading members…</div></div>
-  <div class="admin-buttons section-gap">
-    <button id="membersPrevBtn" class="btn-small btn-blue" type="button" disabled>PREVIOUS</button>
-    <button id="membersNextBtn" class="btn-small btn-blue" type="button" disabled>NEXT</button>
-  </div>
-  <p id="membersPageLabel" class="notice"></p>
-  <form id="memberMessageForm" class="admin-editor" hidden>
-    <h3 id="messageRecipient"></h3>
-    <label class="admin-editor-title" for="memberMessage">TELEGRAM MESSAGE</label>
-    <textarea id="memberMessage" maxlength="4096" required placeholder="Write a message to this member…"></textarea>
-    <div class="admin-buttons">
-      <button id="sendMemberMessageBtn" class="btn-small" type="submit">SEND MESSAGE</button>
-      <button id="cancelMemberMessageBtn" class="btn-small btn-blue" type="button">CLOSE</button>
+
+
+  <div
+    id="membersStatus"
+    class="status"
+    role="status"
+  ></div>
+
+
+  <div id="membersList">
+
+    <div class="empty">
+      Loading members…
     </div>
-    <div id="memberMessageStatus" class="status" role="status" aria-live="polite"></div>
+
+  </div>
+
+
+  <div class="admin-buttons section-gap">
+
+    <button
+      id="membersPrevBtn"
+      class="btn-small btn-blue"
+      type="button"
+      disabled
+    >
+      PREVIOUS
+    </button>
+
+    <button
+      id="membersNextBtn"
+      class="btn-small btn-blue"
+      type="button"
+      disabled
+    >
+      NEXT
+    </button>
+
+  </div>
+
+
+  <p
+    id="membersPageLabel"
+    class="notice"
+  ></p>
+
+
+
+  <!-- MEMBER MESSAGE -->
+  <form
+    id="memberMessageForm"
+    class="admin-editor"
+    hidden
+  >
+
+    <h3 id="messageRecipient"></h3>
+
+    <label
+      class="admin-editor-title"
+      for="memberMessage"
+    >
+      TELEGRAM MESSAGE
+    </label>
+
+    <textarea
+      id="memberMessage"
+      maxlength="4096"
+      required
+      placeholder="Write a message to this member…"
+    ></textarea>
+
+
+    <div class="admin-buttons">
+
+      <button
+        id="sendMemberMessageBtn"
+        class="btn-small"
+        type="submit"
+      >
+        SEND MESSAGE
+      </button>
+
+      <button
+        id="cancelMemberMessageBtn"
+        class="btn-small btn-blue"
+        type="button"
+      >
+        CLOSE
+      </button>
+
+    </div>
+
+
+    <div
+      id="memberMessageStatus"
+      class="status"
+      role="status"
+      aria-live="polite"
+    ></div>
+
   </form>
 
-  <div class="card-head section-gap"><h2>CHARACTER REQUEST QUEUE</h2><span class="pill" id="characterQueueCount">0 pending</span></div>
-  <button id="refreshCharacterQueueBtn" type="button" class="btn-small btn-blue">REFRESH CHARACTER QUEUE</button>
-  <p class="notice">Showing the oldest 100 pending requests. Mark each character Available or Unavailable to notify the member.</p>
-  <div id="characterQueueStatus" class="status" role="status" aria-live="polite"></div>
-  <div id="characterQueue"><div class="empty">Loading character requests…</div></div>
 
+
+  <!-- PROFILE SEARCH QUEUE -->
   <div class="card-head section-gap">
-    <h2>BITCOIN DEPOSIT QUEUE</h2>
-    <span class="pill" id="adminDepositCount">0 pending</span>
+
+    <h2>
+      PROFILE SEARCH QUEUE
+    </h2>
+
+    <span
+      class="pill"
+      id="characterQueueCount"
+    >
+      0 pending
+    </span>
+
   </div>
+
+
+  <button
+    id="refreshCharacterQueueBtn"
+    type="button"
+    class="btn-small btn-blue"
+  >
+    REFRESH PROFILE QUEUE
+  </button>
+
 
   <p class="notice">
-    Verify the transaction on the Bitcoin network and confirm it paid your receiving address before crediting a balance.
+    Showing pending profile searches for
+    admin review.
   </p>
 
-  <div id="adminDepositStatus" class="queue-status"></div>
+
+  <div
+    id="characterQueueStatus"
+    class="status"
+    role="status"
+    aria-live="polite"
+  ></div>
+
+
+  <div id="characterQueue">
+
+    <div class="empty">
+      Loading profile searches…
+    </div>
+
+  </div>
+
+
+
+  <!-- BITCOIN DEPOSIT QUEUE -->
+  <div class="card-head section-gap">
+
+    <h2>
+      BITCOIN DEPOSIT QUEUE
+    </h2>
+
+    <span
+      class="pill"
+      id="adminDepositCount"
+    >
+      0 pending
+    </span>
+
+  </div>
+
+
+  <p class="notice">
+    Verify the transaction on the Bitcoin
+    network and confirm it paid your
+    receiving address before crediting
+    a balance.
+  </p>
+
+
+  <div
+    id="adminDepositStatus"
+    class="queue-status"
+  ></div>
+
 
   <div id="adminDeposits">
-    <div class="empty">Loading deposit queue…</div>
+
+    <div class="empty">
+      Loading deposit queue…
+    </div>
+
   </div>
+
 </section>
-
-
 
 </div>
 
+
+
 <script>
-const tg = window.Telegram?.WebApp;
+
+const tg =
+  window.Telegram?.WebApp;
+
 
 if (tg) {
+
   tg.ready();
+
   tg.expand();
 
   try {
-    tg.setHeaderColor('#14212b');
-    tg.setBackgroundColor('#14212b');
+
+    tg.setHeaderColor(
+      '#14212b'
+    );
+
+    tg.setBackgroundColor(
+      '#14212b'
+    );
+
   } catch (e) {}
+
 }
 
-const initData = tg?.initData || '';
-const $ = id => document.getElementById(id);
+
+const initData =
+  tg?.initData || '';
+
+
+const $ =
+  id =>
+    document.getElementById(id);
+
 
 let currentUser = null;
+
 let adminEnabled = false;
+
 let currentDepositAddress = '';
 
+
+
 const headers = () => ({
-  'Content-Type':'application/json',
-  'X-Telegram-Init-Data':initData
+  'Content-Type':
+    'application/json',
+
+  'X-Telegram-Init-Data':
+    initData
 });
 
-async function api(path, options = {}) {
-  const res = await fetch(path, {
-    ...options,
-    headers:{
-      ...headers(),
-      ...(options.headers || {})
-    }
-  });
 
-  const data = await res.json().catch(() => ({}));
+
+async function api(
+  path,
+  options = {}
+) {
+
+  const res =
+    await fetch(
+      path,
+      {
+        ...options,
+
+        headers:{
+          ...headers(),
+          ...(options.headers || {})
+        }
+      }
+    );
+
+
+  const data =
+    await res
+      .json()
+      .catch(
+        () => ({})
+      );
+
 
   if (!res.ok) {
-    throw new Error(Array.isArray(data.detail) ? 'Check the required fields and text lengths.' : (data.detail || 'Request failed'));
+
+    throw new Error(
+      Array.isArray(data.detail)
+        ?
+        'Check the required fields and text lengths.'
+        :
+        (
+          data.detail ||
+          'Request failed'
+        )
+    );
+
   }
 
+
   return data;
+
 }
+
+
 
 function esc(v = '') {
-  return String(v).replace(/[&<>"']/g, s => ({
-    '&':'&amp;',
-    '<':'&lt;',
-    '>':'&gt;',
-    '"':'&quot;',
-    "'":'&#39;'
-  }[s]));
+
+  return String(v)
+    .replace(
+      /[&<>"']/g,
+      s => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[s])
+    );
+
 }
 
+
+
 function prettyTime(value) {
-  if (!value) return '';
 
-  const d = new Date(value);
+  if (!value) {
+    return '';
+  }
 
-  if (Number.isNaN(d.getTime())) {
+
+  const d =
+    new Date(value);
+
+
+  if (
+    Number.isNaN(
+      d.getTime()
+    )
+  ) {
     return value;
   }
 
+
   return d.toLocaleString();
+
 }
+
+
 
 function statusLabel(status) {
-  if (status === 'completed') return 'Complete';
-  if (status === 'credited') return 'Credited';
-  if (status === 'rejected') return 'Rejected';
+
+  if (
+    status === 'completed'
+  ) {
+    return 'Complete';
+  }
+
+
+  if (
+    status === 'credited'
+  ) {
+    return 'Credited';
+  }
+
+
+  if (
+    status === 'rejected'
+  ) {
+    return 'Rejected';
+  }
+
+
   return 'Pending';
+
 }
 
-function shortTxid(txid = '') {
-  if (txid.length <= 22) return txid;
-  return `${txid.slice(0,12)}…${txid.slice(-10)}`;
+
+
+function shortTxid(
+  txid = ''
+) {
+
+  if (
+    txid.length <= 22
+  ) {
+    return txid;
+  }
+
+
+  return (
+    `${txid.slice(0,12)}…` +
+    `${txid.slice(-10)}`
+  );
+
 }
 
-/* CURRENT USER */
+
+
+/* ================================
+   CURRENT USER
+================================ */
+
 async function loadMe() {
+
   try {
-    const me = await api('/api/me');
+
+    const me =
+      await api(
+        '/api/me'
+      );
+
 
     currentUser = me;
 
-    $('account').textContent =
-      me.first_name ? `Hi, ${me.first_name}` : '';
 
-    adminEnabled = Boolean(me.is_admin);
+    $('account')
+      .textContent =
+        me.first_name
+        ?
+        `Hi, ${me.first_name}`
+        :
+        '';
 
-    if (adminEnabled) {
-      $('adminPanel').style.display = 'block';
+
+    adminEnabled =
+      Boolean(
+        me.is_admin
+      );
+
+
+    if (
+      adminEnabled
+    ) {
+
+      $('adminPanel')
+        .style
+        .display =
+          'block';
+
 
       await Promise.all([
         loadAdminStats(),
         loadAdminMembers(),
         loadAdminDeposits()
       ]);
+
     } else {
-      $('adminPanel').style.display = 'none';
+
+      $('adminPanel')
+        .style
+        .display =
+          'none';
+
     }
+
   } catch (e) {
-    $('status').textContent = e.message;
+
+    $('status')
+      .textContent =
+        e.message;
+
   }
+
 }
 
-/* WALLET */
+
+
+/* ================================
+   WALLET
+================================ */
+
 async function loadWallet() {
+
   try {
-    const data = await api('/api/wallet');
 
-    currentDepositAddress = data.deposit_address || '';
+    const data =
+      await api(
+        '/api/wallet'
+      );
 
-    $('walletBalance').textContent = data.balance || '$0.00';
-    $('walletBalanceLarge').textContent = data.balance || '$0.00';
 
-    $('btcAddress').textContent =
-      currentDepositAddress ||
-      'Bitcoin deposit address is not configured.';
+    currentDepositAddress =
+      data.deposit_address || '';
+
+
+    $('walletBalance')
+      .textContent =
+        data.balance ||
+        '$0.00';
+
+
+    $('walletBalanceLarge')
+      .textContent =
+        data.balance ||
+        '$0.00';
+
+
+    $('btcAddress')
+      .textContent =
+        currentDepositAddress
+        ||
+        'Bitcoin deposit address is not configured.';
+
   } catch (e) {
-    $('walletStatus').textContent = e.message;
+
+    $('walletStatus')
+      .textContent =
+        e.message;
+
   }
+
 }
 
-$('copyAddressBtn').addEventListener('click', async () => {
-  if (!currentDepositAddress) {
-    $('walletStatus').textContent =
-      'Bitcoin deposit address is not configured.';
-    return;
-  }
 
-  try {
-    await navigator.clipboard.writeText(currentDepositAddress);
-    $('walletStatus').textContent = 'Bitcoin address copied.';
-  } catch (e) {
-    $('walletStatus').textContent =
-      'Could not copy automatically. Press and hold the address to copy it.';
-  }
-});
 
-$('submitDepositBtn').addEventListener('click', async () => {
-  const btn = $('submitDepositBtn');
-  const txid = $('depositTxid').value.trim();
+$('copyAddressBtn')
+  .addEventListener(
+    'click',
+    async () => {
 
-  if (!txid) {
-    $('walletStatus').textContent =
-      'Enter your Bitcoin transaction ID.';
-    return;
-  }
+      if (
+        !currentDepositAddress
+      ) {
 
-  btn.disabled = true;
-  $('walletStatus').textContent = 'Submitting payment…';
+        $('walletStatus')
+          .textContent =
+            'Bitcoin deposit address is not configured.';
 
-  try {
-    const data = await api('/api/deposit', {
-      method:'POST',
-      body:JSON.stringify({txid})
-    });
+        return;
 
-    $('walletStatus').textContent =
-      `Deposit #${data.deposit_id} submitted for verification.`;
+      }
 
-    $('depositTxid').value = '';
 
-    await loadDeposits();
+      try {
 
-    if (adminEnabled) {
-      await Promise.all([
-        loadAdminStats(),
-        loadAdminDeposits()
-      ]);
+        await navigator
+          .clipboard
+          .writeText(
+            currentDepositAddress
+          );
+
+
+        $('walletStatus')
+          .textContent =
+            'Bitcoin address copied.';
+
+      } catch (e) {
+
+        $('walletStatus')
+          .textContent =
+            'Could not copy automatically. Press and hold the address to copy it.';
+
+      }
+
     }
-  } catch (e) {
-    $('walletStatus').textContent = e.message;
-  } finally {
-    btn.disabled = false;
-  }
-});
+  );
+
+
+
+$('submitDepositBtn')
+  .addEventListener(
+    'click',
+    async () => {
+
+      const btn =
+        $('submitDepositBtn');
+
+
+      const txid =
+        $('depositTxid')
+          .value
+          .trim();
+
+
+      if (!txid) {
+
+        $('walletStatus')
+          .textContent =
+            'Enter your Bitcoin transaction ID.';
+
+        return;
+
+      }
+
+
+      btn.disabled = true;
+
+
+      $('walletStatus')
+        .textContent =
+          'Submitting payment…';
+
+
+      try {
+
+        const data =
+          await api(
+            '/api/deposit',
+            {
+              method:'POST',
+
+              body:
+                JSON.stringify({
+                  txid
+                })
+            }
+          );
+
+
+        $('walletStatus')
+          .textContent =
+            `Deposit #${data.deposit_id} submitted for verification.`;
+
+
+        $('depositTxid')
+          .value = '';
+
+
+        await loadDeposits();
+
+
+        if (
+          adminEnabled
+        ) {
+
+          await Promise.all([
+            loadAdminStats(),
+            loadAdminDeposits()
+          ]);
+
+        }
+
+      } catch (e) {
+
+        $('walletStatus')
+          .textContent =
+            e.message;
+
+      } finally {
+
+        btn.disabled =
+          false;
+
+      }
+
+    }
+  );
+
+
 
 async function loadDeposits() {
+
   try {
-    const data = await api('/api/deposits');
-    const rows = data.deposits || [];
 
-    $('depositCount').textContent = rows.length;
+    const data =
+      await api(
+        '/api/deposits'
+      );
 
-    if (!rows.length) {
-      $('depositHistory').innerHTML =
-        '<div class="empty">No Bitcoin deposits yet.</div>';
+
+    const rows =
+      data.deposits || [];
+
+
+    $('depositCount')
+      .textContent =
+        rows.length;
+
+
+    if (
+      !rows.length
+    ) {
+
+      $('depositHistory')
+        .innerHTML =
+          '<div class="empty">No Bitcoin deposits yet.</div>';
+
       return;
+
     }
 
-    $('depositHistory').innerHTML = rows.map(d => {
-      const amount =
-        d.status === 'credited'
-        ? `<div class="row">Credited: ${esc(d.amount)}</div>`
-        : '<div class="row">Waiting for verification…</div>';
 
-      return `
-        <div class="deposit-item">
-          <div class="request-top">
-            <b>Deposit #${esc(d.id)}</b>
-            <span class="status-pill ${esc(d.status)}">
-              ${esc(statusLabel(d.status))}
-            </span>
-          </div>
+    $('depositHistory')
+      .innerHTML =
+        rows
+          .map(
+            d => {
 
-          <div class="txid" title="${esc(d.txid)}">
-            ${esc(shortTxid(d.txid))}
-          </div>
+              const amount =
+                d.status === 'credited'
+                ?
+                `<div class="row">
+                  Credited:
+                  ${esc(d.amount)}
+                </div>`
+                :
+                `<div class="row">
+                  Waiting for verification…
+                </div>`;
 
-          ${amount}
 
-          <div class="row">
-            Submitted: ${esc(prettyTime(d.created_at))}
-          </div>
-        </div>
-      `;
-    }).join('');
+              return `
+                <div class="deposit-item">
+
+                  <div class="request-top">
+
+                    <b>
+                      Deposit #${esc(d.id)}
+                    </b>
+
+                    <span
+                      class="status-pill ${esc(d.status)}"
+                    >
+                      ${esc(statusLabel(d.status))}
+                    </span>
+
+                  </div>
+
+
+                  <div
+                    class="txid"
+                    title="${esc(d.txid)}"
+                  >
+                    ${esc(shortTxid(d.txid))}
+                  </div>
+
+
+                  ${amount}
+
+
+                  <div class="row">
+                    Submitted:
+                    ${esc(prettyTime(d.created_at))}
+                  </div>
+
+                </div>
+              `;
+
+            }
+          )
+          .join('');
+
   } catch (e) {
-    $('depositHistory').innerHTML =
-      `<div class="empty">${esc(e.message)}</div>`;
+
+    $('depositHistory')
+      .innerHTML =
+        `<div class="empty">
+          ${esc(e.message)}
+        </div>`;
+
   }
+
 }
 
-/* ADMIN STATS */
+
+
+/* ================================
+   ADMIN STATS
+================================ */
+
 async function loadAdminStats() {
-  if (!adminEnabled) return;
+
+  if (
+    !adminEnabled
+  ) {
+    return;
+  }
+
 
   try {
-    const data = await api('/api/admin/stats');
 
-    $('statUsers').textContent = data.users ?? 0;
-    $('statDeposits').textContent = data.pending_deposits ?? 0;
+    const data =
+      await api(
+        '/api/admin/stats'
+      );
 
 
-    $('adminDepositCount').textContent =
-      `${data.pending_deposits ?? 0} pending`;
+    $('statUsers')
+      .textContent =
+        data.users ?? 0;
+
+
+    $('statDeposits')
+      .textContent =
+        data.pending_deposits ?? 0;
+
+
+    $('adminDepositCount')
+      .textContent =
+        `${data.pending_deposits ?? 0} pending`;
+
   } catch (e) {
-    $('membersStatus').textContent = e.message;
+
+    $('membersStatus')
+      .textContent =
+        e.message;
+
   }
+
 }
 
-/* ADMIN MEMBERS */
+
+
+/* ================================
+   ADMIN MEMBERS
+================================ */
+
 let membersPage = 1;
+
 let membersTotalPages = 1;
+
 let membersBusy = false;
-let visibleMembers = new Map();
+
+let visibleMembers =
+  new Map();
+
 let messageMember = null;
+
 let messageSending = false;
 
-async function loadAdminMembers(page = membersPage) {
-  if (!adminEnabled || membersBusy) return;
-  membersBusy = true;
-  $('refreshMembersBtn').disabled = true;
-  $('membersPrevBtn').disabled = true;
-  $('membersNextBtn').disabled = true;
-  $('membersStatus').textContent = 'Loading members…';
-  try {
-    const data = await api(`/api/admin/members?page=${page}&page_size=50`);
-    membersPage = data.page;
-    membersTotalPages = Math.max(1, Math.ceil(data.total / data.page_size));
-    visibleMembers = new Map(data.members.map(m => [m.id, m]));
-    $('memberCount').textContent = `${data.total} members`;
-    $('statUsers').textContent = data.total;
-    $('membersPageLabel').textContent = `Page ${membersPage} of ${membersTotalPages}`;
-    $('membersList').innerHTML = data.members.length ? data.members.map(m => `
-      <div class="admin-deposit">
-        <div class="admin-name">${esc(m.first_name || 'Telegram member')}</div>
-        <div class="admin-meta">Username: ${m.username ? '@' + esc(m.username) : 'Not set'}</div>
-        <div class="admin-meta">Balance: ${esc(m.balance)}</div>
-        <div class="admin-meta">Joined: ${esc(prettyTime(m.joined_at))}</div>
-        <div class="admin-meta">Member #${esc(m.id)}</div>
-        <div class="actions"><button type="button" class="btn-small" data-message-member="${Number(m.id)}">MESSAGE MEMBER</button></div>
-      </div>
-    `).join('') : '<div class="empty">No registered members yet.</div>';
-    $('membersStatus').textContent = '';
-  } catch (e) {
-    $('membersStatus').textContent = e.message;
-  } finally {
-    membersBusy = false;
-    $('refreshMembersBtn').disabled = false;
-    $('membersPrevBtn').disabled = membersPage <= 1;
-    $('membersNextBtn').disabled = membersPage >= membersTotalPages;
+
+
+async function loadAdminMembers(
+  page = membersPage
+) {
+
+  if (
+    !adminEnabled ||
+    membersBusy
+  ) {
+    return;
   }
+
+
+  membersBusy =
+    true;
+
+
+  $('refreshMembersBtn')
+    .disabled =
+      true;
+
+
+  $('membersPrevBtn')
+    .disabled =
+      true;
+
+
+  $('membersNextBtn')
+    .disabled =
+      true;
+
+
+  $('membersStatus')
+    .textContent =
+      'Loading members…';
+
+
+  try {
+
+    const data =
+      await api(
+        `/api/admin/members?page=${page}&page_size=50`
+      );
+
+
+    membersPage =
+      data.page;
+
+
+    membersTotalPages =
+      Math.max(
+        1,
+        Math.ceil(
+          data.total /
+          data.page_size
+        )
+      );
+
+
+    visibleMembers =
+      new Map(
+        data.members
+          .map(
+            m => [
+              m.id,
+              m
+            ]
+          )
+      );
+
+
+    $('memberCount')
+      .textContent =
+        `${data.total} members`;
+
+
+    $('statUsers')
+      .textContent =
+        data.total;
+
+
+    $('membersPageLabel')
+      .textContent =
+        `Page ${membersPage} of ${membersTotalPages}`;
+
+
+    $('membersList')
+      .innerHTML =
+        data.members.length
+        ?
+        data.members
+          .map(
+            m => `
+
+              <div class="admin-deposit">
+
+                <div class="admin-name">
+                  ${esc(
+                    m.first_name ||
+                    'Telegram member'
+                  )}
+                </div>
+
+                <div class="admin-meta">
+                  Username:
+                  ${
+                    m.username
+                    ?
+                    '@' +
+                    esc(m.username)
+                    :
+                    'Not set'
+                  }
+                </div>
+
+                <div class="admin-meta">
+                  Balance:
+                  ${esc(m.balance)}
+                </div>
+
+                <div class="admin-meta">
+                  Joined:
+                  ${esc(prettyTime(m.joined_at))}
+                </div>
+
+                <div class="admin-meta">
+                  Member #${esc(m.id)}
+                </div>
+
+                <div class="actions">
+
+                  <button
+                    type="button"
+                    class="btn-small"
+                    data-message-member="${Number(m.id)}"
+                  >
+                    MESSAGE MEMBER
+                  </button>
+
+                </div>
+
+              </div>
+
+            `
+          )
+          .join('')
+        :
+        '<div class="empty">No registered members yet.</div>';
+
+
+    $('membersStatus')
+      .textContent =
+        '';
+
+  } catch (e) {
+
+    $('membersStatus')
+      .textContent =
+        e.message;
+
+  } finally {
+
+    membersBusy =
+      false;
+
+
+    $('refreshMembersBtn')
+      .disabled =
+        false;
+
+
+    $('membersPrevBtn')
+      .disabled =
+        membersPage <= 1;
+
+
+    $('membersNextBtn')
+      .disabled =
+        membersPage >=
+        membersTotalPages;
+
+  }
+
 }
 
-$('refreshMembersBtn').addEventListener('click', () => loadAdminMembers());
-$('membersPrevBtn').addEventListener('click', () => loadAdminMembers(membersPage - 1));
-$('membersNextBtn').addEventListener('click', () => loadAdminMembers(membersPage + 1));
-$('membersList').addEventListener('click', e => {
-  const button = e.target.closest('[data-message-member]');
-  if (!button || messageSending) return;
-  const member = visibleMembers.get(Number(button.dataset.messageMember));
-  if (!member) return;
-  if (messageMember?.id === member.id) {
-    $('memberMessage').focus();
-    return;
-  }
-  if ($('memberMessage').value.trim() && !window.confirm('Discard the unsent message and select another member?')) return;
-  messageMember = member;
-  $('messageRecipient').textContent = `To: ${member.first_name || 'Telegram member'}${member.username ? ' (@' + member.username + ')' : ''} — Member #${member.id}`;
-  $('memberMessage').value = '';
-  $('memberMessageStatus').textContent = '';
-  $('memberMessageForm').hidden = false;
-  $('memberMessageForm').scrollIntoView({behavior:'smooth', block:'center'});
-  $('memberMessage').focus();
-});
-$('cancelMemberMessageBtn').addEventListener('click', () => {
-  if (messageSending) return;
-  if ($('memberMessage').value.trim() && !window.confirm('Discard this unsent message?')) return;
-  messageMember = null;
-  $('memberMessage').value = '';
-  $('memberMessageForm').hidden = true;
-});
-$('memberMessageForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  if (!adminEnabled || !messageMember || messageSending) return;
-  const message = $('memberMessage').value.trim();
-  if (!message || message.length > 4096) {
-    $('memberMessageStatus').textContent = 'Enter a message of 1–4096 characters.';
-    return;
-  }
-  const recipient = messageMember;
-  if (!window.confirm(`Send this Telegram message to ${recipient.first_name || 'member'}${recipient.username ? ' (@' + recipient.username + ')' : ''} — Member #${recipient.id}?`)) return;
-  messageSending = true;
-  $('sendMemberMessageBtn').disabled = true;
-  $('cancelMemberMessageBtn').disabled = true;
-  $('memberMessage').disabled = true;
-  $('memberMessageStatus').dataset.state = 'pending';
-  $('memberMessageStatus').textContent = 'Sending…';
-  try {
-    const result = await api(`/api/admin/members/${recipient.id}/message`, {method:'POST', body:JSON.stringify({message})});
-    if (result.ok !== true || result.member_id !== recipient.id || !Number.isInteger(result.message_id)) {
-      throw new Error('No valid send confirmation was received. The message may have arrived; check with the member before resending.');
+
+
+$('refreshMembersBtn')
+  .addEventListener(
+    'click',
+    () =>
+      loadAdminMembers()
+  );
+
+
+$('membersPrevBtn')
+  .addEventListener(
+    'click',
+    () =>
+      loadAdminMembers(
+        membersPage - 1
+      )
+  );
+
+
+$('membersNextBtn')
+  .addEventListener(
+    'click',
+    () =>
+      loadAdminMembers(
+        membersPage + 1
+      )
+  );
+
+
+
+$('membersList')
+  .addEventListener(
+    'click',
+    e => {
+
+      const button =
+        e.target.closest(
+          '[data-message-member]'
+        );
+
+
+      if (
+        !button ||
+        messageSending
+      ) {
+        return;
+      }
+
+
+      const member =
+        visibleMembers.get(
+          Number(
+            button.dataset.messageMember
+          )
+        );
+
+
+      if (!member) {
+        return;
+      }
+
+
+      messageMember =
+        member;
+
+
+      $('messageRecipient')
+        .textContent =
+          `To: ${
+            member.first_name ||
+            'Telegram member'
+          }${
+            member.username
+            ?
+            ' (@' +
+            member.username +
+            ')'
+            :
+            ''
+          } — Member #${member.id}`;
+
+
+      $('memberMessage')
+        .value =
+          '';
+
+
+      $('memberMessageStatus')
+        .textContent =
+          '';
+
+
+      $('memberMessageForm')
+        .hidden =
+          false;
+
+
+      $('memberMessageForm')
+        .scrollIntoView({
+          behavior:'smooth',
+          block:'center'
+        });
+
+
+      $('memberMessage')
+        .focus();
+
     }
-    const recipientName = recipient.first_name || 'Member #' + recipient.id;
-    const confirmation = `✅ Message sent to ${recipientName}${recipient.username ? ' (@' + recipient.username + ')' : ''}.
+  );
+
+
+
+$('cancelMemberMessageBtn')
+  .addEventListener(
+    'click',
+    () => {
+
+      if (
+        messageSending
+      ) {
+        return;
+      }
+
+
+      messageMember =
+        null;
+
+
+      $('memberMessage')
+        .value =
+          '';
+
+
+      $('memberMessageForm')
+        .hidden =
+          true;
+
+    }
+  );
+
+
+
+$('memberMessageForm')
+  .addEventListener(
+    'submit',
+    async e => {
+
+      e.preventDefault();
+
+
+      if (
+        !adminEnabled ||
+        !messageMember ||
+        messageSending
+      ) {
+        return;
+      }
+
+
+      const message =
+        $('memberMessage')
+          .value
+          .trim();
+
+
+      if (
+        !message ||
+        message.length > 4096
+      ) {
+
+        $('memberMessageStatus')
+          .textContent =
+            'Enter a message of 1–4096 characters.';
+
+        return;
+
+      }
+
+
+      const recipient =
+        messageMember;
+
+
+      if (
+        !window.confirm(
+          `Send this Telegram message to ${
+            recipient.first_name ||
+            'member'
+          }?`
+        )
+      ) {
+        return;
+      }
+
+
+      messageSending =
+        true;
+
+
+      $('sendMemberMessageBtn')
+        .disabled =
+          true;
+
+
+      $('cancelMemberMessageBtn')
+        .disabled =
+          true;
+
+
+      $('memberMessage')
+        .disabled =
+          true;
+
+
+      $('memberMessageStatus')
+        .dataset.state =
+          'pending';
+
+
+      $('memberMessageStatus')
+        .textContent =
+          'Sending…';
+
+
+      try {
+
+        const result =
+          await api(
+            `/api/admin/members/${recipient.id}/message`,
+            {
+              method:'POST',
+
+              body:
+                JSON.stringify({
+                  message
+                })
+            }
+          );
+
+
+        const recipientName =
+          recipient.first_name ||
+          `Member #${recipient.id}`;
+
+
+        $('memberMessageStatus')
+          .dataset.state =
+            'success';
+
+
+        $('memberMessageStatus')
+          .textContent =
+            `✅ Message sent to ${recipientName}.
 Telegram message ID: ${result.message_id}
 Confirmed at ${new Date().toLocaleString()}.
 This confirms sending, not that the member has read it.`;
-    $('memberMessageStatus').dataset.state = 'success';
-    $('memberMessageStatus').textContent = confirmation;
-    $('memberMessage').value = '';
-    // Popup/haptic failures must never turn a confirmed send into a send error.
-    try {
-      $('memberMessageStatus').scrollIntoView({behavior:'smooth', block:'center'});
-      tg?.HapticFeedback?.notificationOccurred('success');
-      if (tg?.isVersionAtLeast?.('6.2')) {
-        tg.showPopup({title:'Message sent', message:`Sent to ${recipientName}. Telegram message ID: ${result.message_id}.`, buttons:[{type:'ok'}]});
-      }
-    } catch (_) {}
-  } catch (e) {
-    $('memberMessageStatus').dataset.state = 'error';
-    $('memberMessageStatus').textContent = e.message;
-  } finally {
-    messageSending = false;
-    $('sendMemberMessageBtn').disabled = false;
-    $('cancelMemberMessageBtn').disabled = false;
-    $('memberMessage').disabled = false;
-  }
-});
 
-/* ADMIN DEPOSIT QUEUE */
+
+        $('memberMessage')
+          .value =
+            '';
+
+
+        try {
+
+          tg?.HapticFeedback
+            ?.notificationOccurred(
+              'success'
+            );
+
+        } catch (_) {}
+
+
+      } catch (e) {
+
+        $('memberMessageStatus')
+          .dataset.state =
+            'error';
+
+
+        $('memberMessageStatus')
+          .textContent =
+            e.message;
+
+      } finally {
+
+        messageSending =
+          false;
+
+
+        $('sendMemberMessageBtn')
+          .disabled =
+            false;
+
+
+        $('cancelMemberMessageBtn')
+          .disabled =
+            false;
+
+
+        $('memberMessage')
+          .disabled =
+            false;
+
+      }
+
+    }
+  );
+
+
+
+/* ================================
+   ADMIN DEPOSIT QUEUE
+================================ */
+
 async function loadAdminDeposits() {
-  if (!adminEnabled) return;
+
+  if (
+    !adminEnabled
+  ) {
+    return;
+  }
+
 
   try {
-    const data = await api('/api/admin/deposits');
-    const rows = data.deposits || [];
 
-    $('adminDepositCount').textContent =
-      `${rows.length} pending`;
+    const data =
+      await api(
+        '/api/admin/deposits'
+      );
 
-    if (!rows.length) {
-      $('adminDeposits').innerHTML =
-        '<div class="empty">✅ No pending Bitcoin deposits.</div>';
+
+    const rows =
+      data.deposits || [];
+
+
+    $('adminDepositCount')
+      .textContent =
+        `${rows.length} pending`;
+
+
+    if (
+      !rows.length
+    ) {
+
+      $('adminDeposits')
+        .innerHTML =
+          '<div class="empty">✅ No pending Bitcoin deposits.</div>';
+
       return;
+
     }
 
-    $('adminDeposits').innerHTML = rows.map(d => {
-      let requestedBy = d.first_name || 'Telegram User';
 
-      if (d.username) {
-        requestedBy += ` (@${d.username})`;
-      }
+    $('adminDeposits')
+      .innerHTML =
+        rows
+          .map(
+            d => {
 
-      return `
-        <div class="admin-deposit">
-          <div class="admin-request-head">
-            <div class="admin-deposit-title">
-              Deposit #${esc(d.id)}
-            </div>
+              let requestedBy =
+                d.first_name ||
+                'Telegram User';
 
-            <span class="status-pill pending">
-              Pending
-            </span>
-          </div>
 
-          <div class="admin-meta">
-            User: ${esc(requestedBy)}
-          </div>
+              if (
+                d.username
+              ) {
 
-          <div class="admin-meta">
-            Submitted: ${esc(prettyTime(d.created_at))}
-          </div>
+                requestedBy +=
+                  ` (@${d.username})`;
 
-          <div class="txid">
-            ${esc(d.txid)}
-          </div>
+              }
 
-          <div class="admin-editor">
-            <div class="admin-editor-title">
-              CREDIT AMOUNT IN USD
-            </div>
 
-            <input
-              id="credit-${esc(d.id)}"
-              inputmode="decimal"
-              placeholder="Example: 25.00"
-            >
+              return `
 
-            <div class="actions">
-              <button
-                class="btn-small"
-                id="credit-btn-${esc(d.id)}"
-                onclick="creditAdminDeposit(${Number(d.id)})"
-                type="button"
-              >
-                CREDIT BALANCE
-              </button>
-            </div>
+                <div class="admin-deposit">
 
-            <div
-              class="status"
-              id="deposit-status-${esc(d.id)}"
-            ></div>
-          </div>
-        </div>
-      `;
-    }).join('');
+                  <div class="admin-request-head">
+
+                    <div class="admin-deposit-title">
+                      Deposit #${esc(d.id)}
+                    </div>
+
+                    <span class="status-pill pending">
+                      Pending
+                    </span>
+
+                  </div>
+
+
+                  <div class="admin-meta">
+                    User:
+                    ${esc(requestedBy)}
+                  </div>
+
+
+                  <div class="admin-meta">
+                    Submitted:
+                    ${esc(prettyTime(d.created_at))}
+                  </div>
+
+
+                  <div class="txid">
+                    ${esc(d.txid)}
+                  </div>
+
+
+                  <div class="admin-editor">
+
+                    <div class="admin-editor-title">
+                      CREDIT AMOUNT IN USD
+                    </div>
+
+
+                    <input
+                      id="credit-${esc(d.id)}"
+                      inputmode="decimal"
+                      placeholder="Example: 25.00"
+                    >
+
+
+                    <div class="actions">
+
+                      <button
+                        class="btn-small"
+                        id="credit-btn-${esc(d.id)}"
+                        onclick="creditAdminDeposit(${Number(d.id)})"
+                        type="button"
+                      >
+                        CREDIT BALANCE
+                      </button>
+
+                    </div>
+
+
+                    <div
+                      class="status"
+                      id="deposit-status-${esc(d.id)}"
+                    ></div>
+
+                  </div>
+
+                </div>
+
+              `;
+
+            }
+          )
+          .join('');
+
   } catch (e) {
-    $('adminDeposits').innerHTML =
-      `<div class="empty">${esc(e.message)}</div>`;
+
+    $('adminDeposits')
+      .innerHTML =
+        `<div class="empty">
+          ${esc(e.message)}
+        </div>`;
+
   }
+
 }
 
-async function creditAdminDeposit(depositId) {
-  const input = $(`credit-${depositId}`);
-  const btn = $(`credit-btn-${depositId}`);
-  const status = $(`deposit-status-${depositId}`);
 
-  const dollars = Number.parseFloat(
-    input?.value?.trim()
-  );
 
-  if (!Number.isFinite(dollars) || dollars <= 0) {
+async function creditAdminDeposit(
+  depositId
+) {
+
+  const input =
+    $(`credit-${depositId}`);
+
+
+  const btn =
+    $(`credit-btn-${depositId}`);
+
+
+  const status =
+    $(`deposit-status-${depositId}`);
+
+
+  const dollars =
+    Number.parseFloat(
+      input?.value?.trim()
+    );
+
+
+  if (
+    !Number.isFinite(dollars) ||
+    dollars <= 0
+  ) {
+
     status.textContent =
       'Enter a valid USD amount.';
+
     return;
+
   }
 
-  const amountCents = Math.round(dollars * 100);
 
-  if (amountCents > 1000000) {
+  const amountCents =
+    Math.round(
+      dollars * 100
+    );
+
+
+  if (
+    amountCents > 1000000
+  ) {
+
     status.textContent =
       'Maximum credit is $10,000.00.';
+
+    return;
+
+  }
+
+
+  if (
+    !window.confirm(
+      `Credit $${dollars.toFixed(2)} for Deposit #${depositId}?`
+    )
+  ) {
     return;
   }
 
-  const confirmed = window.confirm(
-    `Credit $${dollars.toFixed(2)} for Deposit #${depositId}? Make sure you verified the transaction first.`
-  );
 
-  if (!confirmed) return;
+  btn.disabled =
+    true;
 
-  btn.disabled = true;
-  status.textContent = 'Crediting balance…';
+
+  status.textContent =
+    'Crediting balance…';
+
 
   try {
-    const data = await api('/api/admin/credit-deposit', {
-      method:'POST',
-      body:JSON.stringify({
-        deposit_id:depositId,
-        amount_cents:amountCents
-      })
-    });
+
+    const data =
+      await api(
+        '/api/admin/credit-deposit',
+        {
+          method:'POST',
+
+          body:
+            JSON.stringify({
+              deposit_id:
+                depositId,
+
+              amount_cents:
+                amountCents
+            })
+        }
+      );
+
 
     status.textContent =
       `${data.credited} credited successfully.`;
+
 
     await Promise.all([
       loadAdminStats(),
@@ -1044,104 +2406,684 @@ async function creditAdminDeposit(depositId) {
       loadDeposits(),
       loadAdminMembers()
     ]);
+
   } catch (e) {
-    status.textContent = e.message;
-    btn.disabled = false;
+
+    status.textContent =
+      e.message;
+
+
+    btn.disabled =
+      false;
+
   }
+
 }
 
-/* FICTIONAL CHARACTER REQUESTS */
-let characterSubmitting = false;
-let characterDecisionBusy = false;
-let characterQueueLoading = false;
-let characterHistoryLoading = false;
-const characterLabels = {pending:'Pending admin review', available:'Available', unavailable:'Unavailable'};
-function characterDetails(r) {
-  return `<div class="admin-name">${esc(r.character_name)}</div>
-    <div class="row">Game: ${esc(r.game)}</div><div class="row">Character ID: ${esc(r.character_id)}</div>
-    <div class="row">Submitted: ${esc(prettyTime(r.created_at))}</div>`;
+
+
+/* ================================
+   PROFILE SEARCH
+   Existing backend field mapping:
+
+   character_name = Name
+   game           = Birthdate
+   character_id   = Region
+================================ */
+
+let characterSubmitting =
+  false;
+
+let characterDecisionBusy =
+  false;
+
+let characterQueueLoading =
+  false;
+
+let characterHistoryLoading =
+  false;
+
+
+const characterLabels = {
+  pending:
+    'Pending admin review',
+
+  available:
+    'Found',
+
+  unavailable:
+    'Not Found'
+};
+
+
+
+function profileDetails(r) {
+
+  return `
+
+    <div class="admin-name">
+      ${esc(r.character_name)}
+    </div>
+
+    <div class="row">
+      Birthdate:
+      ${esc(r.game)}
+    </div>
+
+    <div class="row">
+      Region:
+      ${esc(r.character_id)}
+    </div>
+
+    <div class="row">
+      Submitted:
+      ${esc(
+        prettyTime(
+          r.created_at
+        )
+      )}
+    </div>
+
+  `;
+
 }
+
+
+
 async function loadCharacterHistory() {
-  if (!currentUser || characterHistoryLoading) return;
-  characterHistoryLoading = true;
-  try {
-    const data = await api('/api/character-requests');
-    $('characterHistory').innerHTML = data.requests.length ? data.requests.map(r => `
-      <div class="request-item"><div class="request-top"><b>Request #${Number(r.id)}</b>
-      <span class="status-pill ${r.status === 'available' ? 'completed' : r.status === 'unavailable' ? 'rejected' : 'pending'}">${esc(characterLabels[r.status] || r.status)}</span></div>
-      ${characterDetails(r)}${r.status !== 'pending' ? `<div class="row">Reviewed: ${esc(prettyTime(r.updated_at))}</div>` : ''}</div>`).join('') : '<div class="empty">No character requests yet.</div>';
-  } catch (e) {
-    $('characterHistory').textContent = e.message;
-  } finally { characterHistoryLoading = false; }
-}
-async function loadCharacterQueue() {
-  if (!adminEnabled || characterDecisionBusy || characterQueueLoading) return;
-  characterQueueLoading = true;
-  $('refreshCharacterQueueBtn').disabled = true;
-  try {
-    const data = await api('/api/admin/character-requests');
-    $('characterQueueCount').textContent = `${data.total} pending`;
-    $('characterQueue').innerHTML = data.requests.length ? data.requests.map(r => `
-      <div class="admin-request"><b>Character request #${Number(r.id)}</b>${characterDetails(r)}
-      <div class="admin-requested-by">From: ${esc(r.first_name || 'Member')}${r.username ? ' (@' + esc(r.username) + ')' : ''}</div>
-      <div class="admin-buttons section-gap">
-      <button type="button" class="btn-small" data-character-request="${Number(r.id)}" data-decision="available">AVAILABLE</button>
-      <button type="button" class="btn-small btn-red" data-character-request="${Number(r.id)}" data-decision="unavailable">UNAVAILABLE</button>
-      </div></div>`).join('') : '<div class="empty">No pending character requests.</div>';
-  } catch (e) {
-    $('characterQueueStatus').textContent = e.message;
-  } finally {
-    characterQueueLoading = false;
-    $('refreshCharacterQueueBtn').disabled = false;
-  }
-}
-$('characterRequestForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  if (characterSubmitting) return;
-  if (!currentUser) { $('characterStatus').textContent = 'Reopen the Mini App from Telegram to submit a request.'; return; }
-  const payload = {character_name:$('characterName').value.trim(), game:$('characterGame').value.trim(), character_id:$('characterId').value.trim()};
-  if (!payload.character_name || !payload.game || !/^[A-Za-z0-9_.-]{1,64}$/.test(payload.character_id)) {
-    $('characterStatus').textContent = 'Enter a character name, game, and character ID (letters, numbers, dots, underscores or hyphens).'; return;
-  }
-  characterSubmitting = true;
-  $('submitCharacterBtn').disabled = true;
-  $('characterStatus').textContent = 'Submitting character request…';
-  try {
-    const data = await api('/api/character-requests', {method:'POST', body:JSON.stringify(payload)});
-    $('characterStatus').textContent = data.already_pending ? `Request #${data.request_id} is already awaiting admin review.` : `✅ Character request #${data.request_id} submitted. An admin will reply with availability.`;
-    $('characterRequestForm').reset();
-    await Promise.all([loadCharacterHistory(), loadCharacterQueue()]);
-  } catch (e) { $('characterStatus').textContent = e.message; }
-  finally { characterSubmitting = false; $('submitCharacterBtn').disabled = false; }
-});
-$('refreshCharacterQueueBtn').addEventListener('click', loadCharacterQueue);
-$('characterQueue').addEventListener('click', async e => {
-  const button = e.target.closest('[data-character-request]');
-  if (!button || !adminEnabled || characterDecisionBusy || characterQueueLoading) return;
-  const id = Number(button.dataset.characterRequest);
-  const decision = button.dataset.decision;
-  if (!['available','unavailable'].includes(decision)) return;
-  if (!window.confirm(`Mark character request #${id} ${decision.toUpperCase()} and notify the member?`)) return;
-  characterDecisionBusy = true;
-  const buttons = Array.from($('characterQueue').querySelectorAll('button'));
-  buttons.forEach(b => b.disabled = true);
-  $('refreshCharacterQueueBtn').disabled = true;
-  $('characterQueueStatus').textContent = 'Saving availability result…';
-  try {
-    const data = await api(`/api/admin/character-requests/${id}/decision`, {method:'POST', body:JSON.stringify({status:decision})});
-    $('characterQueueStatus').textContent = `✅ Request #${id}: ${characterLabels[data.status]}. ` + (data.notification_sent ? 'Telegram notification sent.' : 'Result saved in the member’s request history. Telegram notification could not be confirmed.');
-  } catch (e) { $('characterQueueStatus').textContent = e.message; }
-  finally {
-    characterDecisionBusy = false;
-    buttons.forEach(b => b.disabled = false);
-    $('refreshCharacterQueueBtn').disabled = false;
-    await Promise.all([loadCharacterQueue(), loadCharacterHistory()]);
-  }
-});
 
-/* INITIAL LOAD */
+  if (
+    !currentUser ||
+    characterHistoryLoading
+  ) {
+    return;
+  }
+
+
+  characterHistoryLoading =
+    true;
+
+
+  try {
+
+    const data =
+      await api(
+        '/api/character-requests'
+      );
+
+
+    $('characterHistory')
+      .innerHTML =
+        data.requests.length
+        ?
+        data.requests
+          .map(
+            r => `
+
+              <div class="request-item">
+
+                <div class="request-top">
+
+                  <b>
+                    Profile Search #${Number(r.id)}
+                  </b>
+
+                  <span
+                    class="status-pill ${
+                      r.status === 'available'
+                        ?
+                        'completed'
+                        :
+                      r.status === 'unavailable'
+                        ?
+                        'rejected'
+                        :
+                        'pending'
+                    }"
+                  >
+                    ${
+                      esc(
+                        characterLabels[
+                          r.status
+                        ]
+                        ||
+                        r.status
+                      )
+                    }
+                  </span>
+
+                </div>
+
+
+                ${profileDetails(r)}
+
+
+                ${
+                  r.status !== 'pending'
+                  ?
+                  `
+                    <div class="row">
+                      Reviewed:
+                      ${esc(
+                        prettyTime(
+                          r.updated_at
+                        )
+                      )}
+                    </div>
+                  `
+                  :
+                  ''
+                }
+
+              </div>
+
+            `
+          )
+          .join('')
+        :
+        '<div class="empty">No profile searches yet.</div>';
+
+  } catch (e) {
+
+    $('characterHistory')
+      .textContent =
+        e.message;
+
+  } finally {
+
+    characterHistoryLoading =
+      false;
+
+  }
+
+}
+
+
+
+async function loadCharacterQueue() {
+
+  if (
+    !adminEnabled ||
+    characterDecisionBusy ||
+    characterQueueLoading
+  ) {
+    return;
+  }
+
+
+  characterQueueLoading =
+    true;
+
+
+  $('refreshCharacterQueueBtn')
+    .disabled =
+      true;
+
+
+  try {
+
+    const data =
+      await api(
+        '/api/admin/character-requests'
+      );
+
+
+    $('characterQueueCount')
+      .textContent =
+        `${data.total} pending`;
+
+
+    $('characterQueue')
+      .innerHTML =
+        data.requests.length
+        ?
+        data.requests
+          .map(
+            r => `
+
+              <div class="admin-request">
+
+                <b>
+                  Profile Search #${Number(r.id)}
+                </b>
+
+
+                ${profileDetails(r)}
+
+
+                <div class="admin-requested-by">
+
+                  From:
+                  ${esc(
+                    r.first_name ||
+                    'Member'
+                  )}
+
+                  ${
+                    r.username
+                    ?
+                    ' (@' +
+                    esc(r.username) +
+                    ')'
+                    :
+                    ''
+                  }
+
+                </div>
+
+
+                <div class="admin-buttons section-gap">
+
+                  <button
+                    type="button"
+                    class="btn-small"
+                    data-character-request="${Number(r.id)}"
+                    data-decision="available"
+                  >
+                    FOUND
+                  </button>
+
+
+                  <button
+                    type="button"
+                    class="btn-small btn-red"
+                    data-character-request="${Number(r.id)}"
+                    data-decision="unavailable"
+                  >
+                    NOT FOUND
+                  </button>
+
+                </div>
+
+              </div>
+
+            `
+          )
+          .join('')
+        :
+        '<div class="empty">No pending profile searches.</div>';
+
+  } catch (e) {
+
+    $('characterQueueStatus')
+      .textContent =
+        e.message;
+
+  } finally {
+
+    characterQueueLoading =
+      false;
+
+
+    $('refreshCharacterQueueBtn')
+      .disabled =
+        false;
+
+  }
+
+}
+
+
+
+/* PROFILE SEARCH SUBMIT */
+
+$('characterRequestForm')
+  .addEventListener(
+    'submit',
+    async e => {
+
+      e.preventDefault();
+
+
+      if (
+        characterSubmitting
+      ) {
+        return;
+      }
+
+
+      if (
+        !currentUser
+      ) {
+
+        $('characterStatus')
+          .textContent =
+            'Reopen the Mini App from Telegram to submit a search.';
+
+        return;
+
+      }
+
+
+      const name =
+        $('characterName')
+          .value
+          .trim();
+
+
+      const birthdate =
+        $('characterGame')
+          .value
+          .trim();
+
+
+      const region =
+        $('characterId')
+          .value
+          .trim();
+
+
+      const dobPattern =
+        /^(0[1-9]|1[0-2])\/(0[1-9]|[12][0-9]|3[01])\/\d{4}$/;
+
+
+      if (!name) {
+
+        $('characterStatus')
+          .textContent =
+            'Enter a name.';
+
+        return;
+
+      }
+
+
+      if (
+        !dobPattern.test(
+          birthdate
+        )
+      ) {
+
+        $('characterStatus')
+          .textContent =
+            'Enter birthdate as MM/DD/YYYY.';
+
+        return;
+
+      }
+
+
+      /*
+        The current backend allows:
+        letters, numbers, underscore,
+        period and hyphen for this field.
+      */
+
+      if (
+        !/^[A-Za-z0-9_.-]{1,64}$/
+          .test(region)
+      ) {
+
+        $('characterStatus')
+          .textContent =
+            'Enter a valid region. Example: NV, Nevada, Southwest, Las-Vegas.';
+
+        return;
+
+      }
+
+
+      const payload = {
+
+        character_name:
+          name,
+
+        game:
+          birthdate,
+
+        character_id:
+          region
+
+      };
+
+
+      characterSubmitting =
+        true;
+
+
+      $('submitCharacterBtn')
+        .disabled =
+          true;
+
+
+      $('characterStatus')
+        .textContent =
+          'Submitting profile search…';
+
+
+      try {
+
+        const data =
+          await api(
+            '/api/character-requests',
+            {
+              method:'POST',
+
+              body:
+                JSON.stringify(
+                  payload
+                )
+            }
+          );
+
+
+        $('characterStatus')
+          .textContent =
+            data.already_pending
+            ?
+            `Profile Search #${data.request_id} is already awaiting admin review.`
+            :
+            `✅ Profile Search #${data.request_id} submitted for admin review.`;
+
+
+        $('characterRequestForm')
+          .reset();
+
+
+        await Promise.all([
+          loadCharacterHistory(),
+          loadCharacterQueue()
+        ]);
+
+      } catch (e) {
+
+        $('characterStatus')
+          .textContent =
+            e.message;
+
+      } finally {
+
+        characterSubmitting =
+          false;
+
+
+        $('submitCharacterBtn')
+          .disabled =
+            false;
+
+      }
+
+    }
+  );
+
+
+
+$('refreshCharacterQueueBtn')
+  .addEventListener(
+    'click',
+    loadCharacterQueue
+  );
+
+
+
+$('characterQueue')
+  .addEventListener(
+    'click',
+    async e => {
+
+      const button =
+        e.target.closest(
+          '[data-character-request]'
+        );
+
+
+      if (
+        !button ||
+        !adminEnabled ||
+        characterDecisionBusy ||
+        characterQueueLoading
+      ) {
+        return;
+      }
+
+
+      const id =
+        Number(
+          button.dataset
+            .characterRequest
+        );
+
+
+      const decision =
+        button.dataset
+          .decision;
+
+
+      if (
+        ![
+          'available',
+          'unavailable'
+        ].includes(
+          decision
+        )
+      ) {
+        return;
+      }
+
+
+      const resultText =
+        decision ===
+        'available'
+        ?
+        'FOUND'
+        :
+        'NOT FOUND';
+
+
+      if (
+        !window.confirm(
+          `Mark Profile Search #${id} as ${resultText}?`
+        )
+      ) {
+        return;
+      }
+
+
+      characterDecisionBusy =
+        true;
+
+
+      const buttons =
+        Array.from(
+          $('characterQueue')
+            .querySelectorAll(
+              'button'
+            )
+        );
+
+
+      buttons.forEach(
+        b =>
+          b.disabled =
+            true
+      );
+
+
+      $('refreshCharacterQueueBtn')
+        .disabled =
+          true;
+
+
+      $('characterQueueStatus')
+        .textContent =
+          'Saving profile search result…';
+
+
+      try {
+
+        const data =
+          await api(
+            `/api/admin/character-requests/${id}/decision`,
+            {
+              method:'POST',
+
+              body:
+                JSON.stringify({
+                  status:
+                    decision
+                })
+            }
+          );
+
+
+        $('characterQueueStatus')
+          .textContent =
+            `✅ Profile Search #${id}: ${
+              characterLabels[
+                data.status
+              ]
+            }. ${
+              data.notification_sent
+              ?
+              'Telegram notification sent.'
+              :
+              'Result saved in the member history.'
+            }`;
+
+      } catch (e) {
+
+        $('characterQueueStatus')
+          .textContent =
+            e.message;
+
+      } finally {
+
+        characterDecisionBusy =
+          false;
+
+
+        buttons.forEach(
+          b =>
+            b.disabled =
+              false
+        );
+
+
+        $('refreshCharacterQueueBtn')
+          .disabled =
+            false;
+
+
+        await Promise.all([
+          loadCharacterQueue(),
+          loadCharacterHistory()
+        ]);
+
+      }
+
+    }
+  );
+
+
+
+/* ================================
+   INITIAL LOAD
+================================ */
+
 async function startApp() {
+
   await loadMe();
+
 
   await Promise.all([
     loadWallet(),
@@ -1149,29 +3091,46 @@ async function startApp() {
     loadCharacterHistory(),
     loadCharacterQueue()
   ]);
+
 }
+
 
 startApp();
 
-/* AUTO REFRESH */
-setInterval(async () => {
-  await Promise.all([
-    loadWallet(),
-    loadDeposits(),
-    loadCharacterHistory(),
-    loadCharacterQueue()
-  ]);
 
-  if (adminEnabled) {
+
+/* ================================
+   AUTO REFRESH
+================================ */
+
+setInterval(
+  async () => {
+
     await Promise.all([
-      loadAdminStats(),
-      loadAdminMembers(),
-      loadAdminDeposits()
+      loadWallet(),
+      loadDeposits(),
+      loadCharacterHistory(),
+      loadCharacterQueue()
     ]);
-  }
-},10000);
+
+
+    if (
+      adminEnabled
+    ) {
+
+      await Promise.all([
+        loadAdminStats(),
+        loadAdminMembers(),
+        loadAdminDeposits()
+      ]);
+
+    }
+
+  },
+  10000
+);
+
 </script>
+
 </body>
 </html>
-
-
