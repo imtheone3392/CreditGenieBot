@@ -6,6 +6,7 @@ import sqlite3
 import logging
 import time
 from pathlib import Path
+from typing import Literal
 
 from datetime import datetime, timezone
 from urllib.parse import parse_qsl
@@ -195,6 +196,20 @@ def init_db():
                 FOREIGN KEY(user_id)
                 REFERENCES users(id)
             );
+
+            CREATE TABLE IF NOT EXISTS character_requests(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                character_name TEXT NOT NULL,
+                game TEXT NOT NULL,
+                character_id TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','available','unavailable')),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                reviewed_by INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_characters_user ON character_requests(user_id,id DESC);
+            CREATE INDEX IF NOT EXISTS idx_characters_pending ON character_requests(status,id);
 
             CREATE TABLE IF NOT EXISTS bitcoin_deposits(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -635,7 +650,8 @@ async def mini_app():
 
     return FileResponse(
         "index.html",
-        media_type="text/html"
+        media_type="text/html",
+        headers={"Cache-Control": "no-store"}
     )
 
 
@@ -1239,3 +1255,105 @@ async def admin_message_member(
         raise HTTPException(status_code=502, detail="Telegram could not send the message. Try again later.")
     logger.info("Admin %s sent a message to member %s", admin_tg["id"], member_id)
     return {"ok": True, "member_id": member_id, "message_id": sent.message_id}
+
+
+# Fictional-character availability requests; independent of archived lookup data.
+class CharacterRequestInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    character_name: str = Field(min_length=1, max_length=80)
+    game: str = Field(min_length=1, max_length=80)
+    character_id: str = Field(min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_.-]+$")
+
+    @field_validator("character_name", "game", "character_id", mode="before")
+    @classmethod
+    def clean_character_field(cls, value):
+        if not isinstance(value, str):
+            raise ValueError("Enter text for each character field.")
+        value = value.strip()
+        if not value or any(ord(c) < 32 for c in value):
+            raise ValueError("Enter a single line for each character field.")
+        return value
+
+
+class CharacterDecisionInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    status: Literal["available", "unavailable"]
+
+
+@api.post("/api/character-requests")
+async def create_character_request(req: CharacterRequestInput, x_telegram_init_data: str = Header(default="")):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        con.execute("BEGIN IMMEDIATE")
+        existing = con.execute(
+            "SELECT id FROM character_requests WHERE user_id=? AND game=? COLLATE NOCASE "
+            "AND character_id=? COLLATE NOCASE AND status='pending'",
+            (user["id"], req.game, req.character_id),
+        ).fetchone()
+        if existing:
+            return {"ok": True, "request_id": existing["id"], "status": "pending", "already_pending": True}
+        pending = con.execute("SELECT COUNT(*) FROM character_requests WHERE user_id=? AND status='pending'", (user["id"],)).fetchone()[0]
+        if pending >= 20:
+            raise HTTPException(status_code=429, detail="You already have 20 pending character requests. Wait for admin review.")
+        stamp = now_iso()
+        cur = con.execute(
+            "INSERT INTO character_requests(user_id,character_name,game,character_id,created_at,updated_at) VALUES(?,?,?,?,?,?)",
+            (user["id"], req.character_name, req.game, req.character_id, stamp, stamp),
+        )
+        request_id = cur.lastrowid
+    return {"ok": True, "request_id": request_id, "status": "pending", "already_pending": False}
+
+
+@api.get("/api/character-requests")
+async def my_character_requests(x_telegram_init_data: str = Header(default="")):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        rows = con.execute(
+            "SELECT id,character_name,game,character_id,status,created_at,updated_at "
+            "FROM character_requests WHERE user_id=? ORDER BY id DESC LIMIT 50", (user["id"],),
+        ).fetchall()
+    return {"requests": [dict(row) for row in rows]}
+
+
+@api.get("/api/admin/character-requests")
+async def admin_character_requests(x_telegram_init_data: str = Header(default="")):
+    require_admin(x_telegram_init_data)
+    with db() as con:
+        total = con.execute("SELECT COUNT(*) FROM character_requests WHERE status='pending'").fetchone()[0]
+        rows = con.execute(
+            "SELECT c.id,c.character_name,c.game,c.character_id,c.status,c.created_at,u.first_name,u.username "
+            "FROM character_requests c JOIN users u ON u.id=c.user_id "
+            "WHERE c.status='pending' ORDER BY c.id ASC LIMIT 100"
+        ).fetchall()
+    return {"requests": [dict(row) for row in rows], "total": total}
+
+
+@api.post("/api/admin/character-requests/{request_id}/decision")
+async def decide_character_request(request_id: int, req: CharacterDecisionInput, x_telegram_init_data: str = Header(default="")):
+    admin = require_admin(x_telegram_init_data)
+    with db() as con:
+        con.execute("BEGIN IMMEDIATE")
+        row = con.execute(
+            "SELECT c.*,u.telegram_id FROM character_requests c JOIN users u ON u.id=c.user_id WHERE c.id=?", (request_id,),
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Character request not found.")
+        if row["status"] != "pending":
+            raise HTTPException(status_code=409, detail="This character request was already reviewed. Refresh the queue.")
+        con.execute(
+            "UPDATE character_requests SET status=?,updated_at=?,reviewed_by=? WHERE id=? AND status='pending'",
+            (req.status, now_iso(), admin["id"], request_id),
+        )
+    notified = False
+    try:
+        await telegram_bot.bot.send_message(
+            chat_id=row["telegram_id"], parse_mode=None,
+            text=(f"🎮 Character request #{request_id}\n\nCharacter: {row['character_name']}\n"
+                  f"Game: {row['game']}\nCharacter ID: {row['character_id']}\n\n"
+                  f"Admin availability result: {req.status.title()}\nOpen CreditGenie to view your requests."),
+            read_timeout=10, connect_timeout=5,
+        )
+        notified = True
+    except Exception as exc:
+        logger.warning("Character request %s notification unconfirmed (%s)", request_id, type(exc).__name__)
+    return {"ok": True, "request_id": request_id, "status": req.status, "notification_sent": notified}
