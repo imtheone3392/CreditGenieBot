@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>CreditGenie · Character Catalog</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#14212b;color:#f5f7f8}
+body{margin:0}main{max-width:920px;margin:auto;padding:24px 18px 60px}
+a{color:#98cbff}h1{font-size:28px;margin-bottom:8px}h2{font-size:20px}
+p{line-height:1.5;color:#bac5ce}header{margin-bottom:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:16px}
+.card{padding:20px;border:1px solid #354552;border-radius:16px;background:#17222b;margin:12px 0}
+.role,.price{color:#9cdd84;font-weight:650}.muted{font-size:14px;color:#bac5ce}
+button{padding:12px 16px;border:0;border-radius:9px;background:#49a627;color:white;font:inherit;font-weight:650;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}.secondary{background:#344857}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.notice{min-height:24px;white-space:pre-wrap;color:#ffdf91}
+code{overflow-wrap:anywhere;color:#acd6ff}dl{display:grid;grid-template-columns:100px 1fr;gap:8px}
+dd{margin:0}dt{color:#bac5ce}[hidden]{display:none!important}
+</style>
+</head>
+<body><main>
+<header>
+  <a href="/app">← Wallet &amp; member dashboard</a>
+  <h1>Character Catalog</h1>
+  <p>Create a fictional character card with its own player ID, role and attributes.</p>
+  <p class="price">$13.00 on admin approval · No charge to submit or if declined</p>
+  <p class="muted">These are fictional character cards created in CreditGenie. They do not unlock an external game.</p>
+  <p id="balance">Open this page from the CreditGenie Telegram Mini App.</p>
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+</header>
+<section aria-labelledby="chooseTitle">
+  <h2 id="chooseTitle">Choose your character</h2>
+  <div id="catalog" class="grid"></div>
+</section>
+<section aria-labelledby="ordersTitle">
+  <h2 id="ordersTitle">My requests &amp; character cards</h2>
+  <button id="refresh" type="button" class="secondary">Refresh</button>
+  <div id="orders"></div>
+</section>
+<section id="admin" hidden aria-labelledby="adminTitle">
+  <h2 id="adminTitle">Admin · Character release queue</h2>
+  <p>Approval deducts $13.00 from the requesting member’s wallet and delivers their generated character card. Declining costs nothing.</p>
+  <p id="queueCount"></p>
+  <div id="queue"></div>
+</section>
+</main>
+<script>
+'use strict';
+const tg = window.Telegram?.WebApp;
+tg?.ready(); tg?.expand();
+const $ = id => document.getElementById(id);
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({
+  '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+})[c]);
+const dollars = cents => '$' + (cents / 100).toFixed(2);
+let me = null, busy = false, refreshing = false;
+async function api(path, options = {}) {
+  if (!tg?.initData) throw new Error('Reopen the catalog from the CreditGenie Telegram Mini App.');
+  const response = await fetch(path, {...options, headers:{
+    'Content-Type':'application/json','X-Telegram-Init-Data':tg.initData
+  }});
+  const data = await response.json();
+  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Request could not be completed. Please refresh and try again.');
+  return data;
+}
+function playerCard(player) {
+  if (!player) return '';
+  return '<dl><dt>Player ID</dt><dd><code>' + escapeHtml(player.player_id) + '</code></dd>' +
+    ['role','level','ability','strength','agility','magic'].map(key =>
+      '<dt>' + key[0].toUpperCase() + key.slice(1) + '</dt><dd>' + escapeHtml(player[key]) + '</dd>'
+    ).join('') + '</dl>';
+}
+async function refresh() {
+  if (refreshing) return;
+  refreshing = true;
+  try {
+    me = await api('/api/me');
+    $('balance').textContent = 'Wallet balance: ' + me.balance;
+    const [catalog, history] = await Promise.all([api('/api/catalog'),api('/api/catalog/orders')]);
+    $('catalog').innerHTML = catalog.characters.map(c => {
+      const existing = history.orders.find(o => o.catalog_id === c.id && o.status !== 'rejected');
+      return '<article class="card"><h2>' + escapeHtml(c.name) + '</h2><p class="role">' +
+        escapeHtml(c.role) + '</p><p>' + escapeHtml(c.ability) + '</p><p class="muted">Strength ' +
+        c.strength + ' · Agility ' + c.agility + ' · Magic ' + c.magic + '</p><button type="button" data-order="' +
+        escapeHtml(c.id) + '"' + (existing ? ' disabled' : '') + '>' +
+        (existing ? (existing.status === 'released' ? 'Owned' : 'Pending review') : 'Request · $13 on approval') +
+        '</button></article>';
+    }).join('');
+    $('orders').innerHTML = history.orders.length ? history.orders.map(o =>
+      '<article class="card"><h3>' + escapeHtml(o.character) + ' · Request #' + o.id +
+      '</h3><p>' + escapeHtml(o.status === 'released' ? 'Approved & delivered' : o.status === 'pending' ? 'Pending admin approval' : 'Declined') +
+      ' · Charged: ' + dollars(o.charged_cents) + '</p>' +
+      (o.status === 'pending' ? '<p class="muted">Keep at least $13.00 in your wallet for approval. No funds have been deducted for this request.</p>' : '') +
+      playerCard(o.player) + '</article>'
+    ).join('') : '<p>No character requests yet.</p>';
+    $('admin').hidden = !me.is_admin;
+    if (me.is_admin) {
+      const data = await api('/api/admin/catalog/orders');
+      $('queueCount').textContent = data.total + ' pending';
+      $('queue').innerHTML = data.orders.length ? data.orders.map(o =>
+        '<article class="card"><h3>' + escapeHtml(o.character) + ' · Request #' + o.id +
+        '</h3><p>Member: ' + escapeHtml(o.first_name || 'Member') +
+        (o.username ? ' (@' + escapeHtml(o.username) + ')' : '') +
+        ' · Balance: ' + dollars(o.balance_cents) + '</p><div class="actions">' +
+        '<button type="button" data-decision="released" data-id="' + o.id + '">Approve & charge $13</button>' +
+        '<button type="button" class="secondary" data-decision="rejected" data-id="' + o.id + '">Decline · no charge</button>' +
+        '</div></article>'
+      ).join('') : '<p>No pending character releases.</p>';
+    }
+  } finally { refreshing = false; }
+}
+async function perform(action) {
+  if (busy || refreshing) return;
+  busy = true;
+  const buttons = Array.from(document.querySelectorAll('button:not(:disabled)'));
+  buttons.forEach(b => b.disabled = true);
+  try { await action(); }
+  catch (error) { $('notice').textContent = error.message; }
+  finally {
+    try { await refresh(); } catch (error) { $('notice').textContent += '\n' + error.message; }
+    buttons.forEach(b => b.disabled = false);
+    busy = false;
+  }
+}
+$('catalog').addEventListener('click', event => {
+  const button = event.target.closest('[data-order]');
+  if (!button || busy || refreshing) return;
+  const catalogId = button.dataset.order;
+  if (!window.confirm('Authorize a $13.00 wallet charge only if an admin approves this fictional character? No charge is made now.')) return;
+  perform(async () => {
+    $('notice').textContent = 'Submitting request…';
+    const data = await api('/api/catalog/orders', {method:'POST',body:JSON.stringify({
+      catalog_id:catalogId,agreed_price_cents:1300
+    })});
+    $('notice').textContent = data.already_exists ? 'This character is already requested or owned. No additional charge was made.' :
+      'Request #' + data.order.id + ' submitted. You will be charged $13.00 only on approval.';
+  });
+});
+$('queue').addEventListener('click', event => {
+  const button = event.target.closest('[data-decision]');
+  if (!button || busy || refreshing || !me?.is_admin) return;
+  const id = Number(button.dataset.id), decision = button.dataset.decision;
+  if (!window.confirm(decision === 'released' ? 'Approve request #' + id + ', charge the member $13.00 and deliver their fictional character card?' :
+    'Decline request #' + id + ' without charging?')) return;
+  perform(async () => {
+    $('notice').textContent = 'Saving decision…';
+    const result = await api('/api/admin/catalog/orders/' + id + '/decision', {
+      method:'POST',body:JSON.stringify({status:decision})
+    });
+    $('notice').textContent = result.already_processed ? 'Decision was already saved. No additional charge made.' :
+      (result.status === 'released' ? 'Approved. $13.00 charged and character card saved to the member’s account.' : 'Declined. No charge made.') +
+      (result.notification_sent ? ' Telegram notification sent.' : ' Telegram delivery was not confirmed; the result is saved in the member’s catalog.');
+  });
+});
+$('refresh').addEventListener('click', () => {
+  if (!busy) refresh().catch(error => $('notice').textContent = error.message);
+});
+refresh().catch(error => $('notice').textContent = error.message);
+setInterval(() => { if (!busy && !document.hidden) refresh().catch(error => $('notice').textContent = error.message); }, 10000);
+</script>
+</body>
+</html>
