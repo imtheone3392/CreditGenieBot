@@ -5,7 +5,6 @@ import hashlib
 import sqlite3
 import logging
 import time
-import uuid
 from pathlib import Path
 from typing import Literal
 
@@ -1428,22 +1427,8 @@ async def character_catalog(x_telegram_init_data: str = Header(default="")):
 
 @api.post("/api/catalog/orders")
 async def submit_catalog_order(req: CatalogOrderInput, x_telegram_init_data: str = Header(default="")):
-    user = get_or_create_user(verify_init_data(x_telegram_init_data))
-    with db() as con:
-        con.execute("BEGIN IMMEDIATE")
-        existing = con.execute(
-            "SELECT * FROM catalog_orders WHERE user_id=? AND catalog_id=? "
-            "AND status IN ('pending','released')", (user["id"], req.catalog_id),
-        ).fetchone()
-        if existing:
-            return {"ok": True, "already_exists": True, "order": catalog_order_view(existing)}
-        stamp = now_iso()
-        cur = con.execute(
-            "INSERT INTO catalog_orders(user_id,catalog_id,agreed_price_cents,created_at,updated_at) "
-            "VALUES(?,?,?,?,?)", (user["id"], req.catalog_id, CATALOG_PRICE_CENTS, stamp, stamp),
-        )
-        row = con.execute("SELECT * FROM catalog_orders WHERE id=?", (cur.lastrowid,)).fetchone()
-    return {"ok": True, "already_exists": False, "order": catalog_order_view(row)}
+    verify_init_data(x_telegram_init_data)
+    raise HTTPException(status_code=410, detail="The character catalog is closed. No charge was made.")
 
 
 @api.get("/api/catalog/orders")
@@ -1472,65 +1457,5 @@ async def admin_catalog_orders(x_telegram_init_data: str = Header(default="")):
 @api.post("/api/admin/catalog/orders/{order_id}/decision")
 async def decide_catalog_order(order_id: int, req: CatalogDecisionInput,
                                x_telegram_init_data: str = Header(default="")):
-    admin = require_admin(x_telegram_init_data)
-    with db() as con:
-        # Serialize approvals across workers; debit, delivery and audit entry commit together.
-        con.execute("BEGIN IMMEDIATE")
-        row = con.execute(
-            "SELECT o.*,u.telegram_id FROM catalog_orders o JOIN users u ON u.id=o.user_id "
-            "WHERE o.id=?", (order_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Catalog order not found.")
-        if row["status"] != "pending":
-            if row["status"] != req.status:
-                raise HTTPException(status_code=409, detail="Order already reviewed. Refresh the queue.")
-            return {"ok": True, "already_processed": True, "status": row["status"],
-                    "charged_cents": row["charged_cents"], "notification_sent": False}
-        stamp = now_iso()
-        player = None
-        charge = 0
-        if req.status == "released":
-            if row["agreed_price_cents"] != CATALOG_PRICE_CENTS:
-                raise HTTPException(status_code=409, detail="A new price agreement is required.")
-            debit = con.execute(
-                "UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?",
-                (CATALOG_PRICE_CENTS, row["user_id"], CATALOG_PRICE_CENTS),
-            )
-            if debit.rowcount != 1:
-                raise HTTPException(status_code=409,
-                    detail="Member needs $13.00 in their wallet. No charge made; order remains pending.")
-            charge = CATALOG_PRICE_CENTS
-            player = {"player_id": "CG-" + uuid.uuid4().hex.upper(),
-                      "level": 1, **CHARACTER_CATALOG[row["catalog_id"]]}
-            con.execute(
-                "INSERT INTO catalog_charges(order_id,user_id,amount_cents,created_at) VALUES(?,?,?,?)",
-                (order_id, row["user_id"], charge, stamp),
-            )
-        con.execute(
-            "UPDATE catalog_orders SET status=?,charged_cents=?,player_json=?,updated_at=?,reviewed_by=? "
-            "WHERE id=? AND status='pending'",
-            (req.status, charge, json.dumps(player) if player else None, stamp, admin["id"], order_id),
-        )
-    # A notification failure never reverses or repeats the committed charge.
-    notified = False
-    try:
-        if player:
-            message = (
-                f"Fictional character order #{order_id} approved\n\n"
-                f"Wallet charged: {money(charge)}\n"
-                f"Character: {player['name']}\nPlayer ID: {player['player_id']}\n"
-                f"Role: {player['role']}\nLevel: {player['level']}\n"
-                f"Ability: {player['ability']}\nStrength: {player['strength']}\n"
-                f"Agility: {player['agility']}\nMagic: {player['magic']}\n\n"
-                "Your character card is also saved in the Character Catalog."
-            )
-        else:
-            message = f"Fictional character order #{order_id} was declined. No charge was made."
-        await telegram_bot.bot.send_message(chat_id=row["telegram_id"], text=message, parse_mode=None,
-                                           read_timeout=10, connect_timeout=5)
-        notified = True
-    except Exception as exc:
-        logger.warning("Catalog order %s notification unconfirmed (%s)", order_id, type(exc).__name__)
-    return {"ok": True, "already_processed": False, "status": req.status,
-            "charged_cents": charge, "notification_sent": notified}
+    require_admin(x_telegram_init_data)
+    raise HTTPException(status_code=410, detail="The character catalog is closed. No charge was made.")
