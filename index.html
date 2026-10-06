@@ -361,6 +361,15 @@ button:disabled{opacity:.55;cursor:not-allowed}
 
 .section-gap{margin-top:24px}
 
+#memberMessageStatus:not(:empty){
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  white-space:pre-wrap;
+}
+#memberMessageStatus[data-state="success"]{color:#b8f5b3;background:#19351f;border-color:#49a627}
+#memberMessageStatus[data-state="error"]{color:#ffbaba;background:#351f23;border-color:#c74b4b}
+
 @media(min-width:700px){
   .grid.two{grid-template-columns:1fr 1fr}
   .stats{grid-template-columns:repeat(2,1fr)}
@@ -841,12 +850,31 @@ $('memberMessageForm').addEventListener('submit', async e => {
   $('sendMemberMessageBtn').disabled = true;
   $('cancelMemberMessageBtn').disabled = true;
   $('memberMessage').disabled = true;
+  $('memberMessageStatus').dataset.state = 'pending';
   $('memberMessageStatus').textContent = 'Sending…';
   try {
-    await api(`/api/admin/members/${recipient.id}/message`, {method:'POST', body:JSON.stringify({message})});
-    $('memberMessageStatus').textContent = 'Message sent through CreditGenieBot.';
+    const result = await api(`/api/admin/members/${recipient.id}/message`, {method:'POST', body:JSON.stringify({message})});
+    if (result.ok !== true || result.member_id !== recipient.id || !Number.isInteger(result.message_id)) {
+      throw new Error('No valid send confirmation was received. The message may have arrived; check with the member before resending.');
+    }
+    const recipientName = recipient.first_name || 'Member #' + recipient.id;
+    const confirmation = `✅ Message sent to ${recipientName}${recipient.username ? ' (@' + recipient.username + ')' : ''}.
+Telegram message ID: ${result.message_id}
+Confirmed at ${new Date().toLocaleString()}.
+This confirms sending, not that the member has read it.`;
+    $('memberMessageStatus').dataset.state = 'success';
+    $('memberMessageStatus').textContent = confirmation;
     $('memberMessage').value = '';
+    // Popup/haptic failures must never turn a confirmed send into a send error.
+    try {
+      $('memberMessageStatus').scrollIntoView({behavior:'smooth', block:'center'});
+      tg?.HapticFeedback?.notificationOccurred('success');
+      if (tg?.isVersionAtLeast?.('6.2')) {
+        tg.showPopup({title:'Message sent', message:`Sent to ${recipientName}. Telegram message ID: ${result.message_id}.`, buttons:[{type:'ok'}]});
+      }
+    } catch (_) {}
   } catch (e) {
+    $('memberMessageStatus').dataset.state = 'error';
     $('memberMessageStatus').textContent = e.message;
   } finally {
     messageSending = false;
