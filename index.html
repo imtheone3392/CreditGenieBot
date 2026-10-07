@@ -436,6 +436,12 @@ button:disabled{
     grid-template-columns:repeat(2,1fr);
   }
 }
+[hidden]{display:none!important}
+select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;background:#17222b;color:white;font:inherit}
+.conversation{max-height:420px;overflow:auto;margin:14px 0}
+.message-bubble,.approval-note{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border:1px solid #425561;border-radius:10px;margin:10px 0}
+.message-bubble.outgoing{border-left:4px solid #73b3ff}
+.message-bubble.incoming{border-left:4px solid #83ca57}
 </style>
 </head>
 
@@ -456,90 +462,23 @@ button:disabled{
 </div>
 
 
-<!-- SINGLE PROFILE SEARCH -->
+<!-- BANK JOB CHARACTER REQUESTS -->
 <section class="card">
-
-  <div class="card-head">
-
-    <h2>
-      SINGLE PROFILE<br>
-      SEARCH
-    </h2>
-
-    <span class="pill">
-      $12.00 / search
-    </span>
-
-  </div>
-
-  <form
-    id="characterRequestForm"
-    class="grid"
-  >
-
-    <input
-      id="characterName"
-      maxlength="80"
-      required
-      placeholder="Name"
-      autocomplete="off"
-    >
-
-    <input
-      id="characterGame"
-      maxlength="4"
-      required
-      inputmode="numeric"
-      pattern="[0-9]{4}"
-      placeholder="Birth Year"
-      autocomplete="off"
-    >
-
-    <input
-      id="characterId"
-      maxlength="2"
-      required
-      pattern="[A-Za-z]{2}"
-      placeholder="State (2 letters)"
-      autocomplete="address-level1"
-      autocapitalize="characters"
-      spellcheck="false"
-    >
-
-    <p class="help">
-      Each profile search costs $12.00.
-      The charge is deducted from your CreditGenie balance when submitted.
-    </p>
-
-    <button
-      id="submitCharacterBtn"
-      type="submit"
-    >
-      PURCHASE & SUBMIT SEARCH
-    </button>
-
+  <div class="card-head"><h2>BANK JOB<br>CHARACTER REQUEST</h2><span class="pill">$13 on approval</span></div>
+  <p class="help">Create a fictional Bank Job character record. Select a role; a character name, fictional birthday and player ID are generated for your request. This does not grant access to an external game.</p>
+  <form id="characterRequestForm" class="grid">
+    <label for="bankJobRole">Character role</label>
+    <select id="bankJobRole" required>
+      <option value="driver">Driver — Alex Ghost Mercer</option>
+      <option value="scout">Scout — Riley Night Vale</option>
+      <option value="planner">Planner — Morgan Cipher Reed</option>
+    </select>
+    <p class="help">Submitting authorizes a $13.00 wallet charge only when an admin approves. Declined requests are not charged.</p>
+    <button id="submitCharacterBtn" type="submit">REQUEST CHARACTER · $13 ON APPROVAL</button>
   </form>
-
-  <div
-    id="characterStatus"
-    class="status"
-    role="status"
-    aria-live="polite"
-  ></div>
-
-
-  <div class="card-head section-gap">
-    <h2 style="font-size:20px">
-      MY PROFILE SEARCHES
-    </h2>
-  </div>
-
-  <div id="characterHistory">
-    <div class="empty">
-      Loading profile searches…
-    </div>
-  </div>
-
+  <div id="characterStatus" class="status" role="status" aria-live="polite"></div>
+  <div class="card-head section-gap"><h2 style="font-size:20px">MY BANK JOB REQUESTS</h2></div>
+  <div id="characterHistory"></div>
 </section>
 
 
@@ -682,7 +621,7 @@ button:disabled{
     </div>
 
     <div class="admin-sub">
-      View members, send Telegram messages, review profile searches,
+      View members, send Telegram messages, review Bank Job requests,
       and verify Bitcoin deposits.
     </div>
 
@@ -725,6 +664,18 @@ button:disabled{
   </div>
 
 
+  <div class="admin-buttons section-gap" aria-label="Admin pages">
+    <button type="button" class="btn-small" data-admin-page="messages">MESSAGES</button>
+    <button type="button" class="btn-small btn-blue" data-admin-page="deposits">DEPOSITS</button>
+    <button type="button" class="btn-small btn-blue" data-admin-page="requests">CHARACTER REQUESTS</button>
+  </div>
+  <div id="admin-page-messages" class="section-gap">
+    <h2>MEMBER INBOX</h2>
+    <p class="help">Members reply directly to CreditGenieBot in Telegram. Replies received after this update appear here.</p>
+    <button type="button" class="btn-small btn-blue" id="refreshInboxBtn">REFRESH INBOX</button>
+    <div id="inboxStatus" class="status" role="status"></div>
+    <div id="inboxThreads"></div>
+    <div class="admin-buttons"><button type="button" class="btn-small" id="inboxPrev">PREVIOUS</button><button type="button" class="btn-small" id="inboxNext">NEXT</button></div>
   <!-- MEMBERS -->
   <div class="card-head">
 
@@ -805,6 +756,9 @@ button:disabled{
   >
 
     <h3 id="messageRecipient"></h3>
+    <button type="button" class="btn-small btn-blue" id="olderMessages" hidden>OLDER MESSAGES</button>
+    <button type="button" class="btn-small btn-blue" id="refreshConversation">REFRESH CONVERSATION</button>
+    <div id="memberConversation" class="conversation" aria-live="polite"></div>
 
     <label
       class="admin-editor-title"
@@ -852,11 +806,13 @@ button:disabled{
   </form>
 
 
-  <!-- PROFILE SEARCH QUEUE -->
+  </div>
+  <div id="admin-page-requests" class="section-gap" hidden>
+  <!-- BANK JOB REQUEST QUEUE -->
   <div class="card-head section-gap">
 
     <h2>
-      PROFILE SEARCH QUEUE
+      BANK JOB REQUEST QUEUE
     </h2>
 
     <span
@@ -874,7 +830,7 @@ button:disabled{
     class="btn-small btn-blue"
     type="button"
   >
-    REFRESH PROFILE QUEUE
+    REFRESH REQUESTS
   </button>
 
 
@@ -888,12 +844,16 @@ button:disabled{
 
   <div id="characterQueue">
     <div class="empty">
-      Loading profile searches…
+      Loading requests…
     </div>
   </div>
 
 
+  </div>
+  <div id="admin-page-deposits" class="section-gap" hidden>
   <!-- DEPOSIT QUEUE -->
+  <p class="help">Verify receipt of the Bitcoin transaction in your wallet, enter the confirmed USD amount, then confirm. The member can spend the credited balance immediately.</p>
+  <button type="button" class="btn-small btn-blue" id="refreshDepositsAdmin">REFRESH DEPOSITS</button>
   <div class="card-head section-gap">
 
     <h2>
@@ -916,6 +876,7 @@ button:disabled{
     </div>
   </div>
 
+  </div>
 </section>
 
 </div>
@@ -1087,7 +1048,8 @@ async function loadMe() {
       await Promise.all([
         loadAdminStats(),
         loadAdminMembers(),
-        loadAdminDeposits()
+        loadAdminDeposits(),
+        loadInbox()
       ]);
 
     } else {
@@ -1576,6 +1538,7 @@ $('membersList')
 
       messageMember =
         member;
+      loadConversation(member.id);
 
       $('messageRecipient').textContent =
         `To: ${
@@ -1728,6 +1691,8 @@ This confirms sending, not that the member has read it.`;
 
         $('memberMessage').value =
           '';
+        await loadConversation(recipient.id);
+        await loadInbox();
 
         try {
           tg?.HapticFeedback
@@ -1769,6 +1734,7 @@ This confirms sending, not that the member has read it.`;
 ========================================== */
 
 async function loadAdminDeposits() {
+  if (Array.from(document.querySelectorAll('#adminDeposits input')).some(el => el.value.trim())) return;
 
   if (!adminEnabled) {
     return;
@@ -1856,7 +1822,7 @@ async function loadAdminDeposits() {
                     onclick="creditAdminDeposit(${Number(d.id)})"
                     type="button"
                   >
-                    CREDIT BALANCE
+                    CONFIRM DEPOSIT & CREDIT BALANCE
                   </button>
 
                 </div>
@@ -1897,10 +1863,8 @@ async function creditAdminDeposit(
   const status =
     $(`deposit-status-${depositId}`);
 
-  const dollars =
-    Number.parseFloat(
-      input?.value?.trim()
-    );
+  const enteredAmount = input?.value?.trim() || '';
+  const dollars = /^\d+(?:\.\d{1,2})?$/.test(enteredAmount) ? Number(enteredAmount) : NaN;
 
   if (
     !Number.isFinite(dollars) ||
@@ -1961,6 +1925,7 @@ async function creditAdminDeposit(
         }
       );
 
+    input.value = '';
     status.textContent =
       `${data.credited} credited successfully.`;
 
@@ -1986,536 +1951,138 @@ async function creditAdminDeposit(
 }
 
 
-/* ==========================================
-   PROFILE SEARCH
-   Backend field mapping:
-
-   character_name = Name
-   game           = Birth Year
-   character_id   = State
-========================================== */
-
-let characterSubmitting =
-  false;
-
-let characterDecisionBusy =
-  false;
-
-let characterQueueLoading =
-  false;
-
-let characterHistoryLoading =
-  false;
-
-
-const characterLabels = {
-  pending:'Pending admin review',
-  available:'Found',
-  unavailable:'Not Found'
-};
-
-
-function profileDetails(r) {
-
-  return `
-
-    <div class="admin-name">
-      ${esc(r.character_name)}
-    </div>
-
-    <div class="row">
-      Birth Year:
-      ${esc(r.game)}
-    </div>
-
-    <div class="row">
-      State:
-      ${esc(r.character_id)}
-    </div>
-
-    <div class="row">
-      Submitted:
-      ${esc(prettyTime(r.created_at))}
-    </div>
-
-  `;
-
+/* Bank Job request and approval flow */
+let characterSubmitting = false;
+let characterDecisionBusy = false;
+let characterQueueLoading = false;
+const approvalDrafts = new Map();
+function bankJobDetails(r) {
+  return `<div class="admin-name">${esc(r.character.name)}</div>
+    <div class="row">Player ID: ${esc(r.player_id)}</div>
+    <div class="row">Fictional birthday: ${esc(r.character.fictional_birthday)}</div>
+    <div class="row">Role: ${esc(r.character.role)}</div>`;
 }
-
-
 async function loadCharacterHistory() {
-
-  if (
-    !currentUser ||
-    characterHistoryLoading
-  ) {
-    return;
-  }
-
-  characterHistoryLoading =
-    true;
-
+  if (!currentUser) return;
   try {
-
-    const data =
-      await api(
-        '/api/character-requests'
-      );
-
-    $('characterHistory').innerHTML =
-      data.requests.length
-        ?
-        data.requests.map(
-          r => `
-
-            <div class="request-item">
-
-              <div class="request-top">
-
-                <b>
-                  Profile Search #${Number(r.id)}
-                </b>
-
-                <span
-                  class="status-pill ${
-                    r.status === 'available'
-                      ? 'completed'
-                      : r.status === 'unavailable'
-                      ? 'rejected'
-                      : 'pending'
-                  }"
-                >
-                  ${
-                    esc(
-                      characterLabels[r.status]
-                      ||
-                      r.status
-                    )
-                  }
-                </span>
-
-              </div>
-
-              ${profileDetails(r)}
-
-              ${
-                r.status !== 'pending'
-                  ?
-                  `<div class="row">
-                    Reviewed:
-                    ${esc(prettyTime(r.updated_at))}
-                  </div>`
-                  :
-                  ''
-              }
-
-            </div>
-
-          `
-        ).join('')
-        :
-        '<div class="empty">No profile searches yet.</div>';
-
-  } catch (e) {
-
-    $('characterHistory').textContent =
-      e.message;
-
-  } finally {
-
-    characterHistoryLoading =
-      false;
-
-  }
+    const data = await api('/api/bank-job/requests');
+    $('characterHistory').innerHTML = data.requests.length ? data.requests.map(r => `
+      <div class="request-item"><b>Bank Job #${Number(r.id)} — ${esc(r.status)}</b>
+      ${bankJobDetails(r)}<div class="row">Charged: $${(r.charged_cents/100).toFixed(2)}</div>
+      ${r.approval_note ? `<div class="approval-note"><b>Admin note</b>\n${esc(r.approval_note)}</div>` : '<p>Waiting for admin review.</p>'}</div>`).join('') : '<p>No Bank Job requests yet.</p>';
+  } catch(e) { $('characterHistory').textContent = e.message; }
 }
-
-
 async function loadCharacterQueue() {
-
-  if (
-    !adminEnabled ||
-    characterQueueLoading
-  ) {
-    return;
-  }
-
-  characterQueueLoading =
-    true;
-
-  $('refreshCharacterQueueBtn').disabled =
-    true;
-
+  if (!adminEnabled || characterQueueLoading || characterDecisionBusy || $('characterQueue').contains(document.activeElement)) return;
+  characterQueueLoading = true;
   try {
-
-    const data =
-      await api(
-        '/api/admin/character-requests'
-      );
-
-    $('characterQueueCount').textContent =
-      `${data.total} pending`;
-
-    $('characterQueue').innerHTML =
-      data.requests.length
-        ?
-        data.requests.map(
-          r => `
-
-            <div class="admin-request">
-
-              <b>
-                Profile Search #${Number(r.id)}
-              </b>
-
-              ${profileDetails(r)}
-
-              <div class="admin-requested-by">
-                From:
-                ${esc(
-                  r.first_name ||
-                  'Member'
-                )}
-                ${
-                  r.username
-                    ? ' (@' +
-                      esc(r.username) +
-                      ')'
-                    : ''
-                }
-              </div>
-
-              <div class="admin-buttons section-gap">
-
-                <button
-                  type="button"
-                  class="btn-small"
-                  data-character-request="${Number(r.id)}"
-                  data-decision="available"
-                >
-                  FOUND
-                </button>
-
-                <button
-                  type="button"
-                  class="btn-small btn-red"
-                  data-character-request="${Number(r.id)}"
-                  data-decision="unavailable"
-                >
-                  NOT FOUND
-                </button>
-
-              </div>
-
-            </div>
-
-          `
-        ).join('')
-        :
-        '<div class="empty">No pending profile searches.</div>';
-
-  } catch (e) {
-
-    $('characterQueueStatus').textContent =
-      e.message;
-
-  } finally {
-
-    characterQueueLoading =
-      false;
-
-    $('refreshCharacterQueueBtn').disabled =
-      false;
-
-  }
+    const data = await api('/api/admin/bank-job/requests');
+    $('characterQueueCount').textContent = `${data.total} pending`;
+    $('characterQueue').innerHTML = data.requests.length ? data.requests.map(r => `
+      <div class="admin-request"><b>Bank Job #${Number(r.id)}</b>${bankJobDetails(r)}
+      <div class="admin-meta">From: ${esc(r.first_name || 'Member')}${r.username ? ' (@'+esc(r.username)+')' : ''} · Balance: $${(r.balance_cents/100).toFixed(2)}</div>
+      <label for="approval-${Number(r.id)}">Approval message — fictional character details</label>
+      <textarea id="approval-${Number(r.id)}" data-approval-note="${Number(r.id)}" maxlength="1500" placeholder="Write the character details or mission note for this requester…">${esc(approvalDrafts.get(r.id) || '')}</textarea>
+      <div class="admin-buttons">
+      <button type="button" class="btn-small" data-bank-job="${Number(r.id)}" data-decision="approved">APPROVE & SEND · CHARGE $13</button>
+      <button type="button" class="btn-small btn-red" data-bank-job="${Number(r.id)}" data-decision="declined">DECLINE & SEND · NO CHARGE</button>
+      </div></div>`).join('') : '<p>No pending Bank Job requests.</p>';
+  } catch(e) { $('characterQueueStatus').textContent = e.message; }
+  finally { characterQueueLoading = false; }
 }
-
-
-/* PURCHASE PROFILE SEARCH */
-
-$('characterRequestForm')
-  .addEventListener(
-    'submit',
-    async e => {
-
-      e.preventDefault();
-
-      if (characterSubmitting) {
-        return;
-      }
-
-      if (!currentUser) {
-
-        $('characterStatus').textContent =
-          'Reopen the Mini App from Telegram to submit a search.';
-
-        return;
-      }
-
-      const name =
-        $('characterName')
-          .value
-          .trim();
-
-      const birthYear =
-        $('characterGame')
-          .value
-          .trim();
-
-      const state =
-        $('characterId')
-          .value
-          .trim()
-          .toUpperCase();
-
-      if (!name) {
-
-        $('characterStatus').textContent =
-          'Enter a name.';
-
-        return;
-      }
-
-      const currentYear =
-        new Date().getFullYear();
-
-      const yearNumber =
-        Number(birthYear);
-
-      if (
-        !/^\d{4}$/.test(birthYear) ||
-        yearNumber < 1900 ||
-        yearNumber > currentYear
-      ) {
-
-        $('characterStatus').textContent =
-          'Enter a valid 4-digit birth year.';
-
-        return;
-      }
-
-      if (
-        !/^[A-Z]{2}$/.test(state)
-      ) {
-
-        $('characterStatus').textContent =
-          'Enter a 2-letter state code. Example: NV.';
-
-        return;
-      }
-
-      if (
-        !window.confirm(
-          'Purchase this profile search for $12.00?'
-        )
-      ) {
-        return;
-      }
-
-      characterSubmitting =
-        true;
-
-      $('submitCharacterBtn').disabled =
-        true;
-
-      $('characterStatus').textContent =
-        'Purchasing profile search…';
-
-      try {
-
-        const data =
-          await api(
-            '/api/character-requests',
-            {
-              method:'POST',
-
-              body:
-                JSON.stringify({
-                  character_name:
-                    name,
-
-                  game:
-                    birthYear,
-
-                  character_id:
-                    state
-                })
-            }
-          );
-
-        if (
-          data.already_pending
-        ) {
-
-          $('characterStatus').textContent =
-            `Profile Search #${data.request_id} is already pending. No additional charge was made.`;
-
-        } else {
-
-          $('characterStatus').textContent =
-            `✅ Profile Search #${data.request_id} purchased for $12.00 and submitted for admin review.`;
-
-        }
-
-        $('characterRequestForm').reset();
-
-        await Promise.all([
-          loadWallet(),
-          loadMe(),
-          loadCharacterHistory(),
-          loadCharacterQueue()
-        ]);
-
-      } catch (e) {
-
-        $('characterStatus').textContent =
-          e.message;
-
-      } finally {
-
-        characterSubmitting =
-          false;
-
-        $('submitCharacterBtn').disabled =
-          false;
-
-      }
-
-    }
-  );
-
-
-$('refreshCharacterQueueBtn')
-  .addEventListener(
-    'click',
-    loadCharacterQueue
-  );
-
-
-$('characterQueue')
-  .addEventListener(
-    'click',
-    async e => {
-
-      const button =
-        e.target.closest(
-          '[data-character-request]'
-        );
-
-      if (
-        !button ||
-        !adminEnabled ||
-        characterDecisionBusy
-      ) {
-        return;
-      }
-
-      const id =
-        Number(
-          button.dataset
-            .characterRequest
-        );
-
-      const decision =
-        button.dataset
-          .decision;
-
-      if (
-        ![
-          'available',
-          'unavailable'
-        ].includes(decision)
-      ) {
-        return;
-      }
-
-      const resultLabel =
-        decision === 'available'
-          ? 'FOUND'
-          : 'NOT FOUND';
-
-      if (
-        !window.confirm(
-          `Mark Profile Search #${id} as ${resultLabel}?`
-        )
-      ) {
-        return;
-      }
-
-      characterDecisionBusy =
-        true;
-
-      const buttons =
-        Array.from(
-          $('characterQueue')
-            .querySelectorAll(
-              'button'
-            )
-        );
-
-      buttons.forEach(
-        b => b.disabled = true
-      );
-
-      $('refreshCharacterQueueBtn').disabled =
-        true;
-
-      $('characterQueueStatus').textContent =
-        'Saving profile search result…';
-
-      try {
-
-        const data =
-          await api(
-            `/api/admin/character-requests/${id}/decision`,
-            {
-              method:'POST',
-
-              body:
-                JSON.stringify({
-                  status:
-                    decision
-                })
-            }
-          );
-
-        $('characterQueueStatus').textContent =
-          `✅ Profile Search #${id}: ${
-            characterLabels[
-              data.status
-            ]
-          }. ${
-            data.notification_sent
-              ? 'Telegram notification sent.'
-              : 'Result saved.'
-          }`;
-
-      } catch (e) {
-
-        $('characterQueueStatus').textContent =
-          e.message;
-
-      } finally {
-
-        characterDecisionBusy =
-          false;
-
-        buttons.forEach(
-          b => b.disabled = false
-        );
-
-        $('refreshCharacterQueueBtn').disabled =
-          false;
-
-        await Promise.all([
-          loadCharacterQueue(),
-          loadCharacterHistory()
-        ]);
-
-      }
-
-    }
-  );
-
+$('characterQueue').addEventListener('input', e => {
+  if (e.target.matches('[data-approval-note]')) approvalDrafts.set(Number(e.target.dataset.approvalNote), e.target.value);
+});
+$('characterRequestForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (characterSubmitting || !currentUser) return;
+  if (!window.confirm('Request this fictional Bank Job character and authorize a $13.00 wallet charge only on admin approval?')) return;
+  characterSubmitting = true; $('submitCharacterBtn').disabled = true;
+  try {
+    const data = await api('/api/bank-job/requests', {method:'POST',body:JSON.stringify({role:$('bankJobRole').value,agreed_price_cents:1300})});
+    $('characterStatus').textContent = data.already_pending ? 'This role already has a pending request. No charge made.' : `Request #${data.request.id} submitted. No charge yet; $13.00 is charged on approval.`;
+    await Promise.all([loadCharacterHistory(),loadCharacterQueue()]);
+  } catch(e) { $('characterStatus').textContent = e.message; }
+  finally { characterSubmitting = false; $('submitCharacterBtn').disabled = false; }
+});
+$('refreshCharacterQueueBtn').addEventListener('click', loadCharacterQueue);
+$('characterQueue').addEventListener('click', async e => {
+  const button = e.target.closest('[data-bank-job]');
+  if (!button || !adminEnabled || characterDecisionBusy) return;
+  const id = Number(button.dataset.bankJob), decision = button.dataset.decision;
+  const note = $(`approval-${id}`).value.trim();
+  if (!note) { $('characterQueueStatus').textContent = 'Write a message for the requester first.'; return; }
+  if (!window.confirm(`${decision === 'approved' ? 'Approve and charge $13.00' : 'Decline without charging'} request #${id}, and send this note to its requester?\n\n${note}`)) return;
+  characterDecisionBusy = true;
+  const buttons = Array.from($('characterQueue').querySelectorAll('button'));
+  buttons.forEach(b => b.disabled = true);
+  try {
+    const data = await api(`/api/admin/bank-job/requests/${id}/decision`, {method:'POST',body:JSON.stringify({status:decision,note})});
+    approvalDrafts.delete(id);
+    $('characterQueueStatus').textContent = data.already_processed ? 'Already saved. No duplicate charge.' : `Request ${data.status}. Note saved for the requester. ${data.notification_sent ? 'Telegram notification sent.' : 'Telegram delivery unconfirmed; the note remains available in their request history.'}`;
+    if ($('characterQueue').contains(document.activeElement)) document.activeElement.blur();
+  } catch(e) { $('characterQueueStatus').textContent = e.message; }
+  finally {
+    characterDecisionBusy = false; buttons.forEach(b => b.disabled = false);
+    await Promise.all([loadCharacterQueue(),loadCharacterHistory(),loadWallet(),loadAdminMembers()]);
+  }
+});
+
+/* Admin inbox and pages */
+let inboxPage = 1, inboxLoading = false, conversationMember = null, oldestMessageId = 0;
+async function loadInbox(page = inboxPage) {
+  if (!adminEnabled || inboxLoading) return;
+  inboxLoading = true;
+  try {
+    const data = await api(`/api/admin/inbox?page=${page}`); inboxPage = data.page;
+    $('inboxThreads').innerHTML = data.threads.length ? data.threads.map(t => `<div class="admin-deposit"><b>${esc(t.first_name || 'Member')}${t.username ? ' (@'+esc(t.username)+')' : ''}</b>
+      <p>${Number(t.unread)} unread · ${esc(prettyTime(t.created_at))}</p><p>${esc(t.body.slice(0,160))}</p>
+      <button type="button" class="btn-small" data-thread="${Number(t.id)}">OPEN CONVERSATION</button></div>`).join('') : '<p>No saved conversations yet.</p>';
+    $('inboxPrev').disabled = inboxPage <= 1; $('inboxNext').disabled = inboxPage*50 >= data.total;
+  } catch(e) { $('inboxStatus').textContent = e.message; }
+  finally { inboxLoading = false; }
+}
+async function loadConversation(memberId, older = false) {
+  if (!adminEnabled) return;
+  try {
+    const data = await api(`/api/admin/members/${memberId}/messages${older ? '?before_id='+oldestMessageId : ''}`);
+    if (messageMember && messageMember.id !== memberId) return;
+    conversationMember = memberId;
+    const html = data.messages.map(m => `<div class="message-bubble ${m.direction}"><b>${m.direction === 'incoming' ? 'Member' : 'Admin'}</b> · ${esc(prettyTime(m.created_at))}\n${esc(m.body)}</div>`).join('');
+    if (older) $('memberConversation').insertAdjacentHTML('afterbegin',html);
+    else $('memberConversation').innerHTML = html || '<p>No saved messages yet.</p>';
+    if (data.messages.length) oldestMessageId = data.messages[0].id;
+    $('olderMessages').hidden = !data.has_more;
+    if (!older) $('memberConversation').scrollTop = $('memberConversation').scrollHeight;
+    if (data.messages.length) await api(`/api/admin/members/${memberId}/messages/read`, {method:'POST',body:JSON.stringify({through_id:data.messages[data.messages.length-1].id})});
+    return data.member;
+  } catch(e) { $('inboxStatus').textContent = e.message; }
+}
+$('inboxThreads').addEventListener('click', async e => {
+  const button = e.target.closest('[data-thread]'); if (!button || messageSending) return;
+  const id = Number(button.dataset.thread);
+  if (!$('memberMessageForm').hidden && $('memberMessage').value.trim() && !window.confirm('Discard the unsent message and open this conversation?')) return;
+  messageMember = {id};
+  const member = await loadConversation(id); if (!member || messageMember.id !== id) return;
+  messageMember = member;
+  $('messageRecipient').textContent = `To: ${member.first_name || 'Member'}${member.username ? ' (@'+member.username+')' : ''} — Member #${id}`;
+  $('memberMessage').value = ''; $('memberMessageStatus').textContent = ''; $('memberMessageForm').hidden = false;
+  $('memberMessageForm').scrollIntoView({behavior:'smooth',block:'center'});
+  await loadInbox();
+});
+$('refreshConversation').addEventListener('click', () => { if (messageMember) loadConversation(messageMember.id); });
+$('olderMessages').addEventListener('click', () => { if (conversationMember) loadConversation(conversationMember,true); });
+$('refreshInboxBtn').addEventListener('click', () => loadInbox());
+$('inboxPrev').addEventListener('click', () => loadInbox(inboxPage-1));
+$('inboxNext').addEventListener('click', () => loadInbox(inboxPage+1));
+$('refreshDepositsAdmin').addEventListener('click', loadAdminDeposits);
+document.querySelectorAll('[data-admin-page]').forEach(button => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-admin-page]').forEach(b => b.classList.toggle('btn-blue', b !== button));
+  ['messages','deposits','requests'].forEach(page => $('admin-page-'+page).hidden = page !== button.dataset.adminPage);
+  if (button.dataset.adminPage === 'messages') loadInbox();
+  if (button.dataset.adminPage === 'deposits') loadAdminDeposits();
+  if (button.dataset.adminPage === 'requests') loadCharacterQueue();
+}));
 
 /* ==========================================
    START
@@ -2529,7 +2096,8 @@ async function startApp() {
     loadWallet(),
     loadDeposits(),
     loadCharacterHistory(),
-    loadCharacterQueue()
+    loadCharacterQueue(),
+    loadInbox()
   ]);
 
 }
@@ -2556,7 +2124,8 @@ setInterval(
       await Promise.all([
         loadAdminStats(),
         loadAdminMembers(),
-        loadAdminDeposits()
+        loadAdminDeposits(),
+        loadInbox()
       ]);
 
     }
@@ -2569,3 +2138,4 @@ setInterval(
 
 </body>
 </html>
+

@@ -5,6 +5,7 @@ import hashlib
 import sqlite3
 import logging
 import time
+import uuid
 from pathlib import Path
 from typing import Literal
 
@@ -28,6 +29,8 @@ from telegram import (
 from telegram.ext import (
     Application,
     CommandHandler,
+    MessageHandler,
+    filters,
     ContextTypes,
 )
 
@@ -162,6 +165,34 @@ def init_db():
         con.executescript(
             """
             PRAGMA journal_mode=WAL;
+
+            CREATE TABLE IF NOT EXISTS member_messages(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                direction TEXT NOT NULL CHECK(direction IN ('incoming','outgoing')),
+                body TEXT NOT NULL,
+                telegram_message_id INTEGER,
+                created_at TEXT NOT NULL,
+                read_at TEXT,
+                UNIQUE(user_id,direction,telegram_message_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_messages_user ON member_messages(user_id,id);
+            CREATE TABLE IF NOT EXISTS bank_job_requests(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                player_id TEXT NOT NULL UNIQUE,
+                role TEXT NOT NULL,
+                character_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','declined')),
+                agreed_price_cents INTEGER NOT NULL CHECK(agreed_price_cents=1300),
+                charged_cents INTEGER NOT NULL DEFAULT 0,
+                approval_note TEXT,
+                reviewed_by INTEGER,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_bank_job_pending
+                ON bank_job_requests(user_id,role) WHERE status='pending';
 
             CREATE TABLE IF NOT EXISTS users(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -610,7 +641,7 @@ async def lifespan(
     if telegram_bot.updater:
 
         await telegram_bot.updater.start_polling(
-            drop_pending_updates=True
+            drop_pending_updates=False
         )
 
     try:
@@ -1046,6 +1077,8 @@ async def credit_deposit(
 
     with db() as con:
 
+        con.execute("BEGIN IMMEDIATE")
+
         deposit = con.execute(
             """
             SELECT
@@ -1276,6 +1309,9 @@ async def admin_message_member(
     except TelegramError:
         raise HTTPException(status_code=502, detail="Telegram could not send the message. Try again later.")
     logger.info("Admin %s sent a message to member %s", admin_tg["id"], member_id)
+    with db() as con:
+        con.execute("INSERT INTO member_messages(user_id,direction,body,telegram_message_id,created_at) VALUES(?,'outgoing',?,?,?)",
+                    (member_id, req.message, sent.message_id, now_iso()))
     return {"ok": True, "member_id": member_id, "message_id": sent.message_id}
 
 
@@ -1304,26 +1340,8 @@ class CharacterDecisionInput(BaseModel):
 
 @api.post("/api/character-requests")
 async def create_character_request(req: CharacterRequestInput, x_telegram_init_data: str = Header(default="")):
-    user = get_or_create_user(verify_init_data(x_telegram_init_data))
-    with db() as con:
-        con.execute("BEGIN IMMEDIATE")
-        existing = con.execute(
-            "SELECT id FROM character_requests WHERE user_id=? AND game=? COLLATE NOCASE "
-            "AND character_id=? COLLATE NOCASE AND status='pending'",
-            (user["id"], req.game, req.character_id),
-        ).fetchone()
-        if existing:
-            return {"ok": True, "request_id": existing["id"], "status": "pending", "already_pending": True}
-        pending = con.execute("SELECT COUNT(*) FROM character_requests WHERE user_id=? AND status='pending'", (user["id"],)).fetchone()[0]
-        if pending >= 20:
-            raise HTTPException(status_code=429, detail="You already have 20 pending character requests. Wait for admin review.")
-        stamp = now_iso()
-        cur = con.execute(
-            "INSERT INTO character_requests(user_id,character_name,game,character_id,created_at,updated_at) VALUES(?,?,?,?,?,?)",
-            (user["id"], req.character_name, req.game, req.character_id, stamp, stamp),
-        )
-        request_id = cur.lastrowid
-    return {"ok": True, "request_id": request_id, "status": "pending", "already_pending": False}
+    verify_init_data(x_telegram_init_data)
+    raise HTTPException(status_code=410, detail="Use the Bank Job character request form. Previous requests are read-only.")
 
 
 @api.get("/api/character-requests")
@@ -1352,33 +1370,8 @@ async def admin_character_requests(x_telegram_init_data: str = Header(default=""
 
 @api.post("/api/admin/character-requests/{request_id}/decision")
 async def decide_character_request(request_id: int, req: CharacterDecisionInput, x_telegram_init_data: str = Header(default="")):
-    admin = require_admin(x_telegram_init_data)
-    with db() as con:
-        con.execute("BEGIN IMMEDIATE")
-        row = con.execute(
-            "SELECT c.*,u.telegram_id FROM character_requests c JOIN users u ON u.id=c.user_id WHERE c.id=?", (request_id,),
-        ).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Character request not found.")
-        if row["status"] != "pending":
-            raise HTTPException(status_code=409, detail="This character request was already reviewed. Refresh the queue.")
-        con.execute(
-            "UPDATE character_requests SET status=?,updated_at=?,reviewed_by=? WHERE id=? AND status='pending'",
-            (req.status, now_iso(), admin["id"], request_id),
-        )
-    notified = False
-    try:
-        await telegram_bot.bot.send_message(
-            chat_id=row["telegram_id"], parse_mode=None,
-            text=(f"🎮 Character request #{request_id}\n\nCharacter: {row['character_name']}\n"
-                  f"Game: {row['game']}\nCharacter ID: {row['character_id']}\n\n"
-                  f"Admin availability result: {req.status.title()}\nOpen CreditGenie to view your requests."),
-            read_timeout=10, connect_timeout=5,
-        )
-        notified = True
-    except Exception as exc:
-        logger.warning("Character request %s notification unconfirmed (%s)", request_id, type(exc).__name__)
-    return {"ok": True, "request_id": request_id, "status": req.status, "notification_sent": notified}
+    require_admin(x_telegram_init_data)
+    raise HTTPException(status_code=410, detail="Previous requests are read-only. Review Bank Job requests in the new queue.")
 
 
 # Separate fictional-character catalog. No personal-data search or free-text delivery.
@@ -1459,3 +1452,158 @@ async def decide_catalog_order(order_id: int, req: CatalogDecisionInput,
                                x_telegram_init_data: str = Header(default="")):
     require_admin(x_telegram_init_data)
     raise HTTPException(status_code=410, detail="The character catalog is closed. No charge was made.")
+
+# Bank Job: server-created fictional records, separate from previous profile requests.
+BANK_JOB_PRICE = 1300
+BANK_JOB_ROLES = {
+    'driver': {'name': 'Alex Ghost Mercer', 'fictional_birthday': '1995-06-14', 'role': 'Driver'},
+    'scout': {'name': 'Riley Night Vale', 'fictional_birthday': '1997-09-22', 'role': 'Scout'},
+    'planner': {'name': 'Morgan Cipher Reed', 'fictional_birthday': '1993-02-18', 'role': 'Planner'},
+}
+
+
+class BankJobRequest(BaseModel):
+    model_config = {'extra': 'forbid'}
+    role: Literal['driver', 'scout', 'planner']
+    agreed_price_cents: Literal[1300]
+
+
+class BankJobDecision(BaseModel):
+    model_config = {'extra': 'forbid'}
+    status: Literal['approved', 'declined']
+    note: str = Field(min_length=1, max_length=1500)
+
+    @field_validator('note')
+    @classmethod
+    def note_not_blank(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError('Write a note for the requester.')
+        return value
+
+
+def bank_job_view(row):
+    item = dict(row)
+    item['character'] = json.loads(item.pop('character_json'))
+    return item
+
+
+@api.post('/api/bank-job/requests')
+async def request_bank_job(req: BankJobRequest, x_telegram_init_data: str = Header(default='')):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        existing = con.execute("SELECT * FROM bank_job_requests WHERE user_id=? AND role=? AND status='pending'",
+                               (user['id'], req.role)).fetchone()
+        if existing:
+            return {'ok': True, 'already_pending': True, 'request': bank_job_view(existing)}
+        stamp = now_iso()
+        cur = con.execute('INSERT INTO bank_job_requests(user_id,player_id,role,character_json,agreed_price_cents,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',
+                          (user['id'], 'BJ-' + uuid.uuid4().hex[:16].upper(), req.role,
+                           json.dumps(BANK_JOB_ROLES[req.role]), BANK_JOB_PRICE, stamp, stamp))
+        row = con.execute('SELECT * FROM bank_job_requests WHERE id=?', (cur.lastrowid,)).fetchone()
+    return {'ok': True, 'already_pending': False, 'request': bank_job_view(row)}
+
+
+@api.get('/api/bank-job/requests')
+async def my_bank_job_requests(x_telegram_init_data: str = Header(default='')):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        rows = con.execute('SELECT * FROM bank_job_requests WHERE user_id=? ORDER BY id DESC LIMIT 100', (user['id'],)).fetchall()
+    return {'requests': [bank_job_view(row) for row in rows]}
+
+
+@api.get('/api/admin/bank-job/requests')
+async def bank_job_queue(x_telegram_init_data: str = Header(default='')):
+    require_admin(x_telegram_init_data)
+    with db() as con:
+        rows = con.execute("SELECT b.*,u.first_name,u.username,u.balance_cents FROM bank_job_requests b JOIN users u ON u.id=b.user_id WHERE b.status='pending' ORDER BY b.id LIMIT 100").fetchall()
+        total = con.execute("SELECT COUNT(*) FROM bank_job_requests WHERE status='pending'").fetchone()[0]
+    return {'requests': [bank_job_view(row) for row in rows], 'total': total}
+
+
+@api.post('/api/admin/bank-job/requests/{request_id}/decision')
+async def bank_job_decision(request_id: int, req: BankJobDecision, x_telegram_init_data: str = Header(default='')):
+    admin_user = require_admin(x_telegram_init_data)
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        row = con.execute('SELECT b.*,u.telegram_id FROM bank_job_requests b JOIN users u ON u.id=b.user_id WHERE b.id=?', (request_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, 'Bank Job request not found.')
+        if row['status'] != 'pending':
+            if row['status'] == req.status and row['approval_note'] == req.note:
+                return {'ok': True, 'already_processed': True, 'status': row['status'], 'notification_sent': False}
+            raise HTTPException(409, 'Request already reviewed. Refresh the queue.')
+        charged = 0
+        if req.status == 'approved':
+            changed = con.execute('UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?',
+                                  (BANK_JOB_PRICE, row['user_id'], BANK_JOB_PRICE))
+            if changed.rowcount != 1:
+                raise HTTPException(409, 'Member needs $13.00 in their wallet. Request remains pending; no charge made.')
+            charged = BANK_JOB_PRICE
+        con.execute('UPDATE bank_job_requests SET status=?,charged_cents=?,approval_note=?,reviewed_by=?,updated_at=? WHERE id=?',
+                    (req.status, charged, req.note, admin_user['id'], now_iso(), request_id))
+    # Save the decision before trying Telegram. A failed notification never repeats a charge.
+    sent = False
+    character = json.loads(row['character_json'])
+    try:
+        await telegram_bot.bot.send_message(chat_id=row['telegram_id'], parse_mode=None,
+            text=(f"Bank Job request #{request_id}: {req.status}\n"
+                  f"Fictional character: {character['name']}\nPlayer ID: {row['player_id']}\n"
+                  f"Fictional birthday: {character['fictional_birthday']}\nRole: {character['role']}\n"
+                  f"Wallet charge: {money(charged)}\n\nAdmin note:\n{req.note}\n\nSaved in My Bank Job Requests."),
+            connect_timeout=5, read_timeout=10)
+        sent = True
+    except TelegramError as exc:
+        logger.warning('Bank Job %s notification unconfirmed (%s)', request_id, type(exc).__name__)
+    return {'ok': True, 'already_processed': False, 'status': req.status, 'notification_sent': sent}
+
+
+async def receive_member_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_user or not update.message or update.effective_chat.type != 'private':
+        return
+    user = get_or_create_user(update.effective_user.to_dict())
+    body = update.message.text or update.message.caption or '[Attachment received in Telegram; text replies are shown here.]'
+    with db() as con:
+        con.execute("INSERT OR IGNORE INTO member_messages(user_id,direction,body,telegram_message_id,created_at) VALUES(?,'incoming',?,?,?)",
+                    (user['id'], body, update.message.message_id, now_iso()))
+
+
+telegram_bot.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.COMMAND, receive_member_message))
+
+
+@api.get('/api/admin/inbox')
+async def admin_inbox(page: int = Query(default=1, ge=1), x_telegram_init_data: str = Header(default='')):
+    require_admin(x_telegram_init_data)
+    with db() as con:
+        total = con.execute('SELECT COUNT(DISTINCT user_id) FROM member_messages').fetchone()[0]
+        rows = con.execute("""SELECT u.id,u.first_name,u.username,m.body,m.created_at,
+            (SELECT COUNT(*) FROM member_messages unread WHERE unread.user_id=u.id AND unread.direction='incoming' AND unread.read_at IS NULL) AS unread
+            FROM users u JOIN member_messages m ON m.id=(SELECT MAX(id) FROM member_messages WHERE user_id=u.id)
+            ORDER BY m.id DESC LIMIT 50 OFFSET ?""", ((page-1)*50,)).fetchall()
+    return {'threads': [dict(row) for row in rows], 'total': total, 'page': page}
+
+
+@api.get('/api/admin/members/{member_id}/messages')
+async def admin_conversation(member_id: int, before_id: int = Query(default=0, ge=0), x_telegram_init_data: str = Header(default='')):
+    require_admin(x_telegram_init_data)
+    with db() as con:
+        member = con.execute('SELECT id,first_name,username FROM users WHERE id=?', (member_id,)).fetchone()
+        if not member:
+            raise HTTPException(404, 'Member not found.')
+        rows = con.execute('SELECT * FROM member_messages WHERE user_id=? AND (?=0 OR id<?) ORDER BY id DESC LIMIT 100',
+                           (member_id, before_id, before_id)).fetchall()
+    return {'member': dict(member), 'messages': [dict(row) for row in reversed(rows)], 'has_more': len(rows)==100}
+
+
+class ReadMessages(BaseModel):
+    through_id: int = Field(gt=0)
+
+
+@api.post('/api/admin/members/{member_id}/messages/read')
+async def read_conversation(member_id: int, req: ReadMessages, x_telegram_init_data: str = Header(default='')):
+    require_admin(x_telegram_init_data)
+    with db() as con:
+        con.execute("UPDATE member_messages SET read_at=? WHERE user_id=? AND id<=? AND direction='incoming' AND read_at IS NULL",
+                    (now_iso(), member_id, req.through_id))
+    return {'ok': True}
