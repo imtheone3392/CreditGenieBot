@@ -1456,15 +1456,15 @@ async def decide_catalog_order(order_id: int, req: CatalogDecisionInput,
 # Bank Job: server-created fictional records, separate from previous profile requests.
 BANK_JOB_PRICE = 1300
 BANK_JOB_ROLES = {
-    'driver': {'name': 'Alex Ghost Mercer', 'fictional_birthday': '1995-06-14', 'role': 'Driver'},
-    'scout': {'name': 'Riley Night Vale', 'fictional_birthday': '1997-09-22', 'role': 'Scout'},
-    'planner': {'name': 'Morgan Cipher Reed', 'fictional_birthday': '1993-02-18', 'role': 'Planner'},
+    'driver': {'alias': 'Ghost', 'name': 'Alex Ghost Mercer', 'fictional_birthday': '1995-06-14', 'role': 'Driver'},
+    'scout': {'alias': 'Night', 'name': 'Riley Night Vale', 'fictional_birthday': '1997-09-22', 'role': 'Scout'},
+    'planner': {'alias': 'Cipher', 'name': 'Morgan Cipher Reed', 'fictional_birthday': '1993-02-18', 'role': 'Planner'},
 }
 
 
 class BankJobRequest(BaseModel):
     model_config = {'extra': 'forbid'}
-    role: Literal['driver', 'scout', 'planner']
+    alias: str = Field(min_length=1, max_length=80)
     agreed_price_cents: Literal[1300]
 
 
@@ -1488,19 +1488,36 @@ def bank_job_view(row):
     return item
 
 
+def bank_job_alias_role(alias: str):
+    normalized = alias.strip().casefold()
+    for role, character in BANK_JOB_ROLES.items():
+        if character['alias'].casefold() == normalized:
+            return role
+    raise HTTPException(404, 'No Bank Job profile matches that alias.')
+
+
+@api.get('/api/bank-job/profiles/search')
+async def search_bank_job_alias(alias: str = Query(min_length=1, max_length=80),
+                                x_telegram_init_data: str = Header(default='')):
+    verify_init_data(x_telegram_init_data)
+    role = bank_job_alias_role(alias)
+    return {'profile': BANK_JOB_ROLES[role], 'price_cents': BANK_JOB_PRICE}
+
+
 @api.post('/api/bank-job/requests')
 async def request_bank_job(req: BankJobRequest, x_telegram_init_data: str = Header(default='')):
     user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    role = bank_job_alias_role(req.alias)
     with db() as con:
         con.execute('BEGIN IMMEDIATE')
         existing = con.execute("SELECT * FROM bank_job_requests WHERE user_id=? AND role=? AND status='pending'",
-                               (user['id'], req.role)).fetchone()
+                               (user['id'], role)).fetchone()
         if existing:
             return {'ok': True, 'already_pending': True, 'request': bank_job_view(existing)}
         stamp = now_iso()
         cur = con.execute('INSERT INTO bank_job_requests(user_id,player_id,role,character_json,agreed_price_cents,created_at,updated_at) VALUES(?,?,?,?,?,?,?)',
-                          (user['id'], 'BJ-' + uuid.uuid4().hex[:16].upper(), req.role,
-                           json.dumps(BANK_JOB_ROLES[req.role]), BANK_JOB_PRICE, stamp, stamp))
+                          (user['id'], 'BJ-' + uuid.uuid4().hex[:16].upper(), role,
+                           json.dumps(BANK_JOB_ROLES[role]), BANK_JOB_PRICE, stamp, stamp))
         row = con.execute('SELECT * FROM bank_job_requests WHERE id=?', (cur.lastrowid,)).fetchone()
     return {'ok': True, 'already_pending': False, 'request': bank_job_view(row)}
 
@@ -1551,7 +1568,7 @@ async def bank_job_decision(request_id: int, req: BankJobDecision, x_telegram_in
             text=(f"Bank Job request #{request_id}: {req.status}\n"
                   f"Fictional character: {character['name']}\nPlayer ID: {row['player_id']}\n"
                   f"Fictional birthday: {character['fictional_birthday']}\nRole: {character['role']}\n"
-                  f"Wallet charge: {money(charged)}\n\nAdmin note:\n{req.note}\n\nSaved in My Bank Job Requests."),
+                  f"Wallet charge: {money(charged)}\n\nAdmin note:\n{req.note}\n\nSaved in My Profile Searches."),
             connect_timeout=5, read_timeout=10)
         sent = True
     except TelegramError as exc:

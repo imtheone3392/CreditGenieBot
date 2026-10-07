@@ -462,22 +462,18 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 </div>
 
 
-<!-- BANK JOB CHARACTER REQUESTS -->
+<!-- SINGLE PROFILE SEARCH -->
 <section class="card">
-  <div class="card-head"><h2>BANK JOB<br>CHARACTER REQUEST</h2><span class="pill">$13 on approval</span></div>
-  <p class="help">Create a fictional Bank Job character record. Select a role; a character name, fictional birthday and player ID are generated for your request. This does not grant access to an external game.</p>
+  <div class="card-head"><h2>SINGLE PROFILE<br>SEARCH</h2><span class="pill">$13 on approval</span></div>
+  <p class="help">Search a fictional Bank Job profile by alias. Available aliases: Ghost, Night, Cipher.</p>
   <form id="characterRequestForm" class="grid">
-    <label for="bankJobRole">Character role</label>
-    <select id="bankJobRole" required>
-      <option value="driver">Driver — Alex Ghost Mercer</option>
-      <option value="scout">Scout — Riley Night Vale</option>
-      <option value="planner">Planner — Morgan Cipher Reed</option>
-    </select>
-    <p class="help">Submitting authorizes a $13.00 wallet charge only when an admin approves. Declined requests are not charged.</p>
-    <button id="submitCharacterBtn" type="submit">REQUEST CHARACTER · $13 ON APPROVAL</button>
+    <label for="profileAlias">Alias</label>
+    <input id="profileAlias" maxlength="80" required placeholder="Enter character alias" autocomplete="off">
+    <button id="submitCharacterBtn" type="submit">SEARCH ALIAS</button>
   </form>
+  <div id="aliasSearchResult" class="section-gap"></div>
   <div id="characterStatus" class="status" role="status" aria-live="polite"></div>
-  <div class="card-head section-gap"><h2 style="font-size:20px">MY BANK JOB REQUESTS</h2></div>
+  <div class="card-head section-gap"><h2 style="font-size:20px">MY PROFILE SEARCHES</h2></div>
   <div id="characterHistory"></div>
 </section>
 
@@ -667,7 +663,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
   <div class="admin-buttons section-gap" aria-label="Admin pages">
     <button type="button" class="btn-small" data-admin-page="messages">MESSAGES</button>
     <button type="button" class="btn-small btn-blue" data-admin-page="deposits">DEPOSITS</button>
-    <button type="button" class="btn-small btn-blue" data-admin-page="requests">CHARACTER REQUESTS</button>
+    <button type="button" class="btn-small btn-blue" data-admin-page="requests">PROFILE SEARCHES</button>
   </div>
   <div id="admin-page-messages" class="section-gap">
     <h2>MEMBER INBOX</h2>
@@ -808,11 +804,11 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
   </div>
   <div id="admin-page-requests" class="section-gap" hidden>
-  <!-- BANK JOB REQUEST QUEUE -->
+  <!-- PROFILE SEARCH QUEUE -->
   <div class="card-head section-gap">
 
     <h2>
-      BANK JOB REQUEST QUEUE
+      PROFILE SEARCH QUEUE
     </h2>
 
     <span
@@ -1957,7 +1953,8 @@ let characterDecisionBusy = false;
 let characterQueueLoading = false;
 const approvalDrafts = new Map();
 function bankJobDetails(r) {
-  return `<div class="admin-name">${esc(r.character.name)}</div>
+  return `<div class="admin-name">${esc(r.character.alias || r.character.name)}</div>
+    <div class="row">Fictional character: ${esc(r.character.name)}</div>
     <div class="row">Player ID: ${esc(r.player_id)}</div>
     <div class="row">Fictional birthday: ${esc(r.character.fictional_birthday)}</div>
     <div class="row">Role: ${esc(r.character.role)}</div>`;
@@ -1967,9 +1964,9 @@ async function loadCharacterHistory() {
   try {
     const data = await api('/api/bank-job/requests');
     $('characterHistory').innerHTML = data.requests.length ? data.requests.map(r => `
-      <div class="request-item"><b>Bank Job #${Number(r.id)} — ${esc(r.status)}</b>
+      <div class="request-item"><b>Profile Search #${Number(r.id)} — ${esc(r.status)}</b>
       ${bankJobDetails(r)}<div class="row">Charged: $${(r.charged_cents/100).toFixed(2)}</div>
-      ${r.approval_note ? `<div class="approval-note"><b>Admin note</b>\n${esc(r.approval_note)}</div>` : '<p>Waiting for admin review.</p>'}</div>`).join('') : '<p>No Bank Job requests yet.</p>';
+      ${r.approval_note ? `<div class="approval-note"><b>Admin note</b>\n${esc(r.approval_note)}</div>` : '<p>Waiting for admin review.</p>'}</div>`).join('') : '<p>No profile searches yet.</p>';
   } catch(e) { $('characterHistory').textContent = e.message; }
 }
 async function loadCharacterQueue() {
@@ -1979,31 +1976,55 @@ async function loadCharacterQueue() {
     const data = await api('/api/admin/bank-job/requests');
     $('characterQueueCount').textContent = `${data.total} pending`;
     $('characterQueue').innerHTML = data.requests.length ? data.requests.map(r => `
-      <div class="admin-request"><b>Bank Job #${Number(r.id)}</b>${bankJobDetails(r)}
+      <div class="admin-request"><b>Profile Search #${Number(r.id)}</b>${bankJobDetails(r)}
       <div class="admin-meta">From: ${esc(r.first_name || 'Member')}${r.username ? ' (@'+esc(r.username)+')' : ''} · Balance: $${(r.balance_cents/100).toFixed(2)}</div>
       <label for="approval-${Number(r.id)}">Approval message — fictional character details</label>
       <textarea id="approval-${Number(r.id)}" data-approval-note="${Number(r.id)}" maxlength="1500" placeholder="Write the character details or mission note for this requester…">${esc(approvalDrafts.get(r.id) || '')}</textarea>
       <div class="admin-buttons">
       <button type="button" class="btn-small" data-bank-job="${Number(r.id)}" data-decision="approved">APPROVE & SEND · CHARGE $13</button>
       <button type="button" class="btn-small btn-red" data-bank-job="${Number(r.id)}" data-decision="declined">DECLINE & SEND · NO CHARGE</button>
-      </div></div>`).join('') : '<p>No pending Bank Job requests.</p>';
+      </div></div>`).join('') : '<p>No pending profile searches.</p>';
   } catch(e) { $('characterQueueStatus').textContent = e.message; }
   finally { characterQueueLoading = false; }
 }
 $('characterQueue').addEventListener('input', e => {
   if (e.target.matches('[data-approval-note]')) approvalDrafts.set(Number(e.target.dataset.approvalNote), e.target.value);
 });
+let matchedProfileAlias = null;
+$('profileAlias').addEventListener('input', () => { matchedProfileAlias = null; $('aliasSearchResult').textContent = ''; });
 $('characterRequestForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (characterSubmitting || !currentUser) return;
-  if (!window.confirm('Request this fictional Bank Job character and authorize a $13.00 wallet charge only on admin approval?')) return;
+  const alias = $('profileAlias').value.trim();
+  if (!alias) return;
   characterSubmitting = true; $('submitCharacterBtn').disabled = true;
+  matchedProfileAlias = null; $('aliasSearchResult').textContent = '';
+  $('characterStatus').textContent = 'Searching Bank Job profiles…';
   try {
-    const data = await api('/api/bank-job/requests', {method:'POST',body:JSON.stringify({role:$('bankJobRole').value,agreed_price_cents:1300})});
-    $('characterStatus').textContent = data.already_pending ? 'This role already has a pending request. No charge made.' : `Request #${data.request.id} submitted. No charge yet; $13.00 is charged on approval.`;
-    await Promise.all([loadCharacterHistory(),loadCharacterQueue()]);
+    const data = await api('/api/bank-job/profiles/search?alias='+encodeURIComponent(alias));
+    if ($('profileAlias').value.trim() !== alias) return;
+    matchedProfileAlias = data.profile.alias;
+    $('aliasSearchResult').innerHTML = `<div class="request-item"><b>${esc(data.profile.alias)}</b>
+      <div class="row">Fictional character: ${esc(data.profile.name)}</div>
+      <div class="row">Role: ${esc(data.profile.role)}</div>
+      <p class="help">Submit this match for admin approval and an approval note. Your wallet is charged $13.00 only if approved.</p>
+      <button id="submitProfileMatch" type="button">SUBMIT FOR APPROVAL · $13 ON APPROVAL</button></div>`;
+    $('characterStatus').textContent = 'Profile found. No charge made.';
   } catch(e) { $('characterStatus').textContent = e.message; }
   finally { characterSubmitting = false; $('submitCharacterBtn').disabled = false; }
+});
+$('aliasSearchResult').addEventListener('click', async e => {
+  const button = e.target.closest('#submitProfileMatch');
+  if (!button || characterSubmitting || !matchedProfileAlias) return;
+  const alias = matchedProfileAlias;
+  if (!window.confirm(`Submit the fictional Bank Job profile ${alias} and authorize a $13.00 wallet charge only on admin approval?`)) return;
+  characterSubmitting = true; button.disabled = true;
+  try {
+    const data = await api('/api/bank-job/requests', {method:'POST',body:JSON.stringify({alias,agreed_price_cents:1300})});
+    $('characterStatus').textContent = data.already_pending ? 'This alias already has a pending search. No charge made.' : `Profile Search #${data.request.id} submitted. No charge yet; $13.00 is charged on approval.`;
+    await Promise.all([loadCharacterHistory(),loadCharacterQueue()]);
+  } catch(e) { $('characterStatus').textContent = e.message; }
+  finally { characterSubmitting = false; button.disabled = false; }
 });
 $('refreshCharacterQueueBtn').addEventListener('click', loadCharacterQueue);
 $('characterQueue').addEventListener('click', async e => {
