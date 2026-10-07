@@ -7,6 +7,7 @@ import os
 import tempfile
 import time
 import unittest
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 from urllib.parse import urlencode
@@ -30,6 +31,7 @@ class AdminWorkflows(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.path = patch.object(app, 'DB_PATH', self.temp.name+'/test.db'); self.path.start()
         self.admin = patch.object(app, 'ADMIN_IDS', {900}); self.admin.start()
+        self.address = patch.object(app, 'BTC_DEPOSIT_ADDRESS', 'test-bitcoin-address'); self.address.start()
         app.init_db()
         self.user = app.get_or_create_user({'id': 100, 'first_name': 'Test'})
         with app.db() as con:
@@ -39,7 +41,7 @@ class AdminWorkflows(unittest.TestCase):
         self.bot = patch.object(type(app.telegram_bot.bot), 'send_message', self.sender); self.bot.start()
 
     def tearDown(self):
-        self.client.close(); self.bot.stop(); self.admin.stop(); self.path.stop(); self.temp.cleanup()
+        self.client.close(); self.address.stop(); self.bot.stop(); self.admin.stop(); self.path.stop(); self.temp.cleanup()
 
     def request(self):
         r=self.client.post('/api/bank-job/requests',headers=auth(100),json={'alias':'Ghost','agreed_price_cents':1300})
@@ -118,7 +120,7 @@ class AdminWorkflows(unittest.TestCase):
         self.assertEqual(messages[-1]['direction'],'outgoing')
 
     def test_concurrent_deposit_credit_once(self):
-        r=self.client.post('/api/deposit',headers=auth(100),json={'txid':'a'*64})
+        r=self.client.post('/api/deposit',headers=auth(100),json={'amount_cents':1000,'request_id':str(uuid.uuid4())})
         did=r.json()['deposit_id']
         def credit(_):
             c=TestClient(app.api)
@@ -127,6 +129,42 @@ class AdminWorkflows(unittest.TestCase):
         with ThreadPoolExecutor(2) as pool: codes=list(pool.map(credit,range(2)))
         self.assertEqual(sorted(codes),[200,409])
         self.assertEqual(self.balance(),4000)
+
+    def test_amount_deposit_owner_idempotency_and_validation(self):
+        self.assertEqual(self.client.get('/api/wallet',headers=auth(100)).json()['deposit_address'],'')
+        payload={'amount_cents':2550,'request_id':str(uuid.uuid4())}
+        self.assertEqual(self.client.post('/api/deposit',json=payload).status_code,401)
+        result=self.client.post('/api/deposit',headers=auth(100),json=payload)
+        self.assertEqual(result.status_code,200,result.text)
+        did=result.json()['deposit_id']
+        self.assertEqual(result.json()['deposit_address'],'test-bitcoin-address')
+        self.assertEqual(self.client.post('/api/deposit',headers=auth(100),json=payload).json()['deposit_id'],did)
+        self.assertEqual(self.balance(),3000)
+        self.assertEqual(self.client.get('/api/deposits',headers=auth(101)).json()['deposits'],[])
+        rows=self.client.get('/api/admin/deposits',headers=auth(900)).json()['deposits']
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]['telegram_id'],100)
+        self.assertEqual(rows[0]['user_id'],self.user['id'])
+        self.assertEqual(rows[0]['requested_amount_cents'],2550)
+        self.assertEqual(rows[0]['amount_cents'],0)
+        self.assertIsNone(rows[0]['txid'])
+        for amount in [0,-1,1000001,1.5,True,'100']:
+            self.assertEqual(self.client.post('/api/deposit',headers=auth(100),json={**payload,'amount_cents':amount}).status_code,422)
+        self.assertEqual(self.client.post('/api/deposit',headers=auth(100),json={**payload,'amount_cents':2000}).status_code,409)
+        self.assertEqual(self.client.post('/api/deposit',headers=auth(100),json={**payload,'user_id':999}).status_code,422)
+        app.init_db();app.init_db()
+        self.assertEqual(self.client.get('/api/deposits',headers=auth(100)).json()['deposits'][0]['requested_amount_cents'],2550)
+
+    def test_legacy_deposit_preserved(self):
+        with app.db() as con:
+            con.execute('ALTER TABLE bitcoin_deposits DROP COLUMN requested_amount_cents')
+        with app.db() as con:
+            con.execute("INSERT INTO bitcoin_deposits(user_id,txid,amount_cents,status,created_at,updated_at) VALUES(?,?,500,'credited',?,?)",(self.user['id'],'b'*64,app.now_iso(),app.now_iso()))
+        app.init_db()
+        row=self.client.get('/api/deposits',headers=auth(100)).json()['deposits'][0]
+        self.assertEqual(row['txid'],'b'*64)
+        self.assertEqual(row['amount_cents'],500)
+        self.assertIsNone(row['requested_amount_cents'])
 
     def test_concurrent_approval_once_and_migration(self):
         rid=self.request()

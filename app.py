@@ -312,6 +312,10 @@ def init_db():
             """
         )
 
+        columns = {row["name"] for row in con.execute("PRAGMA table_info(bitcoin_deposits)")}
+        if "requested_amount_cents" not in columns:
+            con.execute("ALTER TABLE bitcoin_deposits ADD COLUMN requested_amount_cents INTEGER")
+
 
 # -------------------------------------------------
 # TELEGRAM MINI APP AUTH
@@ -515,14 +519,10 @@ def get_or_create_user(
 # -------------------------------------------------
 
 
-class BitcoinDepositRequest(
-    BaseModel
-):
-
-    txid: str = Field(
-        min_length=10,
-        max_length=150
-    )
+class BitcoinDepositRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    amount_cents: int = Field(strict=True, gt=0, le=1000000)
+    request_id: uuid.UUID
 
 
 class CreditDepositRequest(
@@ -785,126 +785,44 @@ async def wallet(
         "balance_cents":
             user["balance_cents"],
 
-        "deposit_address":
-            BTC_DEPOSIT_ADDRESS,
+        "deposit_address": BTC_DEPOSIT_ADDRESS if has_pending_deposit(user["id"]) else "",
 
     }
 
 
 # -------------------------------------------------
-# SUBMIT BITCOIN TRANSACTION
+# CREATE DEPOSIT REQUEST
 # -------------------------------------------------
+
+def has_pending_deposit(user_id):
+    with db() as con:
+        return con.execute("SELECT 1 FROM bitcoin_deposits WHERE user_id=? AND status='pending' LIMIT 1", (user_id,)).fetchone() is not None
+
 
 @api.post("/api/deposit")
-async def submit_bitcoin_deposit(
-    req: BitcoinDepositRequest,
-
-    x_telegram_init_data: str = Header(
-        default=""
-    )
-):
-
-    tg = verify_init_data(
-        x_telegram_init_data
-    )
-
-    user = get_or_create_user(
-        tg
-    )
-
-    txid = (
-        req.txid
-        .strip()
-        .lower()
-    )
-
-    if (
-        len(txid) != 64
-        or
-        any(
-            c not in "0123456789abcdef"
-            for c in txid
-        )
-    ):
-
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Enter a valid Bitcoin "
-                "transaction ID."
-            )
-        )
-
+async def submit_bitcoin_deposit(req: BitcoinDepositRequest, x_telegram_init_data: str = Header(default="")):
+    tg = verify_init_data(x_telegram_init_data)
+    user = get_or_create_user(tg)
+    if not BTC_DEPOSIT_ADDRESS:
+        raise HTTPException(status_code=503, detail="Bitcoin deposits are not configured yet.")
+    # Internal request marker preserves legacy NOT NULL/UNIQUE txid schema.
+    marker = f"request:{user['id']}:{req.request_id}"
     with db() as con:
-
-        existing = con.execute(
-            """
-            SELECT id
-            FROM bitcoin_deposits
-            WHERE txid=?
-            """,
-            (
-                txid,
-            )
-        ).fetchone()
-
+        con.execute("BEGIN IMMEDIATE")
+        existing = con.execute("SELECT * FROM bitcoin_deposits WHERE txid=?", (marker,)).fetchone()
         if existing:
-
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "This Bitcoin transaction "
-                    "has already been submitted."
-                )
-            )
-
-        cur = con.execute(
-            """
-            INSERT INTO bitcoin_deposits(
-                user_id,
-                txid,
-                amount_cents,
-                status,
-                created_at,
-                updated_at
-            )
-
-            VALUES(
-                ?,
-                ?,
-                0,
-                'pending',
-                ?,
-                ?
-            )
-            """,
-            (
-                user["id"],
-                txid,
-                now_iso(),
-                now_iso()
-            )
-        )
-
-        deposit_id = (
-            cur.lastrowid
-        )
-
-    return {
-        "ok": True,
-
-        "deposit_id":
-            deposit_id,
-
-        "status":
-            "pending",
-
-        "message":
-            (
-                "Bitcoin transaction submitted "
-                "for verification."
-            )
-    }
+            if existing["requested_amount_cents"] != req.amount_cents:
+                raise HTTPException(status_code=409, detail="This request was already saved with a different amount.")
+            deposit_id, status = existing["id"], existing["status"]
+        else:
+            cur = con.execute("""INSERT INTO bitcoin_deposits
+                (user_id,txid,requested_amount_cents,amount_cents,status,created_at,updated_at)
+                VALUES(?,?,?,0,'pending',?,?)""",
+                (user["id"],marker,req.amount_cents,now_iso(),now_iso()))
+            deposit_id, status = cur.lastrowid, "pending"
+    return {"ok": True, "deposit_id": deposit_id, "status": status,
+            "requested_amount_cents": req.amount_cents, "deposit_address": BTC_DEPOSIT_ADDRESS,
+            "message": "Deposit request saved. Your balance is credited only after admin verifies receipt."}
 
 
 # -------------------------------------------------
@@ -933,6 +851,7 @@ async def my_bitcoin_deposits(
             SELECT
                 id,
                 txid,
+                requested_amount_cents,
                 amount_cents,
                 status,
                 created_at,
@@ -957,6 +876,7 @@ async def my_bitcoin_deposits(
         "deposits": [
             {
                 **dict(row),
+                "txid": None if row["txid"].startswith("request:") else row["txid"],
 
                 "amount":
                     money(
@@ -1011,6 +931,8 @@ async def admin_deposits(
             SELECT
                 d.id,
                 d.txid,
+                d.user_id,
+                d.requested_amount_cents,
                 d.amount_cents,
                 d.status,
                 d.created_at,
@@ -1042,6 +964,7 @@ async def admin_deposits(
         "deposits": [
             {
                 **dict(row),
+                "txid": None if row["txid"].startswith("request:") else row["txid"],
 
                 "amount":
                     money(

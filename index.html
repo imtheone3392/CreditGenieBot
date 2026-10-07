@@ -521,56 +521,16 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
   </div>
 
 
-  <div class="admin-editor-title">
-    BITCOIN RECEIVING ADDRESS
+  <label class="admin-editor-title" for="depositAmount">DEPOSIT AMOUNT IN USD</label>
+  <input id="depositAmount" inputmode="decimal" autocomplete="off" placeholder="Enter amount in USD (example: 25.00)">
+  <div class="actions"><button id="submitDepositBtn" type="button">GET BITCOIN ADDRESS</button></div>
+  <div id="depositPaymentDetails" class="section-gap" hidden>
+    <div class="admin-editor-title">BITCOIN RECEIVING ADDRESS</div>
+    <p id="depositRequestSummary" class="help"></p>
+    <div class="address-box" id="btcAddress"></div>
+    <div class="actions"><button class="btn-blue" id="copyAddressBtn" type="button">COPY BTC ADDRESS</button></div>
+    <p class="notice">Send Bitcoin to this address. Your request is saved to your account; your balance updates after admin confirms receipt.</p>
   </div>
-
-  <div
-    class="address-box"
-    id="btcAddress"
-  >
-    Loading…
-  </div>
-
-
-  <div class="actions">
-
-    <button
-      class="btn-blue"
-      id="copyAddressBtn"
-      type="button"
-    >
-      COPY BTC ADDRESS
-    </button>
-
-  </div>
-
-
-  <div class="admin-editor-title section-gap">
-    SUBMIT BITCOIN TRANSACTION ID
-  </div>
-
-  <input
-    id="depositTxid"
-    maxlength="150"
-    autocapitalize="off"
-    autocomplete="off"
-    spellcheck="false"
-    placeholder="64-character Bitcoin transaction ID"
-  >
-
-
-  <div class="actions">
-
-    <button
-      id="submitDepositBtn"
-      type="button"
-    >
-      SUBMIT PAYMENT
-    </button>
-
-  </div>
-
 
   <div
     id="walletStatus"
@@ -579,7 +539,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
 
   <p class="notice">
-    Payment submissions are reviewed before your CreditGenie balance is credited.
+    Deposit requests record your intended USD amount. They do not confirm that payment was received.
   </p>
 
 
@@ -852,7 +812,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
   </div>
   <div id="admin-page-deposits" class="section-gap" hidden>
   <!-- DEPOSIT QUEUE -->
-  <p class="help">Verify receipt of the Bitcoin transaction in your wallet, enter the confirmed USD amount, then confirm. The member can spend the credited balance immediately.</p>
+  <p class="help">Requests identify the member and intended USD amount, not proof of payment. Verify the sender and payment in your wallet, enter the received USD amount, then confirm. The member can spend the credited balance immediately.</p>
   <button type="button" class="btn-small btn-blue" id="refreshDepositsAdmin">REFRESH DEPOSITS</button>
   <div class="card-head section-gap">
 
@@ -1088,9 +1048,8 @@ async function loadWallet() {
     $('walletBalanceLarge').textContent =
       data.balance || '$0.00';
 
-    $('btcAddress').textContent =
-      currentDepositAddress ||
-      'Bitcoin deposit address is not configured.';
+    $('btcAddress').textContent = currentDepositAddress;
+    $('depositPaymentDetails').hidden = !currentDepositAddress;
 
   } catch (e) {
 
@@ -1135,79 +1094,34 @@ $('copyAddressBtn')
   );
 
 
-$('submitDepositBtn')
-  .addEventListener(
-    'click',
-    async () => {
-
-      const btn =
-        $('submitDepositBtn');
-
-      const txid =
-        $('depositTxid')
-          .value
-          .trim();
-
-      if (!txid) {
-
-        $('walletStatus').textContent =
-          'Enter your Bitcoin transaction ID.';
-
-        return;
-      }
-
-      btn.disabled =
-        true;
-
-      $('walletStatus').textContent =
-        'Submitting payment…';
-
-      try {
-
-        const data =
-          await api(
-            '/api/deposit',
-            {
-              method:'POST',
-
-              body:
-                JSON.stringify({
-                  txid
-                })
-            }
-          );
-
-        $('walletStatus').textContent =
-          `Deposit #${data.deposit_id} submitted for verification.`;
-
-        $('depositTxid').value =
-          '';
-
-        await loadDeposits();
-
-        if (adminEnabled) {
-
-          await Promise.all([
-            loadAdminStats(),
-            loadAdminDeposits()
-          ]);
-
-        }
-
-      } catch (e) {
-
-        $('walletStatus').textContent =
-          e.message;
-
-      } finally {
-
-        btn.disabled =
-          false;
-
-      }
-
-    }
-  );
+let depositRequestDraft = null;
+$('submitDepositBtn').addEventListener('click', async () => {
+  const value = $('depositAmount').value.trim();
+  const amount = /^\d+(?:\.\d{1,2})?$/.test(value) ? Number(value) : NaN;
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 10000) {
+    $('walletStatus').textContent = 'Enter a USD amount from $0.01 to $10,000.00.';
+    return;
+  }
+  const amount_cents = Math.round(amount * 100);
+  if (!depositRequestDraft || depositRequestDraft.amount_cents !== amount_cents) {
+    depositRequestDraft = {amount_cents, request_id: crypto.randomUUID()};
+  }
+  $('submitDepositBtn').disabled = true;
+  $('walletStatus').textContent = 'Saving deposit request…';
+  try {
+    const data = await api('/api/deposit', {method:'POST', body:JSON.stringify(depositRequestDraft)});
+    currentDepositAddress = data.deposit_address;
+    $('btcAddress').textContent = currentDepositAddress;
+    $('depositPaymentDetails').hidden = false;
+    $('depositRequestSummary').textContent = `Deposit #${data.deposit_id} · Requested: $${(data.requested_amount_cents/100).toFixed(2)} USD`;
+    $('walletStatus').textContent = 'Request saved to your account. Send payment, then wait for admin confirmation.';
+    $('depositAmount').value = '';
+    depositRequestDraft = null;
+    await loadDeposits();
+    if (adminEnabled) await Promise.all([loadAdminStats(),loadAdminDeposits()]);
+  } catch(e) { $('walletStatus').textContent = e.message; }
+  finally { $('submitDepositBtn').disabled = false; }
+});
 
 
 async function loadDeposits() {
@@ -1258,9 +1172,10 @@ async function loadDeposits() {
             </div>
 
             <div class="txid">
-              ${esc(shortTxid(d.txid))}
+              ${d.txid ? esc(shortTxid(d.txid)) : "Deposit request"}
             </div>
 
+            ${d.requested_amount_cents != null ? `<div class="row">Requested: $${(d.requested_amount_cents/100).toFixed(2)} USD</div>` : ''}
             <div class="row">
               ${
                 d.status === 'credited'
@@ -1793,13 +1708,15 @@ async function loadAdminDeposits() {
                 ${esc(requestedBy)}
               </div>
 
+              <div class="admin-meta">Account #${Number(d.user_id)} · Telegram ID: ${esc(d.telegram_id)}</div>
+              ${d.requested_amount_cents != null ? `<div class="admin-meta">Requested: $${(d.requested_amount_cents/100).toFixed(2)} USD</div>` : ''}
               <div class="admin-meta">
                 Submitted:
                 ${esc(prettyTime(d.created_at))}
               </div>
 
               <div class="txid">
-                ${esc(d.txid)}
+                ${d.txid ? esc(d.txid) : "Amount request — payment not yet verified"}
               </div>
 
               <div class="admin-editor">
