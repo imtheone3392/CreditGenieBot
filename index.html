@@ -465,11 +465,15 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 <!-- SINGLE PROFILE SEARCH -->
 <section class="card">
   <div class="card-head"><h2>SINGLE PROFILE<br>SEARCH</h2><span class="pill">$13 on approval</span></div>
-  <p class="help">Search a fictional Bank Job profile by alias. Available aliases: Ghost, Night, Cipher.</p>
+  <p class="help">Search stored fictional Bank Job profiles. Example: Ghost · 1995 · Neon.</p>
   <form id="characterRequestForm" class="grid">
-    <label for="profileAlias">Alias</label>
-    <input id="profileAlias" maxlength="80" required placeholder="Enter character alias" autocomplete="off">
-    <button id="submitCharacterBtn" type="submit">SEARCH ALIAS</button>
+    <label for="profileAlias">Name of character</label>
+    <input id="profileAlias" maxlength="80" required placeholder="Name of character" autocomplete="off">
+    <label for="profileBirthYear">Birth year of character</label>
+    <input id="profileBirthYear" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" required placeholder="Birth year of character" autocomplete="off">
+    <label for="profileState">State of character</label>
+    <input id="profileState" maxlength="40" required placeholder="State of character (example: Neon)" autocomplete="off">
+    <button id="submitCharacterBtn" type="submit">SEARCH PROFILE</button>
   </form>
   <div id="aliasSearchResult" class="section-gap"></div>
   <div id="characterStatus" class="status" role="status" aria-live="polite"></div>
@@ -1957,6 +1961,7 @@ function bankJobDetails(r) {
     <div class="row">Fictional character: ${esc(r.character.name)}</div>
     <div class="row">Player ID: ${esc(r.player_id)}</div>
     <div class="row">Fictional birthday: ${esc(r.character.fictional_birthday)}</div>
+    ${r.character.state ? `<div class="row">State of character: ${esc(r.character.state)}</div>` : ''}
     <div class="row">Role: ${esc(r.character.role)}</div>`;
 }
 async function loadCharacterHistory() {
@@ -1991,21 +1996,24 @@ $('characterQueue').addEventListener('input', e => {
   if (e.target.matches('[data-approval-note]')) approvalDrafts.set(Number(e.target.dataset.approvalNote), e.target.value);
 });
 let matchedProfileAlias = null;
-$('profileAlias').addEventListener('input', () => { matchedProfileAlias = null; $('aliasSearchResult').textContent = ''; });
+['profileAlias','profileBirthYear','profileState'].forEach(id => $(id).addEventListener('input', () => { matchedProfileAlias = null; $('aliasSearchResult').textContent = ''; }));
 $('characterRequestForm').addEventListener('submit', async e => {
   e.preventDefault();
   if (characterSubmitting || !currentUser) return;
   const alias = $('profileAlias').value.trim();
-  if (!alias) return;
+  const birthYear = $('profileBirthYear').value.trim(), state = $('profileState').value.trim();
+  if (!alias || !/^\d{4}$/.test(birthYear) || !state) return;
   characterSubmitting = true; $('submitCharacterBtn').disabled = true;
   matchedProfileAlias = null; $('aliasSearchResult').textContent = '';
   $('characterStatus').textContent = 'Searching Bank Job profiles…';
   try {
-    const data = await api('/api/bank-job/profiles/search?alias='+encodeURIComponent(alias));
-    if ($('profileAlias').value.trim() !== alias) return;
+    const data = await api('/api/bank-job/profiles/search?'+new URLSearchParams({name:alias,birth_year:birthYear,state}));
+    if ($('profileAlias').value.trim() !== alias || $('profileBirthYear').value.trim() !== birthYear || $('profileState').value.trim() !== state) return;
     matchedProfileAlias = data.profile.alias;
     $('aliasSearchResult').innerHTML = `<div class="request-item"><b>${esc(data.profile.alias)}</b>
       <div class="row">Fictional character: ${esc(data.profile.name)}</div>
+      <div class="row">Birth year of character: ${esc(data.profile.fictional_birthday.slice(0,4))}</div>
+      <div class="row">State of character: ${esc(data.profile.state)}</div>
       <div class="row">Role: ${esc(data.profile.role)}</div>
       <p class="help">Submit this match for admin approval and an approval note. Your wallet is charged $13.00 only if approved.</p>
       <button id="submitProfileMatch" type="button">SUBMIT FOR APPROVAL · $13 ON APPROVAL</button></div>`;

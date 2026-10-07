@@ -1456,9 +1456,9 @@ async def decide_catalog_order(order_id: int, req: CatalogDecisionInput,
 # Bank Job: server-created fictional records, separate from previous profile requests.
 BANK_JOB_PRICE = 1300
 BANK_JOB_ROLES = {
-    'driver': {'alias': 'Ghost', 'name': 'Alex Ghost Mercer', 'fictional_birthday': '1995-06-14', 'role': 'Driver'},
-    'scout': {'alias': 'Night', 'name': 'Riley Night Vale', 'fictional_birthday': '1997-09-22', 'role': 'Scout'},
-    'planner': {'alias': 'Cipher', 'name': 'Morgan Cipher Reed', 'fictional_birthday': '1993-02-18', 'role': 'Planner'},
+    'driver': {'alias': 'Ghost', 'name': 'Alex Ghost Mercer', 'fictional_birthday': '1995-06-14', 'role': 'Driver', 'state': 'Neon'},
+    'scout': {'alias': 'Night', 'name': 'Riley Night Vale', 'fictional_birthday': '1997-09-22', 'role': 'Scout', 'state': 'Harbor'},
+    'planner': {'alias': 'Cipher', 'name': 'Morgan Cipher Reed', 'fictional_birthday': '1993-02-18', 'role': 'Planner', 'state': 'Summit'},
 }
 
 
@@ -1497,11 +1497,17 @@ def bank_job_alias_role(alias: str):
 
 
 @api.get('/api/bank-job/profiles/search')
-async def search_bank_job_alias(alias: str = Query(min_length=1, max_length=80),
+async def search_bank_job_alias(name: str = Query(min_length=1, max_length=80),
+                                birth_year: int = Query(ge=1900, le=2200),
+                                state: str = Query(min_length=1, max_length=40),
                                 x_telegram_init_data: str = Header(default='')):
     verify_init_data(x_telegram_init_data)
-    role = bank_job_alias_role(alias)
-    return {'profile': BANK_JOB_ROLES[role], 'price_cents': BANK_JOB_PRICE}
+    for profile in BANK_JOB_ROLES.values():
+        if (name.strip().casefold() in (profile['name'].casefold(), profile['alias'].casefold())
+                and birth_year == int(profile['fictional_birthday'][:4])
+                and state.strip().casefold() == profile['state'].casefold()):
+            return {'profile': profile, 'price_cents': BANK_JOB_PRICE}
+    raise HTTPException(404, 'No stored fictional Bank Job profile matches these details.')
 
 
 @api.post('/api/bank-job/requests')

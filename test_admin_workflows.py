@@ -65,13 +65,15 @@ class AdminWorkflows(unittest.TestCase):
         self.assertEqual(self.sender.await_count,1)
 
     def test_alias_search(self):
-        result=self.client.get('/api/bank-job/profiles/search',headers=auth(100),params={'alias':' gHoSt '})
+        result=self.client.get('/api/bank-job/profiles/search',headers=auth(100),params={'name':' gHoSt ','birth_year':1995,'state':' neon '})
         self.assertEqual(result.status_code,200)
         self.assertEqual(result.json()['profile']['alias'],'Ghost')
+        for params in ({'name':'Ghost','birth_year':1997,'state':'Neon'}, {'name':'Ghost','birth_year':1995,'state':'NV'}):
+            self.assertEqual(self.client.get('/api/bank-job/profiles/search',headers=auth(100),params=params).status_code,404)
         self.assertEqual(self.balance(),3000)
-        self.assertEqual(self.client.get('/api/bank-job/profiles/search',headers=auth(100),params={'alias':'Unknown'}).status_code,404)
+        self.assertEqual(self.client.get('/api/bank-job/profiles/search',headers=auth(100),params={'name':'Unknown','birth_year':1995,'state':'Neon'}).status_code,404)
         self.assertEqual(self.client.post('/api/bank-job/requests',headers=auth(100),json={'alias':'Unknown','agreed_price_cents':1300}).status_code,404)
-        self.assertEqual(self.client.get('/api/bank-job/profiles/search?alias=Ghost').status_code,401)
+        self.assertEqual(self.client.get('/api/bank-job/profiles/search?name=Ghost&birth_year=1995&state=Neon').status_code,401)
 
     def test_insufficient_funds_and_decline(self):
         rid=self.request()
