@@ -605,8 +605,8 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
 <!-- GIFT CARDS -->
 <section class="card" id="giftCardSection">
-  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">1 CARD · FULL PRICE / 2–10 · 15% OFF / 11–50 · 65% OFF</span></div>
-  <p class="help">Add wallet balance first, choose your gift card and quantity, then purchase. One card is full price. Orders of 2–10 cards get 15% off; orders of 11–50 cards get 65% off the entire order. Admin reviews your order and supplies the card details.</p>
+  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">1 CARD · FULL PRICE / 2–50 · 65% OFF</span></div>
+  <p class="help">Add wallet balance first, choose your gift card and quantity, then purchase. One card is full price. Orders of 2–50 cards get 65% off the entire order. Admin reviews your order and supplies the card details.</p>
   <a href="#walletSection">ADD BALANCE ↑</a>
   <form id="giftPurchaseForm" class="grid section-gap">
     <label for="giftBrandSearch">Find a gift card</label>
@@ -618,7 +618,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
     <label for="giftQuantity">Quantity (1–50 cards)</label>
     <input id="giftQuantity" type="number" min="1" max="50" step="1" value="1" required inputmode="numeric">
     <div id="giftPriceSummary" class="approval-note" role="status" aria-live="polite"></div>
-    <p class="notice">Each card: $400–$1,000. Choose up to 50 cards of the same brand and value per order. One card has no discount; quantities 2–10 are 15% off; quantities 11–50 are 65% off. Availability and redemption region are subject to admin confirmation. Rejected orders refund the amount actually paid.</p>
+    <p class="notice">Each card: $400–$1,000. Choose up to 50 cards of the same brand and value per order. One card has no discount; quantities 2–50 are 65% off. Availability and redemption region are subject to admin confirmation. Rejected orders refund the amount actually paid.</p>
     <button id="buyGiftBtn" type="submit">PURCHASE WITH WALLET</button>
   </form>
   <div id="giftPurchaseStatus" class="status" role="status" aria-live="polite"></div>
@@ -701,7 +701,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
   </div>
   <div id="admin-page-messages" class="section-gap">
     <h2>MEMBER INBOX</h2>
-    <p class="help">Members reply directly to CreditGenieBot in Telegram. Replies received after this update appear here.</p>
+    <p class="help">Members send messages and attachments directly to CreditGenieBot in Telegram. Open a conversation and select VIEW ATTACHMENT to preview or download a file (up to 20 MB). Attachments sent before attachment support was added must be resent.</p>
     <button type="button" class="btn-small btn-blue" id="refreshInboxBtn">REFRESH INBOX</button>
     <div id="inboxStatus" class="status" role="status"></div>
     <div id="inboxThreads"></div>
@@ -2069,9 +2069,9 @@ async function loadConversation(memberId, older = false) {
     const data = await api(`/api/admin/members/${memberId}/messages${older ? '?before_id='+oldestMessageId : ''}`);
     if (messageMember && messageMember.id !== memberId) return;
     conversationMember = memberId;
-    const html = data.messages.map(m => `<div class="message-bubble ${m.direction}"><b>${m.direction === 'incoming' ? 'Member' : 'Admin'}</b> · ${esc(prettyTime(m.created_at))}\n${esc(m.body)}</div>`).join('');
+    const html = data.messages.map(m => `<div class="message-bubble ${m.direction}"><b>${m.direction === 'incoming' ? 'Member' : 'Admin'}</b> · ${esc(prettyTime(m.created_at))}\n${esc(m.body)}${m.attachment ? `<p>Attachment: ${esc(m.attachment.name)}${m.attachment.size ? ' · '+(m.attachment.size/1024/1024).toFixed(2)+' MB' : ''}</p><button type="button" class="btn-small" data-filename="${esc(m.attachment.name)}" data-attachment="${Number(m.id)}" data-member="${Number(memberId)}">VIEW ATTACHMENT</button><div class="attachment-view"></div>` : ''}</div>`).join('');
     if (older) $('memberConversation').insertAdjacentHTML('afterbegin',html);
-    else $('memberConversation').innerHTML = html || '<p>No saved messages yet.</p>';
+    else { clearAttachmentUrls(); $('memberConversation').innerHTML = html || '<p>No saved messages yet.</p>'; }
     if (data.messages.length) oldestMessageId = data.messages[0].id;
     $('olderMessages').hidden = !data.has_more;
     if (!older) $('memberConversation').scrollTop = $('memberConversation').scrollHeight;
@@ -2079,6 +2079,36 @@ async function loadConversation(memberId, older = false) {
     return data.member;
   } catch(e) { $('inboxStatus').textContent = e.message; }
 }
+const attachmentUrls = new Set();
+function clearAttachmentUrls() {
+  attachmentUrls.forEach(url => URL.revokeObjectURL(url)); attachmentUrls.clear();
+}
+window.addEventListener('pagehide', clearAttachmentUrls);
+$('memberConversation').addEventListener('click', async e => {
+  const button = e.target.closest('[data-attachment]');
+  if (!button || button.disabled) return;
+  const target = button.nextElementSibling;
+  button.disabled = true; target.textContent = 'Loading attachment…';
+  try {
+    const res = await fetch(`/api/admin/members/${Number(button.dataset.member)}/messages/${Number(button.dataset.attachment)}/attachment`, {headers:headers(), cache:'no-store'});
+    if (!res.ok) { const error = await res.json().catch(()=>({})); throw new Error(error.detail || 'Unable to load attachment.'); }
+    const blob = await res.blob();
+    if (!button.isConnected) return;
+    const url = URL.createObjectURL(blob); attachmentUrls.add(url);
+    target.textContent = '';
+    const tag = blob.type.startsWith('image/') ? 'img' : blob.type.startsWith('video/') ? 'video' : blob.type.startsWith('audio/') ? 'audio' : null;
+    if (tag) {
+      const media = document.createElement(tag); media.src = url;
+      media.style.maxWidth = '100%'; media.style.maxHeight = '400px';
+      if (tag === 'img') media.alt = 'Member attachment'; else media.controls = true;
+      target.appendChild(media);
+    }
+    const link = document.createElement('a'); link.href = url;
+    link.download = (button.dataset.filename || 'attachment-'+Number(button.dataset.attachment)).replace(/[\\/]/g, '_');
+    link.textContent = 'Download attachment'; link.style.display = 'block'; target.appendChild(link);
+    button.textContent = 'ATTACHMENT LOADED';
+  } catch(error) { target.textContent = error.message; button.disabled = false; }
+});
 $('inboxThreads').addEventListener('click', async e => {
   const button = e.target.closest('[data-thread]'); if (!button || messageSending) return;
   const id = Number(button.dataset.thread);
@@ -2117,7 +2147,7 @@ let giftBuying = false, giftHistoryLoading = false, adminGiftsLoading = false, g
 const giftDetailDrafts = new Map();
 const giftMoney = cents => new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(cents/100);
 let giftPurchaseDraft = null;
-let giftPricing = {min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:11,bulk_discount_percent:65,standard_discount_percent:15};
+let giftPricing = {min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:2,bulk_discount_percent:65,standard_discount_percent:0};
 function giftQuote() {
   const raw = $('giftAmount').value.trim(), count = $('giftQuantity').value.trim();
   const amount_cents = /^\d+(?:\.\d{1,2})?$/.test(raw) ? Math.round(Number(raw)*100) : NaN;

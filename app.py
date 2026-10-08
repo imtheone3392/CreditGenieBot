@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Header, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field, field_validator
 from telegram.error import Forbidden, BadRequest, RetryAfter, TimedOut, NetworkError, TelegramError
 
@@ -360,6 +360,9 @@ def init_db():
         )
 
         con.execute("BEGIN IMMEDIATE")
+        message_columns = {row['name'] for row in con.execute('PRAGMA table_info(member_messages)')}
+        if 'attachment_json' not in message_columns:
+            con.execute("ALTER TABLE member_messages ADD COLUMN attachment_json TEXT")
         columns = {row["name"] for row in con.execute("PRAGMA table_info(bitcoin_deposits)")}
         if "requested_amount_cents" not in columns:
             con.execute("ALTER TABLE bitcoin_deposits ADD COLUMN requested_amount_cents INTEGER")
@@ -1589,10 +1592,25 @@ async def receive_member_message(update: Update, context: ContextTypes.DEFAULT_T
     if not update.effective_user or not update.message or update.effective_chat.type != 'private':
         return
     user = get_or_create_user(update.effective_user.to_dict())
-    body = update.message.text or update.message.caption or '[Attachment received in Telegram; text replies are shown here.]'
+    message = update.message
+    attachment = None
+    photos = getattr(message, 'photo', None)
+    kind, media = ('photo', photos[-1]) if photos else (None, None)
+    if media is None:
+        for candidate in ('document', 'video', 'animation', 'audio', 'voice', 'video_note', 'sticker'):
+            media = getattr(message, candidate, None)
+            if media:
+                kind = candidate
+                break
+    if media:
+        attachment = {'file_id': media.file_id, 'kind': kind,
+                      'name': getattr(media, 'file_name', None) or {'photo':'photo.jpg','voice':'voice.ogg','video_note':'video.mp4'}.get(kind, kind),
+                      'mime_type': getattr(media, 'mime_type', None),
+                      'size': getattr(media, 'file_size', None)}
+    body = message.text or message.caption or (f'[{kind} attachment]' if attachment else '[Unsupported message]')
     with db() as con:
-        con.execute("INSERT OR IGNORE INTO member_messages(user_id,direction,body,telegram_message_id,created_at) VALUES(?,'incoming',?,?,?)",
-                    (user['id'], body, update.message.message_id, now_iso()))
+        con.execute("INSERT OR IGNORE INTO member_messages(user_id,direction,body,telegram_message_id,created_at,attachment_json) VALUES(?,'incoming',?,?,?,?)",
+                    (user['id'], body, update.message.message_id, now_iso(), json.dumps(attachment) if attachment else None))
 
 
 telegram_bot.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.COMMAND, receive_member_message))
@@ -1619,7 +1637,43 @@ async def admin_conversation(member_id: int, before_id: int = Query(default=0, g
             raise HTTPException(404, 'Member not found.')
         rows = con.execute('SELECT * FROM member_messages WHERE user_id=? AND (?=0 OR id<?) ORDER BY id DESC LIMIT 100',
                            (member_id, before_id, before_id)).fetchall()
-    return {'member': dict(member), 'messages': [dict(row) for row in reversed(rows)], 'has_more': len(rows)==100}
+    messages = []
+    for row in reversed(rows):
+        item = dict(row)
+        attachment = json.loads(item.pop('attachment_json') or 'null')
+        item['attachment'] = {k: v for k, v in attachment.items() if k != 'file_id'} if attachment else None
+        messages.append(item)
+    return {'member': dict(member), 'messages': messages, 'has_more': len(rows)==100}
+
+
+@api.get('/api/admin/members/{member_id}/messages/{message_id}/attachment')
+async def admin_attachment(member_id: int, message_id: int, x_telegram_init_data: str = Header(default='')):
+    require_admin(x_telegram_init_data)
+    with db() as con:
+        row = con.execute('SELECT attachment_json FROM member_messages WHERE id=? AND user_id=?',
+                          (message_id, member_id)).fetchone()
+    if not row or not row['attachment_json']:
+        raise HTTPException(404, 'Attachment not found. Older attachments must be resent to the bot.')
+    attachment = json.loads(row['attachment_json'])
+    max_bytes = 20 * 1024 * 1024
+    if (attachment.get('size') or 0) > max_bytes:
+        raise HTTPException(413, 'This attachment exceeds the 20 MB viewing limit. Ask the member to send a smaller file.')
+    try:
+        remote = await telegram_bot.bot.get_file(attachment['file_id'], connect_timeout=5, read_timeout=20)
+        if (remote.file_size or 0) > max_bytes:
+            raise HTTPException(413, 'This attachment exceeds the 20 MB viewing limit.')
+        content = await remote.download_as_bytearray(connect_timeout=5, read_timeout=30)
+    except TelegramError:
+        raise HTTPException(502, 'Attachment unavailable from Telegram. Try again or ask the member to resend it.') from None
+    if len(content) > max_bytes:
+        raise HTTPException(413, 'This attachment exceeds the 20 MB viewing limit.')
+    mime = attachment.get('mime_type')
+    if attachment['kind'] == 'photo':
+        mime = 'image/jpeg'
+    safe_types = {'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'audio/mpeg', 'audio/ogg', 'audio/mp4', 'audio/wav'}
+    return Response(bytes(content), media_type=mime if mime in safe_types else 'application/octet-stream',
+                    headers={'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+                             'Content-Disposition': 'attachment', 'Content-Security-Policy': "default-src 'none'; sandbox"})
 
 
 class ReadMessages(BaseModel):
@@ -1640,8 +1694,8 @@ async def read_conversation(member_id: int, req: ReadMessages, x_telegram_init_d
 GIFT_CARD_MIN_CENTS = 40000
 GIFT_CARD_MAX_CENTS = 100000
 GIFT_CARD_MAX_QUANTITY = 50
-GIFT_CARD_DISCOUNT_MIN_QUANTITY = 11
-GIFT_CARD_STANDARD_DISCOUNT_PERCENT = 15
+GIFT_CARD_DISCOUNT_MIN_QUANTITY = 2
+GIFT_CARD_STANDARD_DISCOUNT_PERCENT = 0
 GIFT_CARD_BULK_DISCOUNT_PERCENT = 65
 _GIFT_CARD_DATA = json.loads(Path(__file__).with_name('gift_cards.json').read_text())
 GIFT_CARD_BRANDS = {

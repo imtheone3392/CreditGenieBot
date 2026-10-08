@@ -93,7 +93,7 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.client.get('/api/admin/gift-cards/orders?status=approved',headers=auth(900)).json()['total'],1)
 
     def test_quantity_discount_boundaries(self):
-        for qty, charge, percent in [(1,40000,0),(2,68000,15),(9,306000,15),(10,340000,15),(11,154000,65),(50,700000,65)]:
+        for qty, charge, percent in [(1,40000,0),(2,28000,65),(9,126000,65),(10,140000,65),(11,154000,65),(50,700000,65)]:
             with self.subTest(quantity=qty):
                 self.fund(1000000)
                 result=self.buy({**self.payload(),'quantity':qty})
@@ -198,7 +198,7 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.balance(),before+176000)
         order=self.buy({**self.payload(),'quantity':2}).json()['order']
         self.assertGreater(order['id'],77)
-        self.assertEqual((order['discount_percent'],order['charged_cents']),(15,68000))
+        self.assertEqual((order['discount_percent'],order['charged_cents']),(65,28000))
 
 
     def test_65_percent_schema_preserved_and_new_quote_required(self):
@@ -213,9 +213,9 @@ class GiftCards(unittest.TestCase):
         self.assertEqual((row['discount_percent'],row['charged_cents']),(65,28000))
         p={**self.payload(),'quantity':2}
         self.assertEqual(self.client.post('/api/gift-cards/orders',headers=auth(100),json=p).status_code,409)
-        self.assertEqual(self.buy({**p,'agreed_charged_cents':28000}).status_code,409)
+        self.assertEqual(self.buy({**p,'agreed_charged_cents':68000}).status_code,409)
         self.assertEqual(self.buy(p).status_code,200)
-        self.assertEqual(self.balance(),32000)
+        self.assertEqual(self.balance(),72000)
 
 
     def test_previous_40_percent_schema_keeps_paid_prices(self):
