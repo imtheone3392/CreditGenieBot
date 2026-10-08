@@ -570,17 +570,20 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
 <!-- GIFT CARDS -->
 <section class="card" id="giftCardSection">
-  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">$400–$1,000</span></div>
-  <p class="help">Add wallet balance first, choose your gift card, then purchase. Admin reviews your order and supplies the card details. USD value and wallet price are the same.</p>
+  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">60% OFF · 11–50 CARDS</span></div>
+  <p class="help">Add wallet balance first, choose your gift card and quantity, then purchase. Orders of 11–50 cards get 60% off the entire order. Admin reviews your order and supplies the card details.</p>
   <a href="#walletSection">ADD BALANCE ↑</a>
   <form id="giftPurchaseForm" class="grid section-gap">
     <label for="giftBrandSearch">Find a gift card</label>
     <input id="giftBrandSearch" type="search" placeholder="Search brands…" autocomplete="off">
     <label for="giftBrand">Gift card</label>
     <select id="giftBrand" required><option value="">Loading gift cards…</option></select>
-    <label for="giftAmount">Total gift card value (USD)</label>
+    <label for="giftAmount">Value per gift card (USD)</label>
     <input id="giftAmount" type="number" min="400" max="1000" step="0.01" value="400" required inputmode="decimal">
-    <p class="notice">Minimum $400. Maximum $1,000 per order. Fulfillment may use multiple cards totaling your purchase value. Availability and redemption region are subject to admin confirmation. Rejected orders are refunded to your wallet.</p>
+    <label for="giftQuantity">Quantity (1–50 cards)</label>
+    <input id="giftQuantity" type="number" min="1" max="50" step="1" value="1" required inputmode="numeric">
+    <div id="giftPriceSummary" class="approval-note" role="status" aria-live="polite"></div>
+    <p class="notice">Each card: $400–$1,000. Choose up to 50 cards of the same brand and value per order. Quantities 1–10 are full price; quantities 11–50 are 60% off. Availability and redemption region are subject to admin confirmation. Rejected orders refund the amount actually paid.</p>
     <button id="buyGiftBtn" type="submit">PURCHASE WITH WALLET</button>
   </form>
   <div id="giftPurchaseStatus" class="status" role="status" aria-live="polite"></div>
@@ -653,7 +656,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
   </div>
   <div id="admin-page-gifts" class="section-gap" hidden>
     <div class="card-head"><h2 style="font-size:20px">GIFT CARD ORDERS</h2><span id="adminGiftCount" class="pill"></span></div>
-    <p class="help">Orders are already paid from the member's wallet. Approve with the card code, PIN, redemption region and instructions. Reject with a reason to refund the full purchase amount.</p>
+    <p class="help">Orders are already paid from the member's wallet. Supply details for every card in the quantity ordered. Reject with a reason to refund the wallet payment shown, including any bulk discount.</p>
     <label for="adminGiftFilter">Order status</label>
     <select id="adminGiftFilter"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
     <button id="refreshAdminGifts" type="button" class="btn-small btn-blue">REFRESH ORDERS</button>
@@ -2074,6 +2077,25 @@ let giftBuying = false, giftHistoryLoading = false, adminGiftsLoading = false, g
 const giftDetailDrafts = new Map();
 const giftMoney = cents => new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(cents/100);
 let giftPurchaseDraft = null;
+let giftPricing = {min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:11,bulk_discount_percent:60};
+function giftQuote() {
+  const raw = $('giftAmount').value.trim(), count = $('giftQuantity').value.trim();
+  const amount_cents = /^\d+(?:\.\d{1,2})?$/.test(raw) ? Math.round(Number(raw)*100) : NaN;
+  const quantity = /^\d+$/.test(count) ? Number(count) : NaN;
+  if (!Number.isSafeInteger(amount_cents) || amount_cents < giftPricing.min_cents || amount_cents > giftPricing.max_cents ||
+      !Number.isSafeInteger(quantity) || quantity < 1 || quantity > giftPricing.max_quantity) return null;
+  const total_value_cents = amount_cents * quantity;
+  const discount_percent = quantity >= giftPricing.discount_min_quantity ? giftPricing.bulk_discount_percent : 0;
+  const charged_cents = Math.floor((total_value_cents * (100-discount_percent) + 50)/100);
+  return {amount_cents,quantity,total_value_cents,discount_percent,charged_cents,discount_cents:total_value_cents-charged_cents};
+}
+function updateGiftQuote() {
+  const quote = giftQuote();
+  $('giftPriceSummary').textContent = quote ? `${quote.quantity} × ${giftMoney(quote.amount_cents)} = ${giftMoney(quote.total_value_cents)} card value\nDiscount: ${quote.discount_percent}% (save ${giftMoney(quote.discount_cents)})\nWallet payment: ${giftMoney(quote.charged_cents)}` : 'Enter $400–$1,000 per card and a whole-number quantity from 1 to 50.';
+}
+$('giftAmount').addEventListener('input',updateGiftQuote);
+$('giftQuantity').addEventListener('input',updateGiftQuote);
+updateGiftQuote();
 function giftDraftKey() { return 'creditgenie-gift-purchase-'+String(tg?.initDataUnsafe?.user?.id || 'session'); }
 function saveGiftDraft(value) {
   giftPurchaseDraft = value;
@@ -2089,12 +2111,14 @@ function filterGiftBrands() {
 async function loadGiftCatalog() {
   if (!currentUser) return;
   try {
-    const data = await api('/api/gift-cards'); giftBrands = data.brands; filterGiftBrands();
+    const data = await api('/api/gift-cards'); giftBrands = data.brands; giftPricing = data; filterGiftBrands();
     try { giftPurchaseDraft = JSON.parse(sessionStorage.getItem(giftDraftKey()) || 'null'); } catch (_) {}
     if (giftPurchaseDraft && giftBrands.some(b => b.id === giftPurchaseDraft.brand_id)) {
       $('giftBrand').value = giftPurchaseDraft.brand_id; $('giftAmount').value = (giftPurchaseDraft.amount_cents/100).toFixed(2);
+      $('giftQuantity').value = String(giftPurchaseDraft.quantity ?? 1);
       $('giftPurchaseStatus').textContent = 'A purchase may still be unconfirmed. Retry the same selection to check it without a duplicate charge.';
     }
+    updateGiftQuote();
   } catch(e) { $('giftPurchaseStatus').textContent = e.message; }
 }
 $('giftBrandSearch').addEventListener('input', filterGiftBrands);
@@ -2102,27 +2126,31 @@ $('giftPurchaseForm').addEventListener('submit', async e => {
   e.preventDefault(); if (giftBuying) return;
   if (!currentUser) { $('giftPurchaseStatus').textContent = 'Open the Mini App from Telegram first.'; return; }
   const brand = giftBrands.find(b => b.id === $('giftBrand').value);
-  const raw = $('giftAmount').value.trim();
-  const cents = /^\d+(?:\.\d{1,2})?$/.test(raw) ? Math.round(Number(raw)*100) : NaN;
-  if (!brand || !Number.isSafeInteger(cents) || cents < 40000 || cents > 100000) {
-    $('giftPurchaseStatus').textContent = 'Select a gift card and enter $400.00–$1,000.00.'; return;
+  const quote = giftQuote();
+  if (!brand || !quote) {
+    $('giftPurchaseStatus').textContent = 'Select a gift card, $400–$1,000 per card, and 1–50 cards.'; return;
   }
-  if (!window.confirm(`Purchase ${giftMoney(cents)} of ${brand.name} gift cards?\n\n${giftMoney(cents)} will be deducted now. Card details arrive after admin approval. Rejected orders are refunded to your wallet.`)) return;
-  if (!giftPurchaseDraft || giftPurchaseDraft.brand_id !== brand.id || giftPurchaseDraft.amount_cents !== cents) {
-    saveGiftDraft({brand_id:brand.id,amount_cents:cents,request_id:crypto.randomUUID()});
+  if (!window.confirm(`Purchase ${quote.quantity} ${brand.name} cards × ${giftMoney(quote.amount_cents)} each?\n\nTotal card value: ${giftMoney(quote.total_value_cents)}\nDiscount: ${quote.discount_percent}% (save ${giftMoney(quote.discount_cents)})\nWallet payment: ${giftMoney(quote.charged_cents)}\n\nCard details arrive after admin approval. Rejected orders refund your payment.`)) return;
+  if (!giftPurchaseDraft || giftPurchaseDraft.brand_id !== brand.id || giftPurchaseDraft.amount_cents !== quote.amount_cents || (giftPurchaseDraft.quantity ?? 1) !== quote.quantity) {
+    saveGiftDraft({brand_id:brand.id,amount_cents:quote.amount_cents,quantity:quote.quantity,request_id:crypto.randomUUID()});
   }
   giftBuying = true; $('buyGiftBtn').disabled = true;
   $('giftPurchaseStatus').textContent = 'Placing order…';
   try {
     const result = await api('/api/gift-cards/orders',{method:'POST',body:JSON.stringify(giftPurchaseDraft)});
     saveGiftDraft(null); giftPage = 1;
-    $('giftPurchaseStatus').textContent = `Order #${result.order.id} ${result.already_processed ? 'already saved; no duplicate charge' : 'paid'} — ${result.order.status}. View My Gift Cards for updates.`;
+    $('giftPurchaseStatus').textContent = `Order #${result.order.id} ${result.already_processed ? 'already saved; no duplicate charge' : 'paid '+giftMoney(result.order.charged_cents)} — ${result.order.status}. View My Gift Cards for updates.`;
     await Promise.all([loadGiftHistory(),loadWallet(),loadAdminGifts()]);
   } catch(e) { $('giftPurchaseStatus').textContent = e.message; }
   finally { giftBuying = false; $('buyGiftBtn').disabled = false; }
 });
 function giftOrderSummary(o) {
-  return `<b>Order #${Number(o.id)} · ${esc(o.brand_name)}</b><div class="row">${giftMoney(o.amount_cents)} USD · ${esc(o.status)}</div><div class="row">${esc(prettyTime(o.created_at))}</div>`;
+  return `<b>Order #${Number(o.id)} · ${esc(o.brand_name)}</b>
+    <div class="row">${Number(o.quantity)} cards × ${giftMoney(o.amount_cents)} each · ${esc(o.status)}</div>
+    <div class="row">Total card value: ${giftMoney(o.total_value_cents)}</div>
+    <div class="row">Discount: ${Number(o.discount_percent)}% · Saved: ${giftMoney(o.discount_cents)}</div>
+    <div class="row">Wallet payment: ${giftMoney(o.charged_cents)}</div>
+    <div class="row">${esc(prettyTime(o.created_at))}</div>`;
 }
 async function loadGiftHistory(page = giftPage) {
   if (!currentUser || giftHistoryLoading) return;
@@ -2147,9 +2175,9 @@ async function loadAdminGifts(page = adminGiftPage) {
     $('adminGiftOrders').innerHTML = data.orders.length ? data.orders.map(o => `<div class="admin-request">${giftOrderSummary(o)}
       <div class="admin-meta">${esc(o.first_name || 'Member')}${o.username ? ' (@'+esc(o.username)+')' : ''} · Account #${Number(o.user_id)}</div>
       ${o.status === 'pending' ? `<label for="gift-details-${Number(o.id)}">Gift card details or rejection reason</label>
-      <textarea id="gift-details-${Number(o.id)}" data-gift-draft="${Number(o.id)}" maxlength="3000" placeholder="Code, PIN if applicable, redemption region and instructions. For rejection, explain the reason.">${esc(giftDetailDrafts.get(o.id) || '')}</textarea>
+      <textarea id="gift-details-${Number(o.id)}" data-gift-draft="${Number(o.id)}" maxlength="3000" placeholder="Provide every card in the order, with code, PIN if applicable, redemption region and instructions. For rejection, explain the reason.">${esc(giftDetailDrafts.get(o.id) || '')}</textarea>
       <div class="admin-buttons"><button type="button" class="btn-small" data-gift-order="${Number(o.id)}" data-gift-decision="approved">APPROVE & SEND DETAILS</button>
-      <button type="button" class="btn-small btn-red" data-gift-order="${Number(o.id)}" data-gift-decision="rejected">REJECT & REFUND ${giftMoney(o.amount_cents)}</button></div>` : `<div class="approval-note">${esc(o.delivery_details || '')}</div>`}</div>`).join('') : '<p>No orders with this status.</p>';
+      <button type="button" class="btn-small btn-red" data-gift-order="${Number(o.id)}" data-gift-decision="rejected">REJECT & REFUND ${giftMoney(o.charged_cents)}</button></div>` : `<div class="approval-note">${esc(o.delivery_details || '')}</div>`}</div>`).join('') : '<p>No orders with this status.</p>';
     $('adminGiftPrev').disabled = adminGiftPage <= 1; $('adminGiftNext').disabled = adminGiftPage*25 >= data.total;
     $('adminGiftPageLabel').textContent = 'Page '+adminGiftPage;
   } catch(e) { $('adminGiftStatus').textContent = e.message; }
