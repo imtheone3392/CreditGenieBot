@@ -605,8 +605,8 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
 <!-- GIFT CARDS -->
 <section class="card" id="giftCardSection">
-  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">40% OFF · 1–9 / 65% OFF · 10–50</span></div>
-  <p class="help">Add wallet balance first, choose your gift card and quantity, then purchase. Orders of 1–9 cards get 40% off; orders of 10–50 cards get 65% off the entire order. Admin reviews your order and supplies the card details.</p>
+  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">15% OFF · 1–10 / 65% OFF · 11–50</span></div>
+  <p class="help">Add wallet balance first, choose your gift card and quantity, then purchase. Orders of 1–10 cards get 15% off; orders of 11–50 cards get 65% off the entire order. Admin reviews your order and supplies the card details.</p>
   <a href="#walletSection">ADD BALANCE ↑</a>
   <form id="giftPurchaseForm" class="grid section-gap">
     <label for="giftBrandSearch">Find a gift card</label>
@@ -618,7 +618,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
     <label for="giftQuantity">Quantity (1–50 cards)</label>
     <input id="giftQuantity" type="number" min="1" max="50" step="1" value="1" required inputmode="numeric">
     <div id="giftPriceSummary" class="approval-note" role="status" aria-live="polite"></div>
-    <p class="notice">Each card: $400–$1,000. Choose up to 50 cards of the same brand and value per order. Quantities 1–9 are 40% off; quantities 10–50 are 65% off. Availability and redemption region are subject to admin confirmation. Rejected orders refund the amount actually paid.</p>
+    <p class="notice">Each card: $400–$1,000. Choose up to 50 cards of the same brand and value per order. Quantities 1–10 are 15% off; quantities 11–50 are 65% off. Availability and redemption region are subject to admin confirmation. Rejected orders refund the amount actually paid.</p>
     <button id="buyGiftBtn" type="submit">PURCHASE WITH WALLET</button>
   </form>
   <div id="giftPurchaseStatus" class="status" role="status" aria-live="polite"></div>
@@ -2117,7 +2117,7 @@ let giftBuying = false, giftHistoryLoading = false, adminGiftsLoading = false, g
 const giftDetailDrafts = new Map();
 const giftMoney = cents => new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(cents/100);
 let giftPurchaseDraft = null;
-let giftPricing = {min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:10,bulk_discount_percent:65,standard_discount_percent:40};
+let giftPricing = {min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:11,bulk_discount_percent:65,standard_discount_percent:15};
 function giftQuote() {
   const raw = $('giftAmount').value.trim(), count = $('giftQuantity').value.trim();
   const amount_cents = /^\d+(?:\.\d{1,2})?$/.test(raw) ? Math.round(Number(raw)*100) : NaN;

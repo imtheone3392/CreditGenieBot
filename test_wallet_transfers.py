@@ -97,7 +97,7 @@ class WalletTransfers(unittest.TestCase):
         with app.db() as con:con.execute('UPDATE users SET balance_cents=40000 WHERE id=?',(self.user['id'],))
         def action(which):
             if which:return self.send(self.payload(rid,30000)).status_code
-            return self.client.post('/api/gift-cards/orders',headers=auth(100),json={'brand_id':next(iter(app.GIFT_CARD_BRANDS)),'agreed_charged_cents':24000,'amount_cents':40000,'request_id':str(uuid.uuid4())}).status_code
+            return self.client.post('/api/gift-cards/orders',headers=auth(100),json={'brand_id':next(iter(app.GIFT_CARD_BRANDS)),'agreed_charged_cents':34000,'amount_cents':40000,'request_id':str(uuid.uuid4())}).status_code
         with ThreadPoolExecutor(max_workers=2) as pool:codes=list(pool.map(action,[0,1]))
         self.assertEqual(sorted(codes),[200,409])
         self.assertTrue(all(x>=0 for x in self.balances().values()))
