@@ -1,0 +1,17 @@
+# Gift card purchases
+
+Members select a brand and a USD order value from $400.00 through $1,000.00. The wallet charge equals the order value. Only confirmed wallet balance can be spent; pending deposits are not funds. Each purchase is charged immediately and enters the admin queue.
+
+In **Admin Control Center → Gift Cards**, enter the actual redemption details and region, then select **Approve & Send Details**. The buyer can view the saved details in **My Gift Cards**. Telegram sends an order-status notification without exposing the redemption codes. Rejection requires a reason and refunds the full wallet charge. Reviewed orders cannot be reversed through this workflow.
+
+The catalog contains 122 normalized names found in historical Paxful payment-method lists. The source URLs and qualifications are recorded in `gift_cards.json`. Paxful's marketplace is discontinued, so this is not a complete verified current catalog or inventory feed. A historically listed brand may no longer issue cards. There is no Paxful integration and no automatic card procurement or validity check. Admins must fulfill with valid cards; unavailable orders must be rejected and refunded. An order may be fulfilled using several cards totaling its value, as disclosed at checkout. The ambiguous historical entry “Telecom” was not included.
+
+Purchase retries use a UUID scoped to the authenticated member. SQLite immediate transactions make the wallet debit and order insertion atomic, prevent overspending, and ensure each rejection refunds only once. Codes are returned only to their authenticated owner or an admin. Gift-card endpoints use `Cache-Control: no-store`. Existing wallet, deposits, member messaging and profile features retain their behavior.
+
+No new environment variables or dependencies are required. Include `gift_cards.json` with `app.py` in deployment. Startup adds the new table and indexes to the existing database without replacing it.
+
+Run isolated tests (mocked Telegram, temporary databases):
+
+```sh
+python -m pytest -q test_gift_cards.py test_admin_workflows.py test_admin_members.py
+```

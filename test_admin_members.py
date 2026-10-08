@@ -6,6 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 import time
+import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from urllib.parse import urlencode
@@ -112,17 +113,21 @@ def test_existing_database_survives_and_deposits_still_work(app_module):
     assert refreshed["created_at"] == joined
     assert refreshed["balance_cents"] == 2500
     client = TestClient(m.api)
-    response = client.post("/api/deposit", headers=headers(m,202), json={"txid":"a"*64})
+    deposit_request = {"amount_cents":1000,"request_id":str(uuid.uuid4())}
+    response = client.post("/api/deposit", headers=headers(m,202), json=deposit_request)
     deposit_id = response.json()["deposit_id"]
     assert response.status_code == 200
-    assert client.post("/api/deposit", headers=headers(m,202), json={"txid":"a"*64}).status_code == 409
+    retry = client.post("/api/deposit", headers=headers(m,202), json=deposit_request)
+    assert retry.status_code == 200
+    assert retry.json()["deposit_id"] == deposit_id
+    assert client.get("/api/wallet", headers=headers(m,202)).json()["deposit_address"] == "test-address"
     payload = {"deposit_id":deposit_id,"amount_cents":1500}
     assert client.post("/api/admin/credit-deposit", headers=headers(m,202), json=payload).status_code == 403
     assert len(client.get("/api/admin/deposits", headers=headers(m)).json()["deposits"]) == 1
     assert client.post("/api/admin/credit-deposit", headers=headers(m), json=payload).status_code == 200
     assert client.post("/api/admin/credit-deposit", headers=headers(m), json=payload).status_code == 409
     assert client.get("/api/wallet", headers=headers(m,202)).json()["balance_cents"] == 4000
-    assert client.get("/api/wallet", headers=headers(m,202)).json()["deposit_address"] == "test-address"
+    assert client.get("/api/wallet", headers=headers(m,202)).json()["deposit_address"] == ""
     assert client.get("/api/deposits", headers=headers(m,202)).json()["deposits"][0]["status"] == "credited"
     assert client.get("/health").status_code == 200
     with m.db() as con:
@@ -146,3 +151,4 @@ def test_start_registers_member_without_resetting_account(app_module):
     asyncio.run(m.start(update, SimpleNamespace()))
     with m.db() as con:
         assert con.execute("SELECT first_name FROM users WHERE telegram_id=303").fetchone()[0] == "New"
+

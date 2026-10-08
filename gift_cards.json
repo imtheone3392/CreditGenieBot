@@ -1,0 +1,11 @@
+{
+  "source_note": "Historical Paxful payment-method lists; not a complete current Paxful catalog or a live inventory feed. Names are normalized; ambiguous Telecom entry omitted. Manual fulfillment, USD order total, subject to admin approval.",
+  "sources": [
+    "https://www.publish0x.com/mike-chelsea/which-gift-cards-are-accepted-to-trade-in-paxful-xwwqzrv",
+    "https://affisellme.wordpress.com/2019/10/13/paxful-buy-and-sell-bitcoin-easily/"
+  ],
+  "brands": [
+    "Adidas", "Airbnb", "Amazon", "AMC Theatres", "American Apparel", "American Express", "Apple", "Apple Store", "Applebee's", "ASOS", "AT&T",
+    "Barnes & Noble", "Bed Bath & Beyond", "Best Buy", "Bitrefill", "Blizzard", "Booking.com", "Boost Mobile", "Cabela's", "Calvin Klein", "CASHlib", "Chili's", "Coles", "ColourPop", "Costco", "Cracker Barrel", "CVS", "Dell", "Delta Air Lines", "DENT", "Disney", "DMM", "Domino's Pizza", "DoorDash", "Dunkin'", "Eastbay", "eBay", "eGifter.com", "Etsy", "Everlane", "Fandango", "Finish Line", "Flexepin", "Flipkart", "Foot Locker", "Forever 21", "FreshDirect", "G2A", "GameStop", "Giftcards.nl", "Google Play", "Groupon", "Grubhub", "H&M", "Happy Cards", "Home Depot", "Hotels.com", "Hulu", "Hyatt", "IHOP", "IKEA", "iTunes", "Jason's Deli", "JCPenney", "JD.com", "Kohl's", "Lowe's", "Lyft", "Macy's", "Mastercard", "Microsoft", "MoneyPak", "Myer", "Neosurf", "Netflix", "Newegg", "Nike", "Nintendo eShop", "Nordstrom", "OffGamers", "Office Depot", "Old Navy", "Olive Garden", "OneVanilla Visa/Mastercard", "Papa Johns", "PCS", "Pizza Hut", "PlayStation Network", "Quiksilver", "Razer Gold", "Reebok", "Reloadit", "Riot Points (League of Legends)", "Roblox", "Safeway", "Saks Fifth Avenue", "Sears", "Sephora", "Skype", "Southwest Airlines", "Spotify", "Staples", "Starbucks", "Steam Wallet", "Subway", "T-Mobile", "Target", "Target Visa", "Ticket Premium", "Ticketmaster", "Twitch", "Uber", "Uber Eats", "Ulta Beauty", "United Airlines", "Victoria's Secret", "Visa", "Walmart", "Walmart Visa", "Whole Foods Market", "Xbox", "Zappos"
+  ]
+}

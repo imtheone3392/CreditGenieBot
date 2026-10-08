@@ -166,6 +166,24 @@ def init_db():
             """
             PRAGMA journal_mode=WAL;
 
+            CREATE TABLE IF NOT EXISTS gift_card_orders(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                request_id TEXT NOT NULL,
+                brand_id TEXT NOT NULL,
+                brand_name TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL CHECK(amount_cents BETWEEN 40000 AND 100000),
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+                delivery_details TEXT,
+                refunded_cents INTEGER NOT NULL DEFAULT 0,
+                reviewed_by INTEGER,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id,request_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_gift_orders_user ON gift_card_orders(user_id,id DESC);
+            CREATE INDEX IF NOT EXISTS idx_gift_orders_status ON gift_card_orders(status,id);
+
             CREATE TABLE IF NOT EXISTS member_messages(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL REFERENCES users(id),
@@ -1553,3 +1571,133 @@ async def read_conversation(member_id: int, req: ReadMessages, x_telegram_init_d
         con.execute("UPDATE member_messages SET read_at=? WHERE user_id=? AND id<=? AND direction='incoming' AND read_at IS NULL",
                     (now_iso(), member_id, req.through_id))
     return {'ok': True}
+
+
+
+# Gift cards: wallet-funded orders with manual fulfillment.
+GIFT_CARD_MIN_CENTS = 40000
+GIFT_CARD_MAX_CENTS = 100000
+_GIFT_CARD_DATA = json.loads(Path(__file__).with_name('gift_cards.json').read_text())
+GIFT_CARD_BRANDS = {
+    hashlib.sha256(name.encode()).hexdigest()[:16]: name
+    for name in sorted(_GIFT_CARD_DATA['brands'], key=str.casefold)
+}
+
+
+@api.middleware('http')
+async def gift_card_no_cache(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(('/api/gift-cards', '/api/admin/gift-cards')):
+        response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+class GiftCardPurchase(BaseModel):
+    model_config = {'extra': 'forbid'}
+    brand_id: str = Field(min_length=1, max_length=40)
+    amount_cents: int = Field(strict=True, ge=GIFT_CARD_MIN_CENTS, le=GIFT_CARD_MAX_CENTS)
+    request_id: uuid.UUID
+
+
+class GiftCardDecision(BaseModel):
+    model_config = {'extra': 'forbid'}
+    status: Literal['approved', 'rejected']
+    details: str = Field(min_length=1, max_length=3000)
+
+    @field_validator('details')
+    @classmethod
+    def details_required(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError('Enter gift card details or a rejection reason.')
+        return value
+
+
+@api.get('/api/gift-cards')
+async def gift_card_catalog(x_telegram_init_data: str = Header(default='')):
+    verify_init_data(x_telegram_init_data)
+    return {'brands': [{'id': key, 'name': name} for key, name in GIFT_CARD_BRANDS.items()],
+            'min_cents': GIFT_CARD_MIN_CENTS, 'max_cents': GIFT_CARD_MAX_CENTS,
+            'currency': 'USD'}
+
+
+@api.post('/api/gift-cards/orders')
+async def buy_gift_card(req: GiftCardPurchase, x_telegram_init_data: str = Header(default='')):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    if req.brand_id not in GIFT_CARD_BRANDS:
+        raise HTTPException(422, 'Choose a gift card from the catalog.')
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        existing = con.execute('SELECT * FROM gift_card_orders WHERE user_id=? AND request_id=?',
+                               (user['id'], str(req.request_id))).fetchone()
+        if existing:
+            if existing['brand_id'] != req.brand_id or existing['amount_cents'] != req.amount_cents:
+                raise HTTPException(409, 'This purchase was already saved with different details.')
+            return {'ok': True, 'already_processed': True, 'order': dict(existing)}
+        # Debit and order creation commit together. Competing purchases cannot overspend.
+        changed = con.execute('UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?',
+                              (req.amount_cents, user['id'], req.amount_cents))
+        if changed.rowcount != 1:
+            raise HTTPException(409, 'Insufficient balance. Add funds and wait for deposit approval before purchasing.')
+        stamp = now_iso()
+        cur = con.execute('''INSERT INTO gift_card_orders
+            (user_id,request_id,brand_id,brand_name,amount_cents,created_at,updated_at)
+            VALUES(?,?,?,?,?,?,?)''',
+            (user['id'], str(req.request_id), req.brand_id, GIFT_CARD_BRANDS[req.brand_id], req.amount_cents, stamp, stamp))
+        row = con.execute('SELECT * FROM gift_card_orders WHERE id=?', (cur.lastrowid,)).fetchone()
+    return {'ok': True, 'already_processed': False, 'order': dict(row)}
+
+
+@api.get('/api/gift-cards/orders')
+async def my_gift_card_orders(page: int = Query(default=1, ge=1), x_telegram_init_data: str = Header(default='')):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        rows = con.execute('SELECT * FROM gift_card_orders WHERE user_id=? ORDER BY id DESC LIMIT 25 OFFSET ?',
+                           (user['id'], (page-1)*25)).fetchall()
+        total = con.execute('SELECT COUNT(*) FROM gift_card_orders WHERE user_id=?', (user['id'],)).fetchone()[0]
+    return {'orders': [dict(row) for row in rows], 'page': page, 'total': total}
+
+
+@api.get('/api/admin/gift-cards/orders')
+async def admin_gift_card_orders(page: int = Query(default=1, ge=1),
+                                 status: Literal['pending', 'approved', 'rejected'] = 'pending',
+                                 x_telegram_init_data: str = Header(default='')):
+    require_admin(x_telegram_init_data)
+    with db() as con:
+        rows = con.execute('''SELECT g.*,u.first_name,u.username,u.telegram_id FROM gift_card_orders g
+            JOIN users u ON u.id=g.user_id WHERE g.status=? ORDER BY g.id DESC LIMIT 25 OFFSET ?''',
+            (status, (page-1)*25)).fetchall()
+        total = con.execute('SELECT COUNT(*) FROM gift_card_orders WHERE status=?', (status,)).fetchone()[0]
+    return {'orders': [dict(row) for row in rows], 'page': page, 'total': total}
+
+
+@api.post('/api/admin/gift-cards/orders/{order_id}/decision')
+async def decide_gift_card(order_id: int, req: GiftCardDecision, x_telegram_init_data: str = Header(default='')):
+    reviewer = require_admin(x_telegram_init_data)
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        row = con.execute('''SELECT g.*,u.telegram_id FROM gift_card_orders g
+            JOIN users u ON u.id=g.user_id WHERE g.id=?''', (order_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, 'Gift card order not found.')
+        if row['status'] != 'pending':
+            if row['status'] == req.status and row['delivery_details'] == req.details:
+                return {'ok': True, 'already_processed': True, 'status': row['status'], 'notification_sent': False}
+            raise HTTPException(409, 'This order was already reviewed. Refresh the queue.')
+        refunded = row['amount_cents'] if req.status == 'rejected' else 0
+        if refunded:
+            con.execute('UPDATE users SET balance_cents=balance_cents+? WHERE id=?', (refunded, row['user_id']))
+        con.execute('''UPDATE gift_card_orders SET status=?,delivery_details=?,refunded_cents=?,reviewed_by=?,updated_at=?
+            WHERE id=?''', (req.status, req.details, refunded, reviewer['id'], now_iso(), order_id))
+    # Only notify after the durable decision. Codes stay in the owner's authenticated history.
+    sent = False
+    try:
+        await telegram_bot.bot.send_message(chat_id=row['telegram_id'], parse_mode=None,
+            text=(f"Gift card order #{order_id}: {req.status}\n{row['brand_name']} · {money(row['amount_cents'])}\n"
+                  + ('Your wallet has been refunded. ' if refunded else '')
+                  + 'Open CreditGenie → My Gift Cards to view the details.'),
+            connect_timeout=5, read_timeout=10)
+        sent = True
+    except TelegramError as exc:
+        logger.warning('Gift card order %s notification unconfirmed (%s)', order_id, type(exc).__name__)
+    return {'ok': True, 'already_processed': False, 'status': req.status, 'notification_sent': sent}

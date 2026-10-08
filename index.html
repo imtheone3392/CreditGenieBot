@@ -483,7 +483,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
 
 <!-- WALLET -->
-<section class="card">
+<section class="card" id="walletSection">
 
   <div class="card-head">
 
@@ -568,6 +568,27 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 </section>
 
 
+<!-- GIFT CARDS -->
+<section class="card" id="giftCardSection">
+  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">$400–$1,000</span></div>
+  <p class="help">Add wallet balance first, choose your gift card, then purchase. Admin reviews your order and supplies the card details. USD value and wallet price are the same.</p>
+  <a href="#walletSection">ADD BALANCE ↑</a>
+  <form id="giftPurchaseForm" class="grid section-gap">
+    <label for="giftBrandSearch">Find a gift card</label>
+    <input id="giftBrandSearch" type="search" placeholder="Search brands…" autocomplete="off">
+    <label for="giftBrand">Gift card</label>
+    <select id="giftBrand" required><option value="">Loading gift cards…</option></select>
+    <label for="giftAmount">Total gift card value (USD)</label>
+    <input id="giftAmount" type="number" min="400" max="1000" step="0.01" value="400" required inputmode="decimal">
+    <p class="notice">Minimum $400. Maximum $1,000 per order. Fulfillment may use multiple cards totaling your purchase value. Availability and redemption region are subject to admin confirmation. Rejected orders are refunded to your wallet.</p>
+    <button id="buyGiftBtn" type="submit">PURCHASE WITH WALLET</button>
+  </form>
+  <div id="giftPurchaseStatus" class="status" role="status" aria-live="polite"></div>
+  <div class="card-head section-gap"><h2 style="font-size:20px">MY GIFT CARDS</h2><button id="refreshGiftHistory" class="btn-small btn-blue" type="button">REFRESH</button></div>
+  <div id="giftHistory"></div>
+  <div class="actions"><button id="giftPrev" type="button" class="btn-small btn-blue">PREVIOUS</button><span id="giftPageLabel"></span><button id="giftNext" type="button" class="btn-small btn-blue">NEXT</button></div>
+</section>
+
 <!-- ADMIN -->
 <section
   class="card"
@@ -628,6 +649,17 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
     <button type="button" class="btn-small" data-admin-page="messages">MESSAGES</button>
     <button type="button" class="btn-small btn-blue" data-admin-page="deposits">DEPOSITS</button>
     <button type="button" class="btn-small btn-blue" data-admin-page="requests">PROFILE SEARCHES</button>
+    <button type="button" class="btn-small btn-blue" data-admin-page="gifts">GIFT CARDS</button>
+  </div>
+  <div id="admin-page-gifts" class="section-gap" hidden>
+    <div class="card-head"><h2 style="font-size:20px">GIFT CARD ORDERS</h2><span id="adminGiftCount" class="pill"></span></div>
+    <p class="help">Orders are already paid from the member's wallet. Approve with the card code, PIN, redemption region and instructions. Reject with a reason to refund the full purchase amount.</p>
+    <label for="adminGiftFilter">Order status</label>
+    <select id="adminGiftFilter"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
+    <button id="refreshAdminGifts" type="button" class="btn-small btn-blue">REFRESH ORDERS</button>
+    <div id="adminGiftStatus" class="status" role="status" aria-live="polite"></div>
+    <div id="adminGiftOrders"></div>
+    <div class="actions"><button id="adminGiftPrev" type="button" class="btn-small btn-blue">PREVIOUS</button><span id="adminGiftPageLabel"></span><button id="adminGiftNext" type="button" class="btn-small btn-blue">NEXT</button></div>
   </div>
   <div id="admin-page-messages" class="section-gap">
     <h2>MEMBER INBOX</h2>
@@ -2024,22 +2056,145 @@ $('inboxNext').addEventListener('click', () => loadInbox(inboxPage+1));
 $('refreshDepositsAdmin').addEventListener('click', loadAdminDeposits);
 document.querySelectorAll('[data-admin-page]').forEach(button => button.addEventListener('click', () => {
   document.querySelectorAll('[data-admin-page]').forEach(b => b.classList.toggle('btn-blue', b !== button));
-  ['messages','deposits','requests'].forEach(page => $('admin-page-'+page).hidden = page !== button.dataset.adminPage);
+  ['messages','deposits','requests','gifts'].forEach(page => $('admin-page-'+page).hidden = page !== button.dataset.adminPage);
   if (button.dataset.adminPage === 'messages') loadInbox();
   if (button.dataset.adminPage === 'deposits') loadAdminDeposits();
   if (button.dataset.adminPage === 'requests') loadCharacterQueue();
+  if (button.dataset.adminPage === 'gifts') loadAdminGifts();
 }));
 
 /* ==========================================
    START
 ========================================== */
 
+
+/* Gift card purchases and manual fulfillment. */
+let giftBrands = [], giftPage = 1, adminGiftPage = 1;
+let giftBuying = false, giftHistoryLoading = false, adminGiftsLoading = false, giftDecisionBusy = false;
+const giftDetailDrafts = new Map();
+const giftMoney = cents => new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(cents/100);
+let giftPurchaseDraft = null;
+function giftDraftKey() { return 'creditgenie-gift-purchase-'+String(tg?.initDataUnsafe?.user?.id || 'session'); }
+function saveGiftDraft(value) {
+  giftPurchaseDraft = value;
+  try { if (value) sessionStorage.setItem(giftDraftKey(),JSON.stringify(value)); else sessionStorage.removeItem(giftDraftKey()); } catch (_) {}
+}
+function filterGiftBrands() {
+  const selected = $('giftBrand').value;
+  const query = $('giftBrandSearch').value.trim().toLowerCase();
+  const matching = giftBrands.filter(b => b.name.toLowerCase().includes(query));
+  $('giftBrand').innerHTML = '<option value="">Choose a gift card</option>' + matching.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
+  if (matching.some(b => b.id === selected)) $('giftBrand').value = selected;
+}
+async function loadGiftCatalog() {
+  if (!currentUser) return;
+  try {
+    const data = await api('/api/gift-cards'); giftBrands = data.brands; filterGiftBrands();
+    try { giftPurchaseDraft = JSON.parse(sessionStorage.getItem(giftDraftKey()) || 'null'); } catch (_) {}
+    if (giftPurchaseDraft && giftBrands.some(b => b.id === giftPurchaseDraft.brand_id)) {
+      $('giftBrand').value = giftPurchaseDraft.brand_id; $('giftAmount').value = (giftPurchaseDraft.amount_cents/100).toFixed(2);
+      $('giftPurchaseStatus').textContent = 'A purchase may still be unconfirmed. Retry the same selection to check it without a duplicate charge.';
+    }
+  } catch(e) { $('giftPurchaseStatus').textContent = e.message; }
+}
+$('giftBrandSearch').addEventListener('input', filterGiftBrands);
+$('giftPurchaseForm').addEventListener('submit', async e => {
+  e.preventDefault(); if (giftBuying) return;
+  if (!currentUser) { $('giftPurchaseStatus').textContent = 'Open the Mini App from Telegram first.'; return; }
+  const brand = giftBrands.find(b => b.id === $('giftBrand').value);
+  const raw = $('giftAmount').value.trim();
+  const cents = /^\d+(?:\.\d{1,2})?$/.test(raw) ? Math.round(Number(raw)*100) : NaN;
+  if (!brand || !Number.isSafeInteger(cents) || cents < 40000 || cents > 100000) {
+    $('giftPurchaseStatus').textContent = 'Select a gift card and enter $400.00–$1,000.00.'; return;
+  }
+  if (!window.confirm(`Purchase ${giftMoney(cents)} of ${brand.name} gift cards?\n\n${giftMoney(cents)} will be deducted now. Card details arrive after admin approval. Rejected orders are refunded to your wallet.`)) return;
+  if (!giftPurchaseDraft || giftPurchaseDraft.brand_id !== brand.id || giftPurchaseDraft.amount_cents !== cents) {
+    saveGiftDraft({brand_id:brand.id,amount_cents:cents,request_id:crypto.randomUUID()});
+  }
+  giftBuying = true; $('buyGiftBtn').disabled = true;
+  $('giftPurchaseStatus').textContent = 'Placing order…';
+  try {
+    const result = await api('/api/gift-cards/orders',{method:'POST',body:JSON.stringify(giftPurchaseDraft)});
+    saveGiftDraft(null); giftPage = 1;
+    $('giftPurchaseStatus').textContent = `Order #${result.order.id} ${result.already_processed ? 'already saved; no duplicate charge' : 'paid'} — ${result.order.status}. View My Gift Cards for updates.`;
+    await Promise.all([loadGiftHistory(),loadWallet(),loadAdminGifts()]);
+  } catch(e) { $('giftPurchaseStatus').textContent = e.message; }
+  finally { giftBuying = false; $('buyGiftBtn').disabled = false; }
+});
+function giftOrderSummary(o) {
+  return `<b>Order #${Number(o.id)} · ${esc(o.brand_name)}</b><div class="row">${giftMoney(o.amount_cents)} USD · ${esc(o.status)}</div><div class="row">${esc(prettyTime(o.created_at))}</div>`;
+}
+async function loadGiftHistory(page = giftPage) {
+  if (!currentUser || giftHistoryLoading) return;
+  giftHistoryLoading = true;
+  try {
+    const data = await api('/api/gift-cards/orders?page='+page); giftPage = data.page;
+    $('giftHistory').innerHTML = data.orders.length ? data.orders.map(o => `<div class="request-item">${giftOrderSummary(o)}
+      ${o.delivery_details ? `<div class="approval-note"><b>${o.status === 'approved' ? 'Gift card details' : 'Admin reason'}</b>\n${esc(o.delivery_details)}</div>` : '<p>Paid. Waiting for admin approval and gift card details.</p>'}
+      ${o.refunded_cents ? `<p>Refunded to wallet: ${giftMoney(o.refunded_cents)}</p>` : ''}</div>`).join('') : '<p>No gift card purchases yet.</p>';
+    $('giftPrev').disabled = giftPage <= 1; $('giftNext').disabled = giftPage*25 >= data.total;
+    $('giftPageLabel').textContent = 'Page '+giftPage;
+  } catch(e) { $('giftPurchaseStatus').textContent = e.message; }
+  finally { giftHistoryLoading = false; }
+}
+async function loadAdminGifts(page = adminGiftPage) {
+  if (!adminEnabled || adminGiftsLoading || giftDecisionBusy || $('adminGiftOrders').contains(document.activeElement)) return;
+  adminGiftsLoading = true;
+  try {
+    const data = await api('/api/admin/gift-cards/orders?'+new URLSearchParams({page,status:$('adminGiftFilter').value}));
+    adminGiftPage = data.page;
+    $('adminGiftCount').textContent = `${data.total} ${$('adminGiftFilter').value}`;
+    $('adminGiftOrders').innerHTML = data.orders.length ? data.orders.map(o => `<div class="admin-request">${giftOrderSummary(o)}
+      <div class="admin-meta">${esc(o.first_name || 'Member')}${o.username ? ' (@'+esc(o.username)+')' : ''} · Account #${Number(o.user_id)}</div>
+      ${o.status === 'pending' ? `<label for="gift-details-${Number(o.id)}">Gift card details or rejection reason</label>
+      <textarea id="gift-details-${Number(o.id)}" data-gift-draft="${Number(o.id)}" maxlength="3000" placeholder="Code, PIN if applicable, redemption region and instructions. For rejection, explain the reason.">${esc(giftDetailDrafts.get(o.id) || '')}</textarea>
+      <div class="admin-buttons"><button type="button" class="btn-small" data-gift-order="${Number(o.id)}" data-gift-decision="approved">APPROVE & SEND DETAILS</button>
+      <button type="button" class="btn-small btn-red" data-gift-order="${Number(o.id)}" data-gift-decision="rejected">REJECT & REFUND ${giftMoney(o.amount_cents)}</button></div>` : `<div class="approval-note">${esc(o.delivery_details || '')}</div>`}</div>`).join('') : '<p>No orders with this status.</p>';
+    $('adminGiftPrev').disabled = adminGiftPage <= 1; $('adminGiftNext').disabled = adminGiftPage*25 >= data.total;
+    $('adminGiftPageLabel').textContent = 'Page '+adminGiftPage;
+  } catch(e) { $('adminGiftStatus').textContent = e.message; }
+  finally { adminGiftsLoading = false; }
+}
+$('adminGiftOrders').addEventListener('input', e => {
+  if (e.target.matches('[data-gift-draft]')) giftDetailDrafts.set(Number(e.target.dataset.giftDraft),e.target.value);
+});
+$('adminGiftOrders').addEventListener('click', async e => {
+  const button = e.target.closest('[data-gift-order]');
+  if (!button || !adminEnabled || giftDecisionBusy) return;
+  const id = Number(button.dataset.giftOrder), status = button.dataset.giftDecision;
+  const details = $(`gift-details-${id}`).value.trim();
+  if (!details) { $('adminGiftStatus').textContent = 'Enter gift card details or a rejection reason first.'; return; }
+  if (!window.confirm(`${status === 'approved' ? 'Approve and release these details to the buyer' : 'Reject and refund the full wallet payment'} for order #${id}?\n\n${details}`)) return;
+  giftDecisionBusy = true;
+  const buttons = [...$('adminGiftOrders').querySelectorAll('button')]; buttons.forEach(b => b.disabled = true);
+  try {
+    const result = await api(`/api/admin/gift-cards/orders/${id}/decision`,{method:'POST',body:JSON.stringify({status,details})});
+    giftDetailDrafts.delete(id);
+    $('adminGiftStatus').textContent = `Order #${id} ${result.status}. ${result.already_processed ? 'Already saved; no duplicate action.' : result.notification_sent ? 'Buyer notified. Details saved in My Gift Cards.' : 'Details saved in My Gift Cards; Telegram notification unconfirmed.'}`;
+    if ($('adminGiftOrders').contains(document.activeElement)) document.activeElement.blur();
+  } catch(e) { $('adminGiftStatus').textContent = e.message; }
+  finally {
+    giftDecisionBusy = false; buttons.forEach(b => b.disabled = false);
+    await Promise.all([loadAdminGifts(),loadGiftHistory(),loadWallet(),loadAdminMembers()]);
+  }
+});
+$('refreshGiftHistory').addEventListener('click',() => loadGiftHistory());
+$('giftPrev').addEventListener('click',() => loadGiftHistory(giftPage-1));
+$('giftNext').addEventListener('click',() => loadGiftHistory(giftPage+1));
+$('refreshAdminGifts').addEventListener('click',() => loadAdminGifts());
+$('adminGiftPrev').addEventListener('click',() => loadAdminGifts(adminGiftPage-1));
+$('adminGiftNext').addEventListener('click',() => loadAdminGifts(adminGiftPage+1));
+$('adminGiftFilter').addEventListener('change',() => loadAdminGifts(1));
+
 async function startApp() {
 
   await loadMe();
+  await loadGiftCatalog();
 
   await Promise.all([
     loadWallet(),
+    loadGiftHistory(),
+    loadAdminGifts(),
     loadDeposits(),
     loadCharacterHistory(),
     loadCharacterQueue(),
@@ -2060,6 +2215,8 @@ setInterval(
 
     await Promise.all([
       loadWallet(),
+      loadGiftHistory(),
+      loadAdminGifts(),
       loadDeposits(),
       loadCharacterHistory(),
       loadCharacterQueue()
@@ -2084,4 +2241,5 @@ setInterval(
 
 </body>
 </html>
+
 
