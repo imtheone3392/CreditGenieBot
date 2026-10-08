@@ -568,6 +568,28 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 </section>
 
 
+<!-- MEMBER PAYMENTS -->
+<section class="card" id="transferSection">
+  <div class="card-head"><h2>SEND PAYMENT</h2><span class="pill">USD WALLET</span></div>
+  <p class="help">Send available wallet balance to another CreditGenie member. Payments arrive immediately with no transfer fee.</p>
+  <p id="myMemberId" class="notice">Open from Telegram to see your Member ID.</p>
+  <p class="help">To receive a payment, share your Member ID with the sender.</p>
+  <form id="transferForm">
+    <label for="transferRecipient">Recipient Member ID</label>
+    <input id="transferRecipient" inputmode="numeric" autocomplete="off" placeholder="Ask the recipient for their Member ID" required>
+    <div class="actions"><button id="findTransferRecipient" class="btn-blue" type="button">CHECK RECIPIENT</button></div>
+    <p id="transferRecipientDetails" class="help" aria-live="polite">Check the recipient before sending.</p>
+    <label for="transferAmount">Amount to send (USD)</label>
+    <input id="transferAmount" inputmode="decimal" autocomplete="off" placeholder="Example: 25.00" required>
+    <p class="notice">Use confirmed available balance only. Verify the Member ID with the recipient. Completed payments cannot be canceled in the app.</p>
+    <div class="actions"><button id="sendTransferBtn" type="submit" disabled>REVIEW & SEND PAYMENT</button></div>
+  </form>
+  <div id="transferStatus" class="status" role="status" aria-live="polite"></div>
+  <div class="card-head section-gap"><h2>PAYMENT HISTORY</h2><button id="refreshTransfers" class="btn-blue" type="button">REFRESH</button></div>
+  <div id="transferHistory"></div>
+  <div class="actions"><button id="transferPrev" class="btn-blue" type="button" disabled>PREVIOUS</button><button id="transferNext" class="btn-blue" type="button" disabled>NEXT</button></div>
+</section>
+
 <!-- GIFT CARDS -->
 <section class="card" id="giftCardSection">
   <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">65% OFF · 2–50 CARDS</span></div>
@@ -942,7 +964,9 @@ async function api(path, options = {}) {
           .join(' ');
     }
 
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = res.status;
+    throw error;
   }
 
   return data;
@@ -1026,6 +1050,7 @@ async function loadMe() {
 
     currentUser =
       me;
+    initializeTransfers(me);
 
     $('account').textContent =
       me.first_name
@@ -1885,6 +1910,7 @@ async function creditAdminDeposit(
       loadAdminStats(),
       loadAdminDeposits(),
       loadWallet(),
+    loadTransfers(),
       loadDeposits(),
       loadAdminMembers()
     ]);
@@ -2214,6 +2240,118 @@ $('adminGiftPrev').addEventListener('click',() => loadAdminGifts(adminGiftPage-1
 $('adminGiftNext').addEventListener('click',() => loadAdminGifts(adminGiftPage+1));
 $('adminGiftFilter').addEventListener('change',() => loadAdminGifts(1));
 
+
+// Keep an uncertain payment's exact request ID across reloads, preventing double sends.
+let transferRecipient = null;
+let transferDraft = null;
+let transferBusy = false;
+let transferPage = 1;
+let transferStorageKey = null;
+let transferLookupGeneration = 0;
+function transferCents(value) {
+  const text = value.trim();
+  if (!/^\d+(?:\.\d{1,2})?$/.test(text)) return null;
+  const [whole, fraction=''] = text.split('.');
+  const cents = Number(whole)*100 + Number(fraction.padEnd(2,'0'));
+  return Number.isSafeInteger(cents) && cents > 0 ? cents : null;
+}
+function transferControls() {
+  const locked = transferBusy || Boolean(transferDraft);
+  $('transferRecipient').disabled = locked;
+  $('transferAmount').disabled = locked;
+  $('findTransferRecipient').disabled = locked || !currentUser;
+  $('sendTransferBtn').disabled = transferBusy || !currentUser || (!transferDraft && !transferRecipient);
+  $('sendTransferBtn').textContent = transferDraft ? 'RETRY SAME PAYMENT' : 'REVIEW & SEND PAYMENT';
+}
+function initializeTransfers(me) {
+  $('myMemberId').textContent = `Your Member ID: ${me.member_id}`;
+  transferStorageKey = `creditgenie-transfer-${me.member_id}`;
+  try {
+    transferDraft = JSON.parse(localStorage.getItem(transferStorageKey) || 'null');
+    if (transferDraft) {
+      $('transferRecipient').value = transferDraft.recipient_id;
+      $('transferAmount').value = (transferDraft.amount_cents/100).toFixed(2);
+      $('transferRecipientDetails').textContent = `${transferDraft.recipient_name} · Member ID ${transferDraft.recipient_id}`;
+      $('transferStatus').textContent = 'A previous payment needs confirmation. Retry the same payment to check its result safely; it will not be charged twice.';
+    }
+  } catch (_) { transferDraft = null; }
+  transferControls();
+}
+$('transferRecipient').addEventListener('input', () => {
+  transferLookupGeneration++;
+  transferRecipient = null;
+  $('transferRecipientDetails').textContent = 'Check the recipient before sending.';
+  transferControls();
+});
+$('findTransferRecipient').addEventListener('click', async () => {
+  const text = $('transferRecipient').value.trim();
+  const generation = ++transferLookupGeneration;
+  transferRecipient = null; transferControls();
+  if (!/^\d+$/.test(text) || !Number.isSafeInteger(Number(text)) || Number(text)<1) {
+    $('transferRecipientDetails').textContent = 'Enter a valid Member ID.'; return;
+  }
+  $('transferRecipientDetails').textContent = 'Checking recipient…';
+  try {
+    const member = await api(`/api/transfers/recipient/${Number(text)}`);
+    if (generation !== transferLookupGeneration) return;
+    transferRecipient = member;
+    $('transferRecipientDetails').textContent = `${member.first_name} · Member ID ${member.member_id}. Confirm this is the person you intend to pay.`;
+  } catch (e) {
+    if (generation === transferLookupGeneration) $('transferRecipientDetails').textContent = e.message;
+  }
+  transferControls();
+});
+$('transferForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (transferBusy || !currentUser) return;
+  if (!transferDraft) {
+    const amount = transferCents($('transferAmount').value);
+    if (!transferRecipient || Number($('transferRecipient').value)!==transferRecipient.member_id) {
+      $('transferStatus').textContent = 'Check the recipient first.'; return;
+    }
+    if (!amount) { $('transferStatus').textContent = 'Enter an amount of at least $0.01 with no more than two decimal places.'; return; }
+    if (!window.confirm(`Send ${giftMoney(amount)} to ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nNo transfer fee. The money moves immediately and cannot be canceled in the app.`)) return;
+    const draft = {recipient_id:transferRecipient.member_id, recipient_name:transferRecipient.first_name, amount_cents:amount, request_id:crypto.randomUUID()};
+    try { localStorage.setItem(transferStorageKey,JSON.stringify(draft)); }
+    catch (_) { $('transferStatus').textContent = 'Payment was not sent. Enable browser storage and reopen the app to protect against duplicate payments.'; return; }
+    transferDraft = draft;
+  }
+  transferBusy = true; transferControls();
+  $('transferStatus').textContent = 'Checking payment…';
+  try {
+    const {recipient_name,...payload} = transferDraft;
+    const result = await api('/api/transfers',{method:'POST',body:JSON.stringify(payload)});
+    const completed = transferDraft;
+    // Clear retry state only after a definite result; history remains on the server.
+    try { localStorage.removeItem(transferStorageKey); } catch (_) {}
+    transferDraft = null; transferRecipient = null;
+    $('transferAmount').value = ''; $('transferRecipient').value = '';
+    $('transferRecipientDetails').textContent = 'Check the recipient before sending.';
+    $('transferStatus').textContent = `${result.already_processed ? 'Payment confirmed' : 'Payment sent'}: ${giftMoney(result.transfer.amount_cents)} to ${completed.recipient_name} (Member ID ${result.transfer.recipient_id}). Receipt #${result.transfer.id}.`;
+    await Promise.all([loadWallet(),loadTransfers(1)]);
+  } catch (e) {
+    if (e.status >= 400 && e.status < 500 && ![408,429].includes(e.status)) {
+      try { localStorage.removeItem(transferStorageKey); } catch (_) {}
+      transferDraft = null;
+      $('transferStatus').textContent = e.message;
+    } else {
+      $('transferStatus').textContent = 'Payment result is not confirmed. Use RETRY SAME PAYMENT to safely check or complete it without sending twice.';
+    }
+  } finally { transferBusy = false; transferControls(); }
+});
+async function loadTransfers(page = transferPage) {
+  try {
+    const data = await api(`/api/transfers?page=${Math.max(1,page)}`);
+    transferPage = data.page;
+    $('transferHistory').innerHTML = data.transfers.map(t => `<div class="deposit-item"><strong>${t.direction==='sent' ? 'Sent' : 'Received'} ${giftMoney(t.amount_cents)}</strong><p>${t.direction==='sent' ? 'To' : 'From'} Member ID ${Number(t.member_id)} · Receipt #${Number(t.id)}</p><p>${esc(prettyTime(t.created_at))} · Completed</p></div>`).join('') || '<div class="empty">No payments yet.</div>';
+    $('transferPrev').disabled = transferPage<=1;
+    $('transferNext').disabled = transferPage*25>=data.total;
+  } catch (e) { $('transferHistory').textContent = e.message; }
+}
+$('refreshTransfers').addEventListener('click',()=>Promise.all([loadWallet(),loadTransfers()]));
+$('transferPrev').addEventListener('click',()=>loadTransfers(transferPage-1));
+$('transferNext').addEventListener('click',()=>loadTransfers(transferPage+1));
+
 async function startApp() {
 
   await loadMe();
@@ -2221,6 +2359,7 @@ async function startApp() {
 
   await Promise.all([
     loadWallet(),
+    loadTransfers(),
     loadGiftHistory(),
     loadAdminGifts(),
     loadDeposits(),
@@ -2243,6 +2382,7 @@ setInterval(
 
     await Promise.all([
       loadWallet(),
+    loadTransfers(),
       loadGiftHistory(),
       loadAdminGifts(),
       loadDeposits(),

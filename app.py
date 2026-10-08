@@ -221,6 +221,19 @@ def init_db():
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS wallet_transfers(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER NOT NULL REFERENCES users(id),
+                recipient_id INTEGER NOT NULL REFERENCES users(id),
+                request_id TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL CHECK(amount_cents>0),
+                created_at TEXT NOT NULL,
+                CHECK(sender_id<>recipient_id),
+                UNIQUE(sender_id,request_id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_transfers_sender ON wallet_transfers(sender_id,id DESC);
+            CREATE INDEX IF NOT EXISTS idx_transfers_recipient ON wallet_transfers(recipient_id,id DESC);
+
             CREATE TABLE IF NOT EXISTS search_requests(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
@@ -773,6 +786,7 @@ async def me(
     )
 
     return {
+        "member_id": user["id"],
         "first_name":
             user["first_name"],
 
@@ -1754,3 +1768,67 @@ async def decide_gift_card(order_id: int, req: GiftCardDecision, x_telegram_init
     except TelegramError as exc:
         logger.warning('Gift card order %s notification unconfirmed (%s)', order_id, type(exc).__name__)
     return {'ok': True, 'already_processed': False, 'status': req.status, 'notification_sent': sent}
+
+
+# Member-to-member payments move existing confirmed USD balance, never create funds.
+MAX_WALLET_CENTS = 9007199254740991
+
+
+class WalletTransferInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    recipient_id: int = Field(strict=True, ge=1, le=MAX_WALLET_CENTS)
+    amount_cents: int = Field(strict=True, ge=1, le=MAX_WALLET_CENTS)
+    request_id: uuid.UUID
+
+
+@api.get('/api/transfers/recipient/{member_id}')
+async def transfer_recipient(member_id: int, x_telegram_init_data: str = Header(default='')):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    if member_id == user['id']:
+        raise HTTPException(422, 'Choose another member. You cannot send to yourself.')
+    with db() as con:
+        row = con.execute('SELECT id,first_name FROM users WHERE id=?', (member_id,)).fetchone() if 0 < member_id <= MAX_WALLET_CENTS else None
+    if not row:
+        raise HTTPException(404, 'Member not found. Ask the recipient for their Member ID.')
+    return {'member_id': row['id'], 'first_name': row['first_name'] or 'Member'}
+
+
+@api.post('/api/transfers')
+async def send_wallet_transfer(req: WalletTransferInput, x_telegram_init_data: str = Header(default='')):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    if req.recipient_id == user['id']:
+        raise HTTPException(422, 'You cannot send to yourself.')
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        existing = con.execute('SELECT * FROM wallet_transfers WHERE sender_id=? AND request_id=?',
+                               (user['id'],str(req.request_id))).fetchone()
+        if existing:
+            if existing['recipient_id'] != req.recipient_id or existing['amount_cents'] != req.amount_cents:
+                raise HTTPException(409, 'This payment reference was already used for different details.')
+            return {'ok': True, 'already_processed': True, 'transfer': dict(existing)}
+        recipient = con.execute('SELECT id,balance_cents FROM users WHERE id=?', (req.recipient_id,)).fetchone()
+        if not recipient:
+            raise HTTPException(404, 'Recipient is no longer available.')
+        if recipient['balance_cents'] > MAX_WALLET_CENTS - req.amount_cents:
+            raise HTTPException(409, 'The recipient cannot receive this amount.')
+        debited = con.execute('UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?',
+                              (req.amount_cents,user['id'],req.amount_cents))
+        if debited.rowcount != 1:
+            raise HTTPException(409, 'Insufficient available balance. Pending deposits cannot be sent.')
+        con.execute('UPDATE users SET balance_cents=balance_cents+? WHERE id=?', (req.amount_cents,req.recipient_id))
+        cur = con.execute('INSERT INTO wallet_transfers(sender_id,recipient_id,request_id,amount_cents,created_at) VALUES(?,?,?,?,?)',
+                          (user['id'],req.recipient_id,str(req.request_id),req.amount_cents,now_iso()))
+        row = con.execute('SELECT * FROM wallet_transfers WHERE id=?', (cur.lastrowid,)).fetchone()
+    return {'ok': True, 'already_processed': False, 'transfer': dict(row)}
+
+
+@api.get('/api/transfers')
+async def wallet_transfer_history(page: int = Query(default=1, ge=1, le=1000000), x_telegram_init_data: str = Header(default='')):
+    user = get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        rows = con.execute('SELECT * FROM wallet_transfers WHERE sender_id=? OR recipient_id=? ORDER BY id DESC LIMIT 25 OFFSET ?',
+                           (user['id'],user['id'],(page-1)*25)).fetchall()
+        total = con.execute('SELECT COUNT(*) FROM wallet_transfers WHERE sender_id=? OR recipient_id=?', (user['id'],user['id'])).fetchone()[0]
+    return {'transfers': [{'id': r['id'], 'direction': 'sent' if r['sender_id']==user['id'] else 'received',
+             'member_id': r['recipient_id'] if r['sender_id']==user['id'] else r['sender_id'],
+             'amount_cents': r['amount_cents'], 'created_at': r['created_at']} for r in rows], 'page': page, 'total': total}
