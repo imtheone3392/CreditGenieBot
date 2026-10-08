@@ -119,6 +119,50 @@ class AdminWorkflows(unittest.TestCase):
         messages=self.client.get(path,headers=auth(900)).json()['messages']
         self.assertEqual(messages[-1]['direction'],'outgoing')
 
+    def test_attachment_capture_private_download_and_dedup(self):
+        media=SimpleNamespace(file_id='private-file',file_size=4)
+        update=SimpleNamespace(effective_user=SimpleNamespace(to_dict=lambda:{'id':100}),effective_chat=SimpleNamespace(type='private'),
+            message=SimpleNamespace(text=None,caption='Receipt',message_id=501,photo=[media]))
+        asyncio.run(app.receive_member_message(update,None)); asyncio.run(app.receive_member_message(update,None))
+        app.init_db()
+        path=f'/api/admin/members/{self.user["id"]}/messages'
+        rows=self.client.get(path,headers=auth(900)).json()['messages']
+        self.assertEqual(len(rows),1); self.assertEqual(rows[0]['body'],'Receipt')
+        self.assertEqual(rows[0]['attachment']['kind'],'photo')
+        self.assertNotIn('private-file',json.dumps(rows))
+        endpoint=path+f'/{rows[0]["id"]}/attachment'
+        remote=SimpleNamespace(file_size=4,download_as_bytearray=AsyncMock(return_value=bytearray(b'test')))
+        getter=AsyncMock(return_value=remote)
+        with patch.object(type(app.telegram_bot.bot),'get_file',getter):
+            self.assertEqual(self.client.get(endpoint).status_code,401)
+            self.assertEqual(self.client.get(endpoint,headers=auth(100)).status_code,403)
+            self.assertEqual(getter.await_count,0)
+            result=self.client.get(endpoint,headers=auth(900))
+            self.assertEqual(result.status_code,200); self.assertEqual(result.content,b'test')
+            self.assertEqual(result.headers['content-type'],'image/jpeg')
+            self.assertEqual(result.headers['cache-control'],'no-store')
+            self.assertEqual(self.client.get(endpoint.replace(f'/members/{self.user["id"]}/','/members/999/'),headers=auth(900)).status_code,404)
+            getter.side_effect=TimedOut()
+            failure=self.client.get(endpoint,headers=auth(900))
+            self.assertEqual(failure.status_code,502); self.assertNotIn('private-file',failure.text)
+
+    def test_document_download_safety_and_size_limit(self):
+        media=SimpleNamespace(file_id='secret-document',file_size=4,file_name='<receipt>.html',mime_type='text/html')
+        update=SimpleNamespace(effective_user=SimpleNamespace(to_dict=lambda:{'id':100}),effective_chat=SimpleNamespace(type='private'),
+            message=SimpleNamespace(text=None,caption=None,message_id=502,document=media))
+        asyncio.run(app.receive_member_message(update,None))
+        path=f'/api/admin/members/{self.user["id"]}/messages'
+        row=self.client.get(path,headers=auth(900)).json()['messages'][0]
+        endpoint=path+f'/{row["id"]}/attachment'
+        remote=SimpleNamespace(file_size=4,download_as_bytearray=AsyncMock(return_value=bytearray(b'test')))
+        with patch.object(type(app.telegram_bot.bot),'get_file',AsyncMock(return_value=remote)):
+            result=self.client.get(endpoint,headers=auth(900))
+            self.assertEqual(result.headers['content-type'],'application/octet-stream')
+            self.assertEqual(result.headers['x-content-type-options'],'nosniff')
+            remote.file_size=21*1024*1024
+            self.assertEqual(self.client.get(endpoint,headers=auth(900)).status_code,413)
+            self.assertEqual(remote.download_as_bytearray.await_count,1)
+
     def test_concurrent_deposit_credit_once(self):
         r=self.client.post('/api/deposit',headers=auth(100),json={'amount_cents':1000,'request_id':str(uuid.uuid4())})
         did=r.json()['deposit_id']
@@ -175,3 +219,4 @@ class AdminWorkflows(unittest.TestCase):
         self.assertEqual(len(self.client.get('/api/bank-job/requests',headers=auth(100)).json()['requests']),1)
 
 if __name__=='__main__':unittest.main()
+
