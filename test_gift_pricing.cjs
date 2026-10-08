@@ -6,16 +6,16 @@ const html = fs.readFileSync(__dirname+'/index.html','utf8');
 const start = html.indexOf('function giftQuote()');
 const end = html.indexOf('function updateGiftQuote()', start);
 const inputs = {giftAmount:{value:'400'},giftQuantity:{value:'1'}};
-const context = vm.createContext({$:id=>inputs[id],giftPricing:{min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:11,bulk_discount_percent:60}});
+const context = vm.createContext({$:id=>inputs[id],giftPricing:{min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:2,bulk_discount_percent:65}});
 vm.runInContext(html.slice(start,end),context);
-for (const [qty,charge] of [[1,40000],[10,400000],[11,176000],[50,800000]]) {
+for (const [qty,charge] of [[1,40000],[2,28000],[10,140000],[11,154000],[50,700000]]) {
   inputs.giftQuantity.value=String(qty);
   assert.equal(context.giftQuote().charged_cents,charge);
 }
 inputs.giftAmount.value='1000'; inputs.giftQuantity.value='50';
-assert.equal(context.giftQuote().charged_cents,2000000);
+assert.equal(context.giftQuote().charged_cents,1750000);
 inputs.giftAmount.value='400.02'; inputs.giftQuantity.value='11';
-assert.equal(context.giftQuote().charged_cents,176009);
+assert.equal(context.giftQuote().charged_cents,154008);
 for (const qty of ['0','51','1.5','-1','']) {
   inputs.giftQuantity.value=qty;assert.equal(context.giftQuote(),null);
 }

@@ -89,7 +89,7 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.client.get('/api/admin/gift-cards/orders?status=approved',headers=auth(900)).json()['total'],1)
 
     def test_quantity_discount_boundaries(self):
-        for qty, charge, percent in [(1,40000,0),(10,400000,0),(11,176000,60),(50,800000,60)]:
+        for qty, charge, percent in [(1,40000,0),(2,28000,65),(10,140000,65),(11,154000,65),(50,700000,65)]:
             with self.subTest(quantity=qty):
                 self.fund(1000000)
                 result=self.buy({**self.payload(),'quantity':qty})
@@ -103,8 +103,8 @@ class GiftCards(unittest.TestCase):
                 self.assertEqual(self.balance(),1000000-charge)
         self.fund(2500000)
         order=self.buy({**self.payload(100000),'quantity':50}).json()['order']
-        self.assertEqual(order['charged_cents'],2000000)
-        self.assertEqual(self.balance(),500000)
+        self.assertEqual(order['charged_cents'],1750000)
+        self.assertEqual(self.balance(),750000)
 
     def test_invalid_quantity_and_price_tampering(self):
         self.fund(1000000)
@@ -119,7 +119,7 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.buy({**payload,'quantity':12}).status_code,409)
 
     def test_discounted_rejection_refunds_payment_once(self):
-        self.fund(176000)
+        self.fund(154000)
         payload={**self.payload(),'quantity':11}
         order=self.buy(payload).json()['order'];oid=order['id']
         self.assertEqual(self.balance(),0)
@@ -128,16 +128,16 @@ class GiftCards(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results=list(pool.map(lambda _:self.decide(oid,status='rejected',details='Unavailable'),range(2)))
         self.assertEqual([r.status_code for r in results],[200,200])
-        self.assertEqual(self.balance(),176000)
+        self.assertEqual(self.balance(),154000)
         row=self.client.get('/api/gift-cards/orders',headers=auth(100)).json()['orders'][0]
-        self.assertEqual(row['refunded_cents'],176000)
+        self.assertEqual(row['refunded_cents'],154000)
         self.assertEqual(row['total_value_cents'],440000)
-        self.assertEqual(row['discount_percent'],60)
+        self.assertEqual(row['discount_percent'],65)
 
     def test_bulk_order_approval_and_cent_rounding(self):
-        self.fund(176009)
+        self.fund(154008)
         order=self.buy({**self.payload(40002),'quantity':11}).json()['order']
-        self.assertEqual(order['charged_cents'],176009)
+        self.assertEqual(order['charged_cents'],154008)
         self.assertEqual(self.balance(),0)
         oid=order['id']
         app.init_db()
@@ -145,8 +145,8 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.balance(),0)
         row=self.client.get('/api/admin/gift-cards/orders?status=approved',headers=auth(900)).json()['orders'][0]
         self.assertEqual(row['quantity'],11)
-        self.assertEqual(row['charged_cents'],176009)
-        self.assertEqual(row['discount_cents'],264013)
+        self.assertEqual(row['charged_cents'],154008)
+        self.assertEqual(row['discount_cents'],286014)
         self.assertIn('11 cards',self.sender.call_args.kwargs['text'])
         self.assertEqual(self.client.get('/api/gift-cards/orders',headers=auth(101)).json()['orders'],[])
 
@@ -175,4 +175,23 @@ class GiftCards(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             codes=list(pool.map(lambda _:self.buy({**self.payload(),'quantity':11}).status_code,range(2)))
         self.assertEqual(sorted(codes),[200,409])
-        self.assertEqual(self.balance(),24000)
+        self.assertEqual(self.balance(),46000)
+
+    def test_previous_discount_schema_and_orders_are_preserved(self):
+        with app.db() as con:
+            schema=con.execute("SELECT sql FROM sqlite_master WHERE name='gift_card_orders'").fetchone()['sql']
+            con.execute('DROP TABLE gift_card_orders')
+            con.execute(schema.replace('(0,60,65)', '(0,60)'))
+            con.execute('''INSERT INTO gift_card_orders
+                (id,user_id,request_id,brand_id,brand_name,amount_cents,quantity,discount_percent,charged_cents,created_at,updated_at)
+                VALUES(77,?,?,?,?,40000,11,60,176000,?,?)''',
+                (self.user['id'],str(uuid.uuid4()),'legacy','Legacy Brand',app.now_iso(),app.now_iso()))
+        app.init_db();app.init_db()
+        row=self.client.get('/api/gift-cards/orders',headers=auth(100)).json()['orders'][0]
+        self.assertEqual((row['id'],row['discount_percent'],row['charged_cents']),(77,60,176000))
+        before=self.balance()
+        self.assertEqual(self.decide(77,status='rejected').status_code,200)
+        self.assertEqual(self.balance(),before+176000)
+        order=self.buy({**self.payload(),'quantity':2}).json()['order']
+        self.assertGreater(order['id'],77)
+        self.assertEqual((order['discount_percent'],order['charged_cents']),(65,28000))

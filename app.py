@@ -339,11 +339,27 @@ def init_db():
         if "quantity" not in gift_columns:
             con.execute("ALTER TABLE gift_card_orders ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1 CHECK(quantity BETWEEN 1 AND 50)")
         if "discount_percent" not in gift_columns:
-            con.execute("ALTER TABLE gift_card_orders ADD COLUMN discount_percent INTEGER NOT NULL DEFAULT 0 CHECK(discount_percent IN (0,60))")
+            con.execute("ALTER TABLE gift_card_orders ADD COLUMN discount_percent INTEGER NOT NULL DEFAULT 0 CHECK(discount_percent IN (0,60,65))")
         if "charged_cents" not in gift_columns:
             con.execute("ALTER TABLE gift_card_orders ADD COLUMN charged_cents INTEGER NOT NULL DEFAULT 0 CHECK(charged_cents>=0)")
             # Existing orders were one card at face value. Never reprice prior purchases.
             con.execute("UPDATE gift_card_orders SET charged_cents=amount_cents")
+
+        # Expand the old discount constraint atomically without repricing any orders.
+        schema = con.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='gift_card_orders'").fetchone()['sql']
+        if 'CHECK(discount_percent IN (0,60))' in schema:
+            indexes = [r['sql'] for r in con.execute("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='gift_card_orders' AND sql IS NOT NULL")]
+            sequence = con.execute("SELECT seq FROM sqlite_sequence WHERE name='gift_card_orders'").fetchone()
+            new_schema = schema.replace('gift_card_orders', 'gift_card_orders_v2', 1).replace('CHECK(discount_percent IN (0,60))', 'CHECK(discount_percent IN (0,60,65))')
+            con.execute(new_schema)
+            con.execute("INSERT INTO gift_card_orders_v2 SELECT * FROM gift_card_orders")
+            con.execute("DROP TABLE gift_card_orders")
+            con.execute("ALTER TABLE gift_card_orders_v2 RENAME TO gift_card_orders")
+            for index_sql in indexes:
+                con.execute(index_sql)
+            if sequence:
+                con.execute("UPDATE sqlite_sequence SET seq=MAX(seq,?) WHERE name='gift_card_orders'", (sequence['seq'],))
+
 
 
 # -------------------------------------------------
@@ -1589,8 +1605,8 @@ async def read_conversation(member_id: int, req: ReadMessages, x_telegram_init_d
 GIFT_CARD_MIN_CENTS = 40000
 GIFT_CARD_MAX_CENTS = 100000
 GIFT_CARD_MAX_QUANTITY = 50
-GIFT_CARD_DISCOUNT_MIN_QUANTITY = 11
-GIFT_CARD_BULK_DISCOUNT_PERCENT = 60
+GIFT_CARD_DISCOUNT_MIN_QUANTITY = 2
+GIFT_CARD_BULK_DISCOUNT_PERCENT = 65
 _GIFT_CARD_DATA = json.loads(Path(__file__).with_name('gift_cards.json').read_text())
 GIFT_CARD_BRANDS = {
     hashlib.sha256(name.encode()).hexdigest()[:16]: name
