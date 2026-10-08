@@ -7,6 +7,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
+from btc_address import normalize_btc_address
 from typing import Literal
 
 from datetime import datetime, timezone
@@ -166,6 +167,34 @@ def init_db():
             """
             PRAGMA journal_mode=WAL;
 
+            CREATE TABLE IF NOT EXISTS withdrawals(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                request_id TEXT NOT NULL UNIQUE,
+                amount_cents INTEGER NOT NULL CHECK(amount_cents>0),
+                btc_satoshis INTEGER NOT NULL CHECK(btc_satoshis>0),
+                status TEXT NOT NULL DEFAULT 'requested' CHECK(status IN ('requested','accepted','approved','paid','declined','rejected','canceled')),
+                btc_address TEXT,
+                request_note TEXT NOT NULL DEFAULT '',
+                approval_note TEXT NOT NULL DEFAULT '',
+                resolution_note TEXT NOT NULL DEFAULT '',
+                txid TEXT,
+                created_by INTEGER NOT NULL,
+                reviewed_by INTEGER,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_withdrawals_user ON withdrawals(user_id,id DESC);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_withdrawal ON withdrawals(user_id)
+                WHERE status IN ('requested','accepted','approved');
+            CREATE TABLE IF NOT EXISTS withdrawal_events(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                withdrawal_id INTEGER NOT NULL REFERENCES withdrawals(id),
+                actor_telegram_id INTEGER NOT NULL,
+                action TEXT NOT NULL,
+                note TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS gift_card_orders(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL REFERENCES users(id),
@@ -1237,6 +1266,7 @@ class MemberResponse(BaseModel):
     balance_cents: int
     balance: str
     joined_at: str
+    reserved_cents: int = 0
 
 
 class MembersResponse(BaseModel):
@@ -1277,8 +1307,9 @@ async def admin_members(
     with db() as con:
         total = con.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         rows = con.execute(
-            "SELECT id, first_name, username, balance_cents, created_at AS joined_at "
-            "FROM users ORDER BY id DESC LIMIT ? OFFSET ?",
+            "SELECT u.id, u.first_name, u.username, u.balance_cents, u.created_at AS joined_at, "
+            "COALESCE((SELECT SUM(w.amount_cents) FROM withdrawals w WHERE w.user_id=u.id AND w.status IN ('accepted','approved')),0) AS reserved_cents "
+            "FROM users u ORDER BY u.id DESC LIMIT ? OFFSET ?",
             (page_size, (page - 1) * page_size),
         ).fetchall()
     return {
@@ -1707,7 +1738,7 @@ GIFT_CARD_BRANDS = {
 @api.middleware('http')
 async def gift_card_no_cache(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(('/api/gift-cards', '/api/admin/gift-cards')):
+    if request.url.path.startswith(('/api/gift-cards', '/api/admin/gift-cards', '/api/withdrawals', '/api/admin/withdrawals', '/api/admin/members')):
         response.headers['Cache-Control'] = 'no-store'
     return response
 
@@ -2026,3 +2057,165 @@ async def decide_payment_request(request_id: int,req: PaymentRequestDecision,x_t
             transfer_id=transfer['id']
         con.execute('UPDATE payment_requests SET status=?,transfer_id=?,updated_at=? WHERE id=?',(status,transfer_id,now_iso(),row['id']))
     return {'ok':True,'already_processed':False,'status':status,'transfer_id':transfer_id}
+
+
+# Admin-initiated BTC withdrawals. This app records consent and payment receipts;
+# it never controls a Bitcoin wallet or broadcasts a transaction.
+class WithdrawalCreate(BaseModel):
+    model_config = {'extra': 'forbid'}
+    member_id: int = Field(strict=True, gt=0, le=MAX_WALLET_CENTS)
+    amount_cents: int = Field(strict=True, gt=0, le=MAX_WALLET_CENTS)
+    btc_satoshis: int = Field(strict=True, gt=0, le=2100000000000000)
+    note: str = Field(default='', max_length=1000)
+    request_id: uuid.UUID
+
+
+class WithdrawalConsent(BaseModel):
+    model_config = {'extra': 'forbid'}
+    action: Literal['accept', 'decline']
+    btc_address: str = Field(default='', max_length=90)
+    agreed_amount_cents: int | None = Field(default=None, strict=True, gt=0)
+    agreed_btc_satoshis: int | None = Field(default=None, strict=True, gt=0)
+
+
+class WithdrawalReview(BaseModel):
+    model_config = {'extra': 'forbid'}
+    action: Literal['approve', 'reject', 'cancel', 'paid']
+    note: str = Field(min_length=1, max_length=1000)
+    txid: str = Field(default='', max_length=64)
+    confirmed_sent: bool = Field(default=False, strict=True)
+    confirmed_not_sent: bool = Field(default=False, strict=True)
+
+    @field_validator('note')
+    @classmethod
+    def nonempty_note(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError('Enter a note for the member.')
+        return value
+
+
+def withdrawal_view(row):
+    return {k: row[k] for k in ('id','user_id','amount_cents','btc_satoshis','status','btc_address',
+            'request_note','approval_note','resolution_note','txid','created_at','updated_at')}
+
+
+def withdrawal_event(con, withdrawal_id, actor, action, note=''):
+    con.execute('INSERT INTO withdrawal_events(withdrawal_id,actor_telegram_id,action,note,created_at) VALUES(?,?,?,?,?)',
+                (withdrawal_id,actor,action,note,now_iso()))
+
+
+async def notify_withdrawal(telegram_id, row, message):
+    try:
+        await telegram_bot.bot.send_message(chat_id=telegram_id,parse_mode=None,
+            text=f"Withdrawal #{row['id']}\n{message}\nUSD amount: {money(row['amount_cents'])}\nBTC to receive: {row['btc_satoshis']/100000000:.8f}\nWithdrawal fee: $0.00\nOpen the Mini App → Withdrawals to review.",
+            connect_timeout=5,read_timeout=10)
+        return True
+    except TelegramError as exc:
+        logger.warning('Withdrawal %s notification unconfirmed (%s)',row['id'],type(exc).__name__)
+        return False
+
+
+@api.post('/api/admin/withdrawals')
+async def create_withdrawal(req: WithdrawalCreate,x_telegram_init_data: str = Header(default='')):
+    admin = require_admin(x_telegram_init_data)
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        old = con.execute('SELECT * FROM withdrawals WHERE request_id=?',(str(req.request_id),)).fetchone()
+        if old:
+            if (old['created_by'],old['user_id'],old['amount_cents'],old['btc_satoshis'],old['request_note']) != (admin['id'],req.member_id,req.amount_cents,req.btc_satoshis,req.note.strip()):
+                raise HTTPException(409,'This reference is already used for different withdrawal details.')
+            return {'ok':True,'already_processed':True,'withdrawal':withdrawal_view(old),'notification_sent':False}
+        user=con.execute('SELECT * FROM users WHERE id=?',(req.member_id,)).fetchone()
+        if not user: raise HTTPException(404,'Member not found.')
+        if user['balance_cents'] < req.amount_cents: raise HTTPException(409,'The member has insufficient available balance.')
+        if con.execute("SELECT id FROM withdrawals WHERE user_id=? AND status IN ('requested','accepted','approved')",(req.member_id,)).fetchone():
+            raise HTTPException(409,'This member already has an active withdrawal. Review it before creating another.')
+        stamp=now_iso()
+        cursor=con.execute('INSERT INTO withdrawals(user_id,request_id,amount_cents,btc_satoshis,request_note,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',
+                           (req.member_id,str(req.request_id),req.amount_cents,req.btc_satoshis,req.note.strip(),admin['id'],stamp,stamp))
+        row=con.execute('SELECT * FROM withdrawals WHERE id=?',(cursor.lastrowid,)).fetchone()
+        withdrawal_event(con,row['id'],admin['id'],'requested',req.note.strip())
+    sent=await notify_withdrawal(user['telegram_id'],row,'An admin requested a withdrawal. Accept and enter your receiving BTC address, or decline. No balance is reserved until you accept.\n'+row['request_note'])
+    return {'ok':True,'already_processed':False,'withdrawal':withdrawal_view(row),'notification_sent':sent}
+
+
+@api.get('/api/withdrawals')
+async def member_withdrawals(page: int = Query(default=1,ge=1,le=1000000),x_telegram_init_data: str = Header(default='')):
+    user=get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        rows=con.execute('SELECT * FROM withdrawals WHERE user_id=? ORDER BY id DESC LIMIT 25 OFFSET ?',(user['id'],(page-1)*25)).fetchall()
+        total=con.execute('SELECT COUNT(*) FROM withdrawals WHERE user_id=?',(user['id'],)).fetchone()[0]
+        reserved=con.execute("SELECT COALESCE(SUM(amount_cents),0) FROM withdrawals WHERE user_id=? AND status IN ('accepted','approved')",(user['id'],)).fetchone()[0]
+    return {'withdrawals':[withdrawal_view(r) for r in rows],'page':page,'total':total,'reserved_cents':reserved}
+
+
+@api.get('/api/admin/withdrawals')
+async def admin_withdrawals(page: int = Query(default=1,ge=1,le=1000000),status: Literal['all','requested','accepted','approved','paid','declined','rejected','canceled']='all',x_telegram_init_data: str = Header(default='')):
+    require_admin(x_telegram_init_data)
+    with db() as con:
+        rows=con.execute('''SELECT w.*,u.first_name,u.username,u.balance_cents FROM withdrawals w
+            JOIN users u ON u.id=w.user_id WHERE (?='all' OR w.status=?) ORDER BY w.id DESC LIMIT 25 OFFSET ?''',(status,status,(page-1)*25)).fetchall()
+        total=con.execute("SELECT COUNT(*) FROM withdrawals WHERE (?='all' OR status=?)",(status,status)).fetchone()[0]
+    return {'withdrawals':[{**withdrawal_view(r),'first_name':r['first_name'],'username':r['username'],'balance_cents':r['balance_cents']} for r in rows],'page':page,'total':total}
+
+
+@api.post('/api/withdrawals/{withdrawal_id}/decision')
+async def consent_withdrawal(withdrawal_id: int,req: WithdrawalConsent,x_telegram_init_data: str = Header(default='')):
+    tg=verify_init_data(x_telegram_init_data)
+    user=get_or_create_user(tg)
+    address=''
+    if req.action=='accept':
+        try: address=normalize_btc_address(req.btc_address)
+        except ValueError as exc: raise HTTPException(422,str(exc)) from None
+    status='accepted' if req.action=='accept' else 'declined'
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        row=con.execute('SELECT * FROM withdrawals WHERE id=? AND user_id=?',(withdrawal_id,user['id'])).fetchone()
+        if not row: raise HTTPException(404,'Withdrawal not found.')
+        if req.action=='accept' and (req.agreed_amount_cents != row['amount_cents'] or req.agreed_btc_satoshis != row['btc_satoshis']):
+            raise HTTPException(409,'Refresh and confirm the exact USD and BTC amounts.')
+        if row['status']!='requested':
+            if (status=='declined' and row['status']=='declined') or (status=='accepted' and row['status'] in ('accepted','approved','paid') and row['btc_address']==address):
+                return {'ok':True,'already_processed':True,'withdrawal':withdrawal_view(row)}
+            raise HTTPException(409,'This withdrawal is already '+row['status']+'. Refresh your history.')
+        if req.action=='accept':
+            changed=con.execute('UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?',(row['amount_cents'],user['id'],row['amount_cents']))
+            if changed.rowcount!=1: raise HTTPException(409,'Insufficient available balance. The request remains pending.')
+        con.execute('UPDATE withdrawals SET status=?,btc_address=?,updated_at=? WHERE id=?',(status,address or None,now_iso(),withdrawal_id))
+        withdrawal_event(con,withdrawal_id,tg['id'],status)
+        updated=con.execute('SELECT * FROM withdrawals WHERE id=?',(withdrawal_id,)).fetchone()
+    # The accepted address is now in the authenticated admin review queue.
+    return {'ok':True,'already_processed':False,'withdrawal':withdrawal_view(updated)}
+
+
+@api.post('/api/admin/withdrawals/{withdrawal_id}/decision')
+async def review_withdrawal(withdrawal_id: int,req: WithdrawalReview,x_telegram_init_data: str = Header(default='')):
+    admin=require_admin(x_telegram_init_data)
+    status={'approve':'approved','reject':'rejected','cancel':'canceled','paid':'paid'}[req.action]
+    txid=req.txid.strip().lower()
+    if req.action=='paid' and (not req.confirmed_sent or len(txid)!=64 or any(c not in '0123456789abcdef' for c in txid)):
+        raise HTTPException(422,'Confirm Bitcoin was sent and enter its 64-character transaction ID.')
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        row=con.execute('SELECT w.*,u.telegram_id FROM withdrawals w JOIN users u ON u.id=w.user_id WHERE w.id=?',(withdrawal_id,)).fetchone()
+        if not row: raise HTTPException(404,'Withdrawal not found.')
+        if row['status']==status:
+            note=row['approval_note'] if req.action=='approve' else row['resolution_note']
+            if note!=req.note or (req.action=='paid' and row['txid']!=txid): raise HTTPException(409,'This withdrawal is already saved with different details.')
+            return {'ok':True,'already_processed':True,'withdrawal':withdrawal_view(row),'notification_sent':False}
+        allowed={'approve':('accepted',),'reject':('accepted','approved'),'cancel':('requested',),'paid':('approved',)}
+        if row['status'] not in allowed[req.action]: raise HTTPException(409,'Cannot '+req.action+' a '+row['status']+' withdrawal.')
+        if req.action=='reject':
+            if not req.confirmed_not_sent: raise HTTPException(422,'Confirm that no Bitcoin was sent before releasing reserved funds.')
+            changed=con.execute('UPDATE users SET balance_cents=balance_cents+? WHERE id=? AND balance_cents<=?',(row['amount_cents'],row['user_id'],MAX_WALLET_CENTS-row['amount_cents']))
+            if changed.rowcount!=1: raise HTTPException(409,'The balance cannot receive this release yet. No funds were changed.')
+        if req.action=='approve':
+            con.execute('UPDATE withdrawals SET status=?,approval_note=?,reviewed_by=?,updated_at=? WHERE id=?',(status,req.note,admin['id'],now_iso(),withdrawal_id))
+        else:
+            con.execute('UPDATE withdrawals SET status=?,resolution_note=?,txid=?,reviewed_by=?,updated_at=? WHERE id=?',(status,req.note,txid if req.action=='paid' else None,admin['id'],now_iso(),withdrawal_id))
+        withdrawal_event(con,withdrawal_id,admin['id'],status,req.note)
+        updated=con.execute('SELECT * FROM withdrawals WHERE id=?',(withdrawal_id,)).fetchone()
+    message={'approve':'Approved for manual BTC payment. Funds remain reserved.','reject':'Rejected. Reserved USD funds were returned to your available balance.','cancel':'Canceled. No funds were deducted.','paid':'Admin recorded Bitcoin payment. Transaction ID: '+txid}[req.action]
+    sent=await notify_withdrawal(row['telegram_id'],updated,message+'\nAdmin note: '+req.note)
+    return {'ok':True,'already_processed':False,'withdrawal':withdrawal_view(updated),'notification_sent':sent}

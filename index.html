@@ -603,6 +603,15 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
   <div class="actions"><button id="transferPrev" class="btn-blue" type="button" disabled>PREVIOUS</button><button id="transferNext" class="btn-blue" type="button" disabled>NEXT</button></div>
 </section>
 
+<section class="card" id="withdrawalSection">
+  <div class="card-head"><h2>WITHDRAWALS</h2><button type="button" class="btn-blue" id="refreshWithdrawals">REFRESH</button></div>
+  <p class="help">Review requests from an admin. Accept with your own Bitcoin mainnet receiving address, or decline. Accepting reserves the USD amount until payment or rejection. Withdrawal fee: $0.00.</p>
+  <p id="withdrawalReserved" class="notice"></p>
+  <div id="withdrawalStatus" class="status" role="status" aria-live="polite"></div>
+  <div id="withdrawalList"></div>
+  <div class="actions"><button type="button" id="withdrawalPrev" class="btn-blue">PREVIOUS</button><span id="withdrawalPageLabel"></span><button type="button" id="withdrawalNext" class="btn-blue">NEXT</button></div>
+</section>
+
 <!-- GIFT CARDS -->
 <section class="card" id="giftCardSection">
   <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">1 CARD · FULL PRICE / 2–50 · 35% OFF</span></div>
@@ -688,6 +697,27 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
     <button type="button" class="btn-small btn-blue" data-admin-page="deposits">DEPOSITS</button>
     <button type="button" class="btn-small btn-blue" data-admin-page="requests">PROFILE SEARCHES</button>
     <button type="button" class="btn-small btn-blue" data-admin-page="gifts">GIFT CARDS</button>
+    <button type="button" class="btn-small btn-blue" data-admin-page="withdrawals">WITHDRAWALS & BALANCES</button>
+  </div>
+  <div id="admin-page-withdrawals" class="section-gap" hidden>
+    <h2>WITHDRAWALS & MEMBER BALANCES</h2>
+    <p class="help">Choose a member, enter the USD deduction and exact BTC amount they will receive, then send a request for their consent. The app does not send Bitcoin. After approval, pay manually and record the transaction ID.</p>
+    <button type="button" class="btn-small btn-blue" id="refreshWithdrawalMembers">REFRESH BALANCES</button>
+    <div id="withdrawalMembers"></div>
+    <div class="actions"><button type="button" class="btn-small" id="withdrawalMembersPrev">PREVIOUS MEMBERS</button><span id="withdrawalMembersPage"></span><button type="button" class="btn-small" id="withdrawalMembersNext">NEXT MEMBERS</button></div>
+    <form id="withdrawalCreateForm" class="section-gap">
+      <p id="withdrawalSelectedMember" class="notice">Choose a member above.</p>
+      <label for="withdrawalUsd">USD amount to reserve</label><input id="withdrawalUsd" inputmode="decimal" required placeholder="100.00">
+      <label for="withdrawalBtc">BTC amount member will receive</label><input id="withdrawalBtc" inputmode="decimal" required placeholder="0.00100000">
+      <label for="withdrawalRequestNote">Request note (optional)</label><textarea id="withdrawalRequestNote" maxlength="1000"></textarea>
+      <button type="submit" id="createWithdrawalBtn">REVIEW & REQUEST WITHDRAWAL</button>
+    </form>
+    <div id="adminWithdrawalStatus" class="status" role="status" aria-live="polite"></div>
+    <h2 class="section-gap">WITHDRAWAL QUEUE</h2>
+    <label for="adminWithdrawalFilter">Withdrawal status</label><select id="adminWithdrawalFilter"><option value="all">All</option><option value="requested">Waiting for member</option><option value="accepted">Awaiting admin approval</option><option value="approved">Approved — awaiting manual payment</option><option value="paid">Payment recorded</option><option value="declined">Declined</option><option value="rejected">Rejected</option><option value="canceled">Canceled</option></select>
+    <button type="button" class="btn-small btn-blue" id="refreshAdminWithdrawals">REFRESH WITHDRAWALS</button>
+    <div id="adminWithdrawalList"></div>
+    <div class="actions"><button type="button" id="adminWithdrawalPrev" class="btn-small">PREVIOUS</button><span id="adminWithdrawalPage"></span><button type="button" id="adminWithdrawalNext" class="btn-small">NEXT</button></div>
   </div>
   <div id="admin-page-gifts" class="section-gap" hidden>
     <div class="card-head"><h2 style="font-size:20px">GIFT CARD ORDERS</h2><span id="adminGiftCount" class="pill"></span></div>
@@ -1411,8 +1441,8 @@ async function loadAdminMembers(
               </div>
 
               <div class="admin-meta">
-                Balance:
-                ${esc(member.balance)}
+                Available balance:
+                ${esc(member.balance)} · Reserved for withdrawals: ${giftMoney(member.reserved_cents || 0)}
               </div>
 
               <div class="admin-meta">
@@ -1923,6 +1953,8 @@ async function creditAdminDeposit(
       loadAdminStats(),
       loadAdminDeposits(),
       loadWallet(),
+    loadWithdrawals(),
+    loadAdminWithdrawals(),
     loadTransfers(),
     loadPaymentRequests(),
       loadDeposits(),
@@ -2129,11 +2161,12 @@ $('inboxNext').addEventListener('click', () => loadInbox(inboxPage+1));
 $('refreshDepositsAdmin').addEventListener('click', loadAdminDeposits);
 document.querySelectorAll('[data-admin-page]').forEach(button => button.addEventListener('click', () => {
   document.querySelectorAll('[data-admin-page]').forEach(b => b.classList.toggle('btn-blue', b !== button));
-  ['messages','deposits','requests','gifts'].forEach(page => $('admin-page-'+page).hidden = page !== button.dataset.adminPage);
+  ['messages','deposits','requests','gifts','withdrawals'].forEach(page => $('admin-page-'+page).hidden = page !== button.dataset.adminPage);
   if (button.dataset.adminPage === 'messages') loadInbox();
   if (button.dataset.adminPage === 'deposits') loadAdminDeposits();
   if (button.dataset.adminPage === 'requests') loadCharacterQueue();
   if (button.dataset.adminPage === 'gifts') loadAdminGifts();
+  if (button.dataset.adminPage === 'withdrawals') { loadWithdrawalMembers(); loadAdminWithdrawals(); }
 }));
 
 /* ==========================================
@@ -2483,14 +2516,158 @@ $('refreshPaymentRequests').addEventListener('click',()=>loadPaymentRequests());
 $('paymentRequestPrev').addEventListener('click',()=>loadPaymentRequests(paymentRequestPage-1));
 $('paymentRequestNext').addEventListener('click',()=>loadPaymentRequests(paymentRequestPage+1));
 
+/* Consent-based manual Bitcoin withdrawals. */
+let withdrawalPage=1, adminWithdrawalPage=1, withdrawalMemberPage=1;
+let withdrawalBusy=false, adminWithdrawalBusy=false, withdrawalLoading=false, adminWithdrawalLoading=false, withdrawalMemberLoading=false;
+let withdrawalRows=new Map(), adminWithdrawalRows=new Map(), withdrawalMemberRows=new Map(), selectedWithdrawalMember=null;
+function btcMoney(satoshis) { return (satoshis/100000000).toFixed(8)+' BTC'; }
+function btcSatoshis(value) {
+  if (!/^\d+(\.\d{1,8})?$/.test(value.trim())) return null;
+  const [whole, fraction='']=value.trim().split('.');
+  const amount=Number(whole)*100000000+Number(fraction.padEnd(8,'0'));
+  return Number.isSafeInteger(amount) && amount>0 && amount<=2100000000000000 ? amount : null;
+}
+function withdrawalLabel(status) {
+  return ({requested:'Waiting for member',accepted:'Awaiting admin approval',approved:'Approved — awaiting manual payment',paid:'Payment recorded',declined:'Declined',rejected:'Rejected — balance released',canceled:'Canceled'})[status] || status;
+}
+function withdrawalSummary(row) {
+  return `<p><b>Withdrawal #${Number(row.id)} · ${esc(withdrawalLabel(row.status))}</b></p><p>USD: ${giftMoney(row.amount_cents)} · To receive: ${btcMoney(row.btc_satoshis)} · Fee: $0.00</p>
+    ${row.btc_address ? `<p style="overflow-wrap:anywhere">Receiving address: ${esc(row.btc_address)}</p>` : ''}
+    ${row.request_note ? `<p>Request note: ${esc(row.request_note)}</p>` : ''}
+    ${row.approval_note ? `<p>Approval note: ${esc(row.approval_note)}</p>` : ''}
+    ${row.resolution_note ? `<p>Admin note: ${esc(row.resolution_note)}</p>` : ''}
+    ${row.txid ? `<p style="overflow-wrap:anywhere">Transaction ID: ${esc(row.txid)}</p>` : ''}<p>${esc(prettyTime(row.updated_at))}</p>`;
+}
+async function loadWithdrawals(page=withdrawalPage) {
+  if(withdrawalLoading || withdrawalBusy || $('withdrawalList').contains(document.activeElement)) return;
+  withdrawalLoading=true;
+  try {
+    const data=await api(`/api/withdrawals?page=${page}`); withdrawalPage=data.page;
+    const addressDrafts=new Map([...withdrawalRows.keys()].map(id=>[id,$('withdraw-address-'+id)?.value || '']));
+    withdrawalRows=new Map(data.withdrawals.map(row=>[row.id,row]));
+    $('withdrawalReserved').textContent='Reserved for withdrawals: '+giftMoney(data.reserved_cents);
+    $('withdrawalList').innerHTML=data.withdrawals.map(row=>`<div class="admin-deposit">${withdrawalSummary(row)}${row.status==='requested' ? `
+      <label for="withdraw-address-${row.id}">Your Bitcoin mainnet receiving address</label><input id="withdraw-address-${row.id}" value="${esc(addressDrafts.get(row.id) || '')}" autocomplete="off" spellcheck="false" maxlength="90" placeholder="Enter your own BTC receiving address">
+      <div class="actions"><button type="button" data-withdrawal="${row.id}" data-action="accept">ACCEPT & RESERVE FUNDS</button><button type="button" class="btn-blue" data-withdrawal="${row.id}" data-action="decline">DECLINE</button></div>` : ''}</div>`).join('') || '<p>No withdrawal requests yet.</p>';
+    $('withdrawalPrev').disabled=page<=1; $('withdrawalNext').disabled=page*25>=data.total;
+    $('withdrawalPageLabel').textContent=`Page ${page} of ${Math.max(1,Math.ceil(data.total/25))}`;
+  } catch(e) { $('withdrawalStatus').textContent=e.message; }
+  finally {withdrawalLoading=false;}
+}
+$('withdrawalList').addEventListener('click',async e=>{
+  const button=e.target.closest('[data-withdrawal]'); if(!button || withdrawalBusy) return;
+  const row=withdrawalRows.get(Number(button.dataset.withdrawal)); if(!row) return;
+  const action=button.dataset.action, address=$('withdraw-address-'+row.id).value.trim();
+  if(action==='accept' && !address) { $('withdrawalStatus').textContent='Enter your Bitcoin receiving address first.'; return; }
+  const prompt=action==='accept' ? `Reserve ${giftMoney(row.amount_cents)} for withdrawal #${row.id}?\nYou will receive ${btcMoney(row.btc_satoshis)}. Fee: $0.00.\nReceiving address: ${address}\nCheck this address carefully. Reserved funds cannot be spent while awaiting admin review and payment.` : `Decline withdrawal #${row.id}? No money will be deducted.`;
+  if(!window.confirm(prompt)) return;
+  withdrawalBusy=true; button.disabled=true;
+  try {
+    const result=await api(`/api/withdrawals/${row.id}/decision`,{method:'POST',body:JSON.stringify({action,...(action==='accept'?{btc_address:address,agreed_amount_cents:row.amount_cents,agreed_btc_satoshis:row.btc_satoshis}:{})})});
+    $('withdrawalStatus').textContent=`Withdrawal #${row.id}: ${withdrawalLabel(result.withdrawal.status)}.`;
+  } catch(e) { $('withdrawalStatus').textContent=e.status ? e.message : 'Result not confirmed. Refresh the history before retrying this same withdrawal.'; }
+  finally {withdrawalBusy=false;button.disabled=false;if($('withdrawalList').contains(document.activeElement))document.activeElement.blur();await Promise.all([loadWithdrawals(),loadWallet()]);}
+});
+async function loadWithdrawalMembers(page=withdrawalMemberPage) {
+  if(!adminEnabled || withdrawalMemberLoading) return; withdrawalMemberLoading=true;
+  try {
+    const data=await api(`/api/admin/members?page=${page}&page_size=25`);withdrawalMemberPage=page;
+    withdrawalMemberRows=new Map(data.members.map(row=>[row.id,row]));
+    $('withdrawalMembers').innerHTML=data.members.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · #${row.id}</b><p>Available: ${giftMoney(row.balance_cents)} · Reserved: ${giftMoney(row.reserved_cents)}</p><button type="button" class="btn-small" data-withdraw-member="${row.id}">SELECT MEMBER</button></div>`).join('') || '<p>No members yet.</p>';
+    $('withdrawalMembersPrev').disabled=page<=1;$('withdrawalMembersNext').disabled=page*25>=data.total;
+    $('withdrawalMembersPage').textContent=`Page ${page} of ${Math.max(1,Math.ceil(data.total/25))}`;
+  } catch(e) {$('adminWithdrawalStatus').textContent=e.message;} finally {withdrawalMemberLoading=false;}
+}
+$('withdrawalMembers').addEventListener('click',e=>{
+  const button=e.target.closest('[data-withdraw-member]');if(!button || adminWithdrawalBusy)return;
+  selectedWithdrawalMember=withdrawalMemberRows.get(Number(button.dataset.withdrawMember));
+  if(selectedWithdrawalMember){$('withdrawalSelectedMember').textContent=`Member #${selectedWithdrawalMember.id}: ${selectedWithdrawalMember.first_name || 'Member'} · Available balance: ${giftMoney(selectedWithdrawalMember.balance_cents)} · Reserved: ${giftMoney(selectedWithdrawalMember.reserved_cents)}`;$('withdrawalCreateForm').scrollIntoView({block:'center',behavior:'smooth'});}
+});
+function withdrawalDraftKey(){return 'creditgenie-admin-withdrawal-'+String(currentUser?.member_id || '');}
+$('withdrawalCreateForm').addEventListener('submit',async e=>{
+  e.preventDefault();if(!adminEnabled || adminWithdrawalBusy)return;
+  const amount=transferCents($('withdrawalUsd').value),btc=btcSatoshis($('withdrawalBtc').value);
+  if(!selectedWithdrawalMember || !amount || !btc){$('adminWithdrawalStatus').textContent='Choose a member and enter valid USD and BTC amounts.';return;}
+  const details={member_id:selectedWithdrawalMember.id,amount_cents:amount,btc_satoshis:btc,note:$('withdrawalRequestNote').value.trim()};
+  if(!window.confirm(`Ask ${selectedWithdrawalMember.first_name || 'Member'} (#${details.member_id}) to withdraw ${giftMoney(amount)} and receive ${btcMoney(btc)}?\nFee: $0.00. Nothing is deducted until the member accepts.`))return;
+  adminWithdrawalBusy=true;$('createWithdrawalBtn').disabled=true;
+  try {
+    let pending=JSON.parse(localStorage.getItem(withdrawalDraftKey()) || 'null');
+    if(pending && ['member_id','amount_cents','btc_satoshis','note'].some(key=>pending[key]!==details[key]))throw new Error('A previous request has an unconfirmed result. Retry its original details or review the queue before creating another.');
+    if(!pending){pending={...details,request_id:crypto.randomUUID()};localStorage.setItem(withdrawalDraftKey(),JSON.stringify(pending));}
+    const result=await api('/api/admin/withdrawals',{method:'POST',body:JSON.stringify(pending)});
+    localStorage.removeItem(withdrawalDraftKey());
+    $('adminWithdrawalStatus').textContent=`Withdrawal #${result.withdrawal.id} saved. ${result.already_processed ? 'This request was already saved.' : result.notification_sent ? 'Member notified on Telegram.' : 'Telegram delivery unconfirmed; the request is visible in the member’s withdrawal history.'}`;
+  }catch(e){if(e.status>=400 && e.status<500)localStorage.removeItem(withdrawalDraftKey());$('adminWithdrawalStatus').textContent=e.message || 'Result unconfirmed. Retry the same details.';}
+  finally{adminWithdrawalBusy=false;$('createWithdrawalBtn').disabled=false;await loadAdminWithdrawals(1);}
+});
+async function loadAdminWithdrawals(page=adminWithdrawalPage) {
+  if(!adminEnabled || adminWithdrawalLoading || adminWithdrawalBusy || $('adminWithdrawalList').contains(document.activeElement))return;
+  adminWithdrawalLoading=true;
+  try{
+    const data=await api(`/api/admin/withdrawals?page=${page}&status=${$('adminWithdrawalFilter').value}`);adminWithdrawalPage=page;
+    const noteDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('withdraw-note-'+id)?.value || '']));
+    const txDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('withdraw-txid-'+id)?.value || '']));
+    adminWithdrawalRows=new Map(data.withdrawals.map(row=>[row.id,row]));
+    $('adminWithdrawalList').innerHTML=data.withdrawals.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · Member #${row.user_id}</b><p>Current available balance: ${giftMoney(row.balance_cents)}</p>${withdrawalSummary(row)}${['requested','accepted','approved'].includes(row.status)?`
+      <label for="withdraw-note-${row.id}">${row.status==='accepted'?'Approval / rejection note':'Note for member'}</label><textarea id="withdraw-note-${row.id}" maxlength="1000" placeholder="Required: message for the member">${esc(noteDrafts.get(row.id) || '')}</textarea>
+      ${row.status==='approved'?`<label for="withdraw-txid-${row.id}">Bitcoin transaction ID (after sending payment manually)</label><input id="withdraw-txid-${row.id}" value="${esc(txDrafts.get(row.id) || '')}" maxlength="64" autocomplete="off">`:''}
+      <div class="actions">${row.status==='requested'?`<button type="button" data-admin-withdrawal="${row.id}" data-action="cancel">CANCEL REQUEST</button>`:row.status==='accepted'?`<button type="button" data-admin-withdrawal="${row.id}" data-action="approve">APPROVE WITH NOTE</button><button type="button" class="btn-blue" data-admin-withdrawal="${row.id}" data-action="reject">REJECT & RELEASE</button>`:`<button type="button" data-admin-withdrawal="${row.id}" data-action="paid">RECORD MANUAL BTC PAYMENT</button><button type="button" class="btn-blue" data-admin-withdrawal="${row.id}" data-action="reject">NOT SENT — REJECT & RELEASE</button>`}</div>`:''}</div>`).join('')||'<p>No matching withdrawals.</p>';
+    $('adminWithdrawalPrev').disabled=page<=1;$('adminWithdrawalNext').disabled=page*25>=data.total;
+    $('adminWithdrawalPage').textContent=`Page ${page} of ${Math.max(1,Math.ceil(data.total/25))}`;
+  }catch(e){$('adminWithdrawalStatus').textContent=e.message;}finally{adminWithdrawalLoading=false;}
+}
+$('adminWithdrawalList').addEventListener('click',async e=>{
+  const button=e.target.closest('[data-admin-withdrawal]');if(!button || adminWithdrawalBusy)return;
+  const row=adminWithdrawalRows.get(Number(button.dataset.adminWithdrawal));if(!row)return;
+  const action=button.dataset.action,note=$('withdraw-note-'+row.id).value.trim();
+  if(!note){$('adminWithdrawalStatus').textContent='Enter a note for the member.';return;}
+  const txid=action==='paid'?$('withdraw-txid-'+row.id).value.trim().toLowerCase():'';
+  if(action==='paid' && !/^[a-f0-9]{64}$/.test(txid)){$('adminWithdrawalStatus').textContent='Enter the 64-character Bitcoin transaction ID.';return;}
+  const summary=`Withdrawal #${row.id} · ${giftMoney(row.amount_cents)} · ${btcMoney(row.btc_satoshis)}\nAddress: ${row.btc_address || 'Not submitted'}\nNote: ${note}`;
+  const prompt=action==='approve'?`Approve for manual payment? This does not send Bitcoin.\n${summary}`:action==='paid'?`Confirm you already sent ${btcMoney(row.btc_satoshis)} to this exact address. This records the payment; it does not send Bitcoin.\n${summary}\nTransaction: ${txid}`:action==='reject'?`Confirm NO Bitcoin was sent for this withdrawal. Reject and return ${giftMoney(row.amount_cents)} to the member?\n${summary}`:`Cancel the request? No funds will move.\n${summary}`;
+  if(!window.confirm(prompt))return;
+  adminWithdrawalBusy=true;button.disabled=true;
+  try{
+    const result=await api(`/api/admin/withdrawals/${row.id}/decision`,{method:'POST',body:JSON.stringify({action,note,txid,confirmed_sent:action==='paid',confirmed_not_sent:action==='reject'})});
+    $('adminWithdrawalStatus').textContent=`Withdrawal #${row.id}: ${withdrawalLabel(result.withdrawal.status)}. ${result.notification_sent?'Member notified.':'Saved in member history; Telegram notification unconfirmed or previously sent.'}`;
+  }catch(e){$('adminWithdrawalStatus').textContent=e.status?e.message:'Result unconfirmed. Refresh the queue before retrying this same action.';}
+  finally{adminWithdrawalBusy=false;button.disabled=false;if($('adminWithdrawalList').contains(document.activeElement))document.activeElement.blur();await Promise.all([loadAdminWithdrawals(),loadWithdrawalMembers(),loadAdminMembers(),loadWallet(),loadWithdrawals()]);}
+});
+$('refreshWithdrawals').addEventListener('click',()=>loadWithdrawals());
+$('withdrawalPrev').addEventListener('click',()=>loadWithdrawals(withdrawalPage-1));
+$('withdrawalNext').addEventListener('click',()=>loadWithdrawals(withdrawalPage+1));
+$('refreshWithdrawalMembers').addEventListener('click',()=>loadWithdrawalMembers());
+$('withdrawalMembersPrev').addEventListener('click',()=>loadWithdrawalMembers(withdrawalMemberPage-1));
+$('withdrawalMembersNext').addEventListener('click',()=>loadWithdrawalMembers(withdrawalMemberPage+1));
+$('refreshAdminWithdrawals').addEventListener('click',()=>loadAdminWithdrawals());
+$('adminWithdrawalPrev').addEventListener('click',()=>loadAdminWithdrawals(adminWithdrawalPage-1));
+$('adminWithdrawalNext').addEventListener('click',()=>loadAdminWithdrawals(adminWithdrawalPage+1));
+$('adminWithdrawalFilter').addEventListener('change',()=>loadAdminWithdrawals(1));
+
+
 async function startApp() {
 
   await loadMe();
+  if(adminEnabled) {
+    try {
+      const pending=JSON.parse(localStorage.getItem(withdrawalDraftKey()) || 'null');
+      if(pending && Number.isSafeInteger(pending.member_id)) {
+        selectedWithdrawalMember={id:pending.member_id,first_name:'Member'};
+        $('withdrawalSelectedMember').textContent=`Unconfirmed request for Member #${pending.member_id}. Retry these exact details to check its result.`;
+        $('withdrawalUsd').value=(pending.amount_cents/100).toFixed(2);
+        $('withdrawalBtc').value=(pending.btc_satoshis/100000000).toFixed(8);
+        $('withdrawalRequestNote').value=pending.note || '';
+      }
+    } catch(e) { $('adminWithdrawalStatus').textContent='Unable to restore the pending request. Check your browser storage settings.'; }
+  }
   await loadGiftCatalog();
   await loadPaymentMembers();
 
   await Promise.all([
     loadWallet(),
+    loadWithdrawals(),
+    loadAdminWithdrawals(),
     loadTransfers(),
     loadPaymentRequests(),
     loadGiftHistory(),
@@ -2515,6 +2692,8 @@ setInterval(
 
     await Promise.all([
       loadWallet(),
+    loadWithdrawals(),
+    loadAdminWithdrawals(),
     loadTransfers(),
     loadPaymentRequests(),
       loadGiftHistory(),
