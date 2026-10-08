@@ -605,8 +605,8 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
 <!-- GIFT CARDS -->
 <section class="card" id="giftCardSection">
-  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">15% OFF · 1–10 / 65% OFF · 11–50</span></div>
-  <p class="help">Add wallet balance first, choose your gift card and quantity, then purchase. Orders of 1–10 cards get 15% off; orders of 11–50 cards get 65% off the entire order. Admin reviews your order and supplies the card details.</p>
+  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">1 CARD · FULL PRICE / 2–10 · 15% OFF / 11–50 · 65% OFF</span></div>
+  <p class="help">Add wallet balance first, choose your gift card and quantity, then purchase. One card is full price. Orders of 2–10 cards get 15% off; orders of 11–50 cards get 65% off the entire order. Admin reviews your order and supplies the card details.</p>
   <a href="#walletSection">ADD BALANCE ↑</a>
   <form id="giftPurchaseForm" class="grid section-gap">
     <label for="giftBrandSearch">Find a gift card</label>
@@ -618,7 +618,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
     <label for="giftQuantity">Quantity (1–50 cards)</label>
     <input id="giftQuantity" type="number" min="1" max="50" step="1" value="1" required inputmode="numeric">
     <div id="giftPriceSummary" class="approval-note" role="status" aria-live="polite"></div>
-    <p class="notice">Each card: $400–$1,000. Choose up to 50 cards of the same brand and value per order. Quantities 1–10 are 15% off; quantities 11–50 are 65% off. Availability and redemption region are subject to admin confirmation. Rejected orders refund the amount actually paid.</p>
+    <p class="notice">Each card: $400–$1,000. Choose up to 50 cards of the same brand and value per order. One card has no discount; quantities 2–10 are 15% off; quantities 11–50 are 65% off. Availability and redemption region are subject to admin confirmation. Rejected orders refund the amount actually paid.</p>
     <button id="buyGiftBtn" type="submit">PURCHASE WITH WALLET</button>
   </form>
   <div id="giftPurchaseStatus" class="status" role="status" aria-live="polite"></div>
@@ -2125,7 +2125,7 @@ function giftQuote() {
   if (!Number.isSafeInteger(amount_cents) || amount_cents < giftPricing.min_cents || amount_cents > giftPricing.max_cents ||
       !Number.isSafeInteger(quantity) || quantity < 1 || quantity > giftPricing.max_quantity) return null;
   const total_value_cents = amount_cents * quantity;
-  const discount_percent = quantity >= giftPricing.discount_min_quantity ? giftPricing.bulk_discount_percent : giftPricing.standard_discount_percent;
+  const discount_percent = quantity === 1 ? 0 : (quantity >= giftPricing.discount_min_quantity ? giftPricing.bulk_discount_percent : giftPricing.standard_discount_percent);
   const charged_cents = Math.floor((total_value_cents * (100-discount_percent) + 50)/100);
   return {amount_cents,quantity,total_value_cents,discount_percent,charged_cents,discount_cents:total_value_cents-charged_cents};
 }

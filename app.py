@@ -1682,7 +1682,7 @@ class GiftCardDecision(BaseModel):
 
 
 def gift_card_price(amount_cents, quantity):
-    discount = GIFT_CARD_BULK_DISCOUNT_PERCENT if quantity >= GIFT_CARD_DISCOUNT_MIN_QUANTITY else GIFT_CARD_STANDARD_DISCOUNT_PERCENT
+    discount = 0 if quantity == 1 else (GIFT_CARD_BULK_DISCOUNT_PERCENT if quantity >= GIFT_CARD_DISCOUNT_MIN_QUANTITY else GIFT_CARD_STANDARD_DISCOUNT_PERCENT)
     total = amount_cents * quantity
     # Integer half-up rounding to the nearest cent; no floating-point money.
     charged = (total * (100 - discount) + 50) // 100

@@ -8,7 +8,7 @@ const end = html.indexOf('function updateGiftQuote()', start);
 const inputs = {giftAmount:{value:'400'},giftQuantity:{value:'1'}};
 const context = vm.createContext({$:id=>inputs[id],giftPricing:{min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:11,bulk_discount_percent:65,standard_discount_percent:15}});
 vm.runInContext(html.slice(start,end),context);
-for (const [qty,charge] of [[1,34000],[2,68000],[9,306000],[10,340000],[11,154000],[50,700000]]) {
+for (const [qty,charge] of [[1,40000],[2,68000],[9,306000],[10,340000],[11,154000],[50,700000]]) {
   inputs.giftQuantity.value=String(qty);
   assert.equal(context.giftQuote().charged_cents,charge);
 }
