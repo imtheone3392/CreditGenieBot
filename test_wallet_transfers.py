@@ -15,7 +15,7 @@ class WalletTransfers(unittest.TestCase):
         return app.get_or_create_user({'id':tg,'first_name':'Recipient','username':'receiver'})['id']
 
     def payload(self, recipient, amount=1000):
-        return {'recipient_id':recipient,'amount_cents':amount,'request_id':str(uuid.uuid4())}
+        return {'agreed_fee_cents':500,'recipient_id':recipient,'amount_cents':amount,'request_id':str(uuid.uuid4())}
 
     def send(self, payload, uid=100):
         return self.client.post('/api/transfers',headers=auth(uid),json=payload)
@@ -37,7 +37,7 @@ class WalletTransfers(unittest.TestCase):
     def test_transfer_and_private_two_sided_receipts(self):
         rid=self.recipient(); p=self.payload(rid,1251)
         response=self.send(p);self.assertEqual(response.status_code,200,response.text)
-        self.assertEqual(self.balances(),{self.user['id']:1749,rid:1251})
+        self.assertEqual(self.balances(),{self.user['id']:1249,rid:1251})
         sent=self.client.get('/api/transfers',headers=auth(100)).json()['transfers'][0]
         received=self.client.get('/api/transfers',headers=auth(101)).json()['transfers'][0]
         self.assertEqual(sent['direction'],'sent');self.assertEqual(received['direction'],'received')
@@ -60,12 +60,12 @@ class WalletTransfers(unittest.TestCase):
         self.assertEqual(self.balances(),initial)
 
     def test_retry_and_competing_transfers(self):
-        rid=self.recipient(); p=self.payload(rid,2000)
+        rid=self.recipient(); p=self.payload(rid,1000)
         with ThreadPoolExecutor(max_workers=2) as pool:
             results=list(pool.map(lambda _:self.send(p),range(2)))
         self.assertEqual([r.status_code for r in results],[200,200])
         self.assertEqual(results[0].json()['transfer']['id'],results[1].json()['transfer']['id'])
-        self.assertEqual(self.balances(),{self.user['id']:1000,rid:2000})
+        self.assertEqual(self.balances(),{self.user['id']:1500,rid:1000})
         self.assertEqual(self.send({**p,'amount_cents':1}).status_code,409)
         other=self.recipient(103)
         self.assertEqual(self.send({**p,'recipient_id':other}).status_code,409)
@@ -73,13 +73,13 @@ class WalletTransfers(unittest.TestCase):
             codes=list(pool.map(lambda _:self.send(self.payload(rid,700)).status_code,range(2)))
         self.assertEqual(sorted(codes),[200,409])
         self.assertEqual(self.balance(),300)
-        self.assertEqual(sum(self.balances().values()),3000)
+        self.assertEqual(sum(self.balances().values()),2000)
 
     def test_received_funds_can_be_spent_and_startup_preserves_ledger(self):
-        rid=self.recipient(); self.assertEqual(self.send(self.payload(rid,3000)).status_code,200)
+        rid=self.recipient(); self.assertEqual(self.send(self.payload(rid,2500)).status_code,200)
         self.assertEqual(self.send(self.payload(self.user['id'],1000),uid=101).status_code,200)
         app.init_db();app.init_db()
-        self.assertEqual(self.balances(),{self.user['id']:1000,rid:2000})
+        self.assertEqual(self.balances(),{self.user['id']:1000,rid:1000})
         self.assertEqual(self.client.get('/api/transfers',headers=auth(100)).json()['total'],2)
         self.assertEqual(self.client.get('/api/transfers?page=2',headers=auth(100)).json()['transfers'],[])
 
@@ -102,7 +102,8 @@ class WalletTransfers(unittest.TestCase):
         self.assertEqual(sorted(codes),[200,409])
         self.assertTrue(all(x>=0 for x in self.balances().values()))
         with app.db() as con:spent=con.execute('SELECT COALESCE(SUM(charged_cents),0) FROM gift_card_orders').fetchone()[0]
-        self.assertEqual(sum(self.balances().values())+spent,40000)
+        with app.db() as con:fees=con.execute('SELECT COALESCE(SUM(fee_cents),0) FROM wallet_transfers').fetchone()[0]
+        self.assertEqual(sum(self.balances().values())+spent+fees,40000)
 
     def test_recipient_overflow_is_rejected_and_history_paginates(self):
         rid=self.recipient()
@@ -110,8 +111,31 @@ class WalletTransfers(unittest.TestCase):
         self.assertEqual(self.send(self.payload(rid,1)).status_code,409)
         self.assertEqual(self.balance(),3000)
         with app.db() as con:con.execute('UPDATE users SET balance_cents=0 WHERE id=?',(rid,))
+        with app.db() as con:con.execute('UPDATE users SET balance_cents=20000 WHERE id=?',(self.user['id'],))
         for _ in range(26):self.assertEqual(self.send(self.payload(rid,1)).status_code,200)
         first=self.client.get('/api/transfers',headers=auth(100)).json()
         second=self.client.get('/api/transfers?page=2',headers=auth(100)).json()
         self.assertEqual((first['total'],len(first['transfers']),len(second['transfers'])),(26,25,1))
         self.assertGreater(first['transfers'][0]['id'],second['transfers'][0]['id'])
+
+
+    def test_fee_consent_balance_and_legacy_migration(self):
+        rid=self.recipient();p=self.payload(rid,2501)
+        self.assertEqual(self.send(p).status_code,409)
+        p=self.payload(rid,2500)
+        for fee in [None,0,499]:
+            self.assertEqual(self.send({**p,'agreed_fee_cents':fee}).status_code,409)
+        result=self.send(p);self.assertEqual(result.status_code,200)
+        self.assertEqual(result.json()['transfer']['fee_cents'],500)
+        self.assertEqual(self.balance(),0)
+        self.assertEqual(self.balances()[rid],2500)
+        self.assertEqual(self.send(p).status_code,200);self.assertEqual(self.balance(),0)
+        with app.db() as con:
+            con.execute('ALTER TABLE wallet_transfers DROP COLUMN fee_cents')
+        app.init_db();app.init_db()
+        row=self.client.get('/api/transfers',headers=auth(100)).json()['transfers'][0]
+        self.assertEqual((row['fee_cents'],row['total_debit_cents']),(0,2500))
+        self.assertEqual(self.balance(),0)
+        old={**p};old.pop('agreed_fee_cents')
+        self.assertEqual(self.send(old).status_code,200)
+        self.assertEqual(self.balance(),0)

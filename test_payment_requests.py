@@ -14,7 +14,7 @@ class PaymentRequests(unittest.TestCase):
         return u['id']
     def payload(self,payer,amount=501):return {'payer_id':payer,'amount_cents':amount,'request_id':str(uuid.uuid4())}
     def create(self,payload,uid=100):return self.client.post('/api/payment-requests',headers=auth(uid),json=payload)
-    def decide(self,rid,action='pay',uid=101):return self.client.post(f'/api/payment-requests/{rid}/decision',headers=auth(uid),json={'action':action})
+    def decide(self,rid,action='pay',uid=101):return self.client.post(f'/api/payment-requests/{rid}/decision',headers=auth(uid),json={'action':action,**({'agreed_fee_cents':500} if action=='pay' else {})})
     def balances(self):
         with app.db() as con:return {r['id']:r['balance_cents'] for r in con.execute('SELECT id,balance_cents FROM users')}
     def test_member_directory_username_search_and_privacy(self):
@@ -41,8 +41,8 @@ class PaymentRequests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda _:self.decide(rid),range(2)))
         self.assertEqual([r.status_code for r in results],[200,200])
         self.assertEqual(results[0].json()['transfer_id'],results[1].json()['transfer_id'])
-        balances=self.balances();self.assertEqual(balances[payer],1499);self.assertEqual(balances[self.user['id']],3501)
-        self.assertEqual(sum(balances.values()),sum(before.values()))
+        balances=self.balances();self.assertEqual(balances[payer],999);self.assertEqual(balances[self.user['id']],3501)
+        self.assertEqual(sum(balances.values()),sum(before.values())-500)
         self.assertEqual(self.client.get('/api/transfers',headers=auth(100)).json()['total'],1)
         self.assertEqual(self.decide(rid,'cancel',uid=100).status_code,409)
     def test_decline_cancel_and_insufficient_funds(self):
@@ -78,7 +78,7 @@ class PaymentRequests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:results=list(pool.map(lambda x:self.decide(rid,*x),[('pay',101),('cancel',100)]))
         self.assertEqual(sorted(r.status_code for r in results),[200,409])
         row=self.client.get('/api/payment-requests',headers=auth(100)).json()['requests'][0]
-        self.assertEqual(self.balances()[payer],1499 if row['status']=='paid' else 2000)
+        self.assertEqual(self.balances()[payer],999 if row['status']=='paid' else 2000)
     def test_request_update_failure_rolls_back_transfer(self):
         payer=self.payer();rid=self.create(self.payload(payer)).json()['request']['id'];before=self.balances()
         with app.db() as con:con.execute("CREATE TRIGGER test_fail_request BEFORE UPDATE ON payment_requests BEGIN SELECT RAISE(ABORT,'test rollback'); END")
@@ -86,3 +86,18 @@ class PaymentRequests(unittest.TestCase):
         with self.assertRaises(sqlite3.IntegrityError):self.decide(rid)
         self.assertEqual(self.balances(),before)
         self.assertEqual(self.client.get('/api/transfers',headers=auth(100)).json()['total'],0)
+
+
+    def test_request_fee_requires_payer_consent_and_full_balance(self):
+        payer=self.payer();rid=self.create(self.payload(payer,1501)).json()['request']['id']
+        self.assertEqual(self.decide(rid).status_code,409)
+        self.assertEqual(self.balances()[payer],2000)
+        self.assertEqual(self.decide(rid,'cancel',uid=100).status_code,200)
+        rid=self.create(self.payload(payer,1500)).json()['request']['id']
+        for body in [{'action':'pay'},{'action':'pay','agreed_fee_cents':0}]:
+            self.assertEqual(self.client.post(f'/api/payment-requests/{rid}/decision',headers=auth(101),json=body).status_code,409)
+        self.assertEqual(self.decide(rid).status_code,200)
+        self.assertEqual(self.balances()[payer],0)
+        row=self.client.get('/api/payment-requests',headers=auth(101)).json()['requests'][0]
+        self.assertEqual((row['fee_cents'],row['total_debit_cents']),(500,2000))
+        self.assertEqual(self.decide(rid).status_code,200);self.assertEqual(self.balances()[payer],0)

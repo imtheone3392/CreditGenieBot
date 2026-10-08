@@ -364,6 +364,10 @@ def init_db():
         if "requested_amount_cents" not in columns:
             con.execute("ALTER TABLE bitcoin_deposits ADD COLUMN requested_amount_cents INTEGER")
 
+        transfer_columns = {row['name'] for row in con.execute('PRAGMA table_info(wallet_transfers)')}
+        if 'fee_cents' not in transfer_columns:
+            con.execute('ALTER TABLE wallet_transfers ADD COLUMN fee_cents INTEGER NOT NULL DEFAULT 0 CHECK(fee_cents>=0)')
+
         gift_columns = {row["name"] for row in con.execute("PRAGMA table_info(gift_card_orders)")}
         if "quantity" not in gift_columns:
             con.execute("ALTER TABLE gift_card_orders ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1 CHECK(quantity BETWEEN 1 AND 50)")
@@ -1788,9 +1792,11 @@ async def decide_gift_card(order_id: int, req: GiftCardDecision, x_telegram_init
 
 # Member-to-member payments move existing confirmed USD balance, never create funds.
 MAX_WALLET_CENTS = 9007199254740991
+TRANSFER_FEE_CENTS = 500
 
 
 class WalletTransferInput(BaseModel):
+    agreed_fee_cents: int | None = Field(default=None,strict=True,ge=0,le=MAX_WALLET_CENTS)
     model_config = {"extra": "forbid"}
     recipient_id: int = Field(strict=True, ge=1, le=MAX_WALLET_CENTS)
     amount_cents: int = Field(strict=True, ge=1, le=MAX_WALLET_CENTS)
@@ -1822,6 +1828,8 @@ async def send_wallet_transfer(req: WalletTransferInput, x_telegram_init_data: s
             if existing['recipient_id'] != req.recipient_id or existing['amount_cents'] != req.amount_cents:
                 raise HTTPException(409, 'This payment reference was already used for different details.')
             return {'ok': True, 'already_processed': True, 'transfer': dict(existing)}
+        if req.agreed_fee_cents != TRANSFER_FEE_CENTS:
+            raise HTTPException(409, 'Reopen the app and confirm the $5.00 merchant fee before sending.')
         row = commit_wallet_transfer(con,user['id'],req.recipient_id,req.amount_cents,str(req.request_id))
     return {'ok': True, 'already_processed': False, 'transfer': dict(row)}
 
@@ -1835,23 +1843,26 @@ async def wallet_transfer_history(page: int = Query(default=1, ge=1, le=1000000)
         total = con.execute('SELECT COUNT(*) FROM wallet_transfers WHERE sender_id=? OR recipient_id=?', (user['id'],user['id'])).fetchone()[0]
     return {'transfers': [{'id': r['id'], 'direction': 'sent' if r['sender_id']==user['id'] else 'received',
              'member_id': r['recipient_id'] if r['sender_id']==user['id'] else r['sender_id'],
-             'amount_cents': r['amount_cents'], 'created_at': r['created_at']} for r in rows], 'page': page, 'total': total}
+             'amount_cents': r['amount_cents'], 'fee_cents': r['fee_cents'], 'total_debit_cents': r['amount_cents']+r['fee_cents'], 'created_at': r['created_at']} for r in rows], 'page': page, 'total': total}
 
 
 def commit_wallet_transfer(con, sender_id, recipient_id, amount_cents, request_id):
     # Caller owns the immediate transaction, so balance updates and all receipts commit together.
+    total_debit = amount_cents + TRANSFER_FEE_CENTS
+    if total_debit > MAX_WALLET_CENTS:
+        raise HTTPException(422, 'Payment plus fee exceeds the supported amount.')
     recipient = con.execute('SELECT id,balance_cents FROM users WHERE id=?', (recipient_id,)).fetchone()
     if not recipient:
         raise HTTPException(404, 'Recipient is no longer available.')
     if recipient['balance_cents'] > MAX_WALLET_CENTS - amount_cents:
         raise HTTPException(409, 'The recipient cannot receive this amount.')
     debited = con.execute('UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?',
-                          (amount_cents,sender_id,amount_cents))
+                          (total_debit,sender_id,total_debit))
     if debited.rowcount != 1:
-        raise HTTPException(409, 'Insufficient available balance. Pending deposits cannot be sent.')
+        raise HTTPException(409, 'Insufficient available balance for the payment plus the $5.00 merchant fee. Pending deposits cannot be sent.')
     con.execute('UPDATE users SET balance_cents=balance_cents+? WHERE id=?', (amount_cents,recipient_id))
-    cur = con.execute('INSERT INTO wallet_transfers(sender_id,recipient_id,request_id,amount_cents,created_at) VALUES(?,?,?,?,?)',
-                      (sender_id,recipient_id,request_id,amount_cents,now_iso()))
+    cur = con.execute('INSERT INTO wallet_transfers(sender_id,recipient_id,request_id,amount_cents,fee_cents,created_at) VALUES(?,?,?,?,?,?)',
+                      (sender_id,recipient_id,request_id,amount_cents,TRANSFER_FEE_CENTS,now_iso()))
     row = con.execute('SELECT * FROM wallet_transfers WHERE id=?', (cur.lastrowid,)).fetchone()
     return row
 
@@ -1892,6 +1903,7 @@ class PaymentRequestInput(BaseModel):
 
 
 class PaymentRequestDecision(BaseModel):
+    agreed_fee_cents: int | None = Field(default=None,strict=True,ge=0,le=MAX_WALLET_CENTS)
     model_config = {'extra':'forbid'}
     action: Literal['pay','decline','cancel']
 
@@ -1919,13 +1931,17 @@ async def list_payment_requests(page: int = Query(default=1,ge=1,le=1000000),x_t
     user=get_or_create_user(verify_init_data(x_telegram_init_data))
     with db() as con:
         rows=con.execute('''SELECT p.*, r.first_name AS requester_name,r.username AS requester_username,
-            u.first_name AS payer_name,u.username AS payer_username FROM payment_requests p
+            u.first_name AS payer_name,u.username AS payer_username,t.fee_cents AS paid_fee_cents FROM payment_requests p
             JOIN users r ON r.id=p.requester_id JOIN users u ON u.id=p.payer_id
+            LEFT JOIN wallet_transfers t ON t.id=p.transfer_id
             WHERE p.requester_id=? OR p.payer_id=? ORDER BY p.id DESC LIMIT 25 OFFSET ?''',(user['id'],user['id'],(page-1)*25)).fetchall()
         total=con.execute('SELECT COUNT(*) FROM payment_requests WHERE requester_id=? OR payer_id=?',(user['id'],user['id'])).fetchone()[0]
     result=[]
     for row in rows:
-        item=dict(row);item.pop('request_id');item['incoming']=row['payer_id']==user['id'];result.append(item)
+        item=dict(row);item.pop('request_id');item['incoming']=row['payer_id']==user['id']
+        item['fee_cents'] = (row['paid_fee_cents'] or 0) if row['status']=='paid' else TRANSFER_FEE_CENTS if row['status']=='pending' else 0
+        item['total_debit_cents'] = row['amount_cents']+item['fee_cents']
+        result.append(item)
     return {'requests':result,'page':page,'total':total}
 
 
@@ -1944,6 +1960,8 @@ async def decide_payment_request(request_id: int,req: PaymentRequestDecision,x_t
             raise HTTPException(409,'This payment request is already '+row['status']+'. Refresh requests.')
         transfer_id=None
         if req.action=='pay':
+            if req.agreed_fee_cents != TRANSFER_FEE_CENTS:
+                raise HTTPException(409, 'Reopen the app and confirm the $5.00 merchant fee before paying.')
             transfer=commit_wallet_transfer(con,row['payer_id'],row['requester_id'],row['amount_cents'],'payment-request:'+str(row['id']))
             transfer_id=transfer['id']
         con.execute('UPDATE payment_requests SET status=?,transfer_id=?,updated_at=? WHERE id=?',(status,transfer_id,now_iso(),row['id']))

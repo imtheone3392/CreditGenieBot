@@ -571,7 +571,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 <!-- MEMBER PAYMENTS -->
 <section class="card" id="transferSection">
   <div class="card-head"><h2>SEND OR REQUEST PAYMENT</h2><span class="pill">USD WALLET</span></div>
-  <p class="help">Send available wallet balance to another CreditGenie member. Payments arrive immediately with no transfer fee.</p>
+  <p class="help">Send available wallet balance to another CreditGenie member. Each completed payment includes a $5.00 merchant fee deducted from the sender’s balance. The recipient receives the full payment amount.</p>
   <p id="myMemberId" class="notice">Open from Telegram to see your Member ID.</p>
   <p class="help">To receive a payment, share your Member ID with the sender.</p>
   <div class="card-head section-gap"><h2>MEMBERS</h2><span id="paymentMemberCount" class="pill">0</span></div>
@@ -2256,6 +2256,7 @@ $('adminGiftFilter').addEventListener('change',() => loadAdminGifts(1));
 
 
 // Keep an uncertain payment's exact request ID across reloads, preventing double sends.
+const TRANSFER_FEE_CENTS = 500;
 let transferRecipient = null;
 let transferDraft = null;
 let transferBusy = false;
@@ -2267,7 +2268,7 @@ function transferCents(value) {
   if (!/^\d+(?:\.\d{1,2})?$/.test(text)) return null;
   const [whole, fraction=''] = text.split('.');
   const cents = Number(whole)*100 + Number(fraction.padEnd(2,'0'));
-  return Number.isSafeInteger(cents) && cents > 0 ? cents : null;
+  return Number.isSafeInteger(cents) && cents > 0 && cents <= Number.MAX_SAFE_INTEGER-TRANSFER_FEE_CENTS ? cents : null;
 }
 function transferControls() {
   const locked = transferBusy || Boolean(transferDraft);
@@ -2330,11 +2331,16 @@ $('transferForm').addEventListener('submit', async event => {
     }
     if (!amount) { $('transferStatus').textContent = 'Enter an amount of at least $0.01 with no more than two decimal places.'; return; }
     const kind = $('paymentMode').value === 'request' ? 'request' : 'send';
-    if (!window.confirm(kind === 'request' ? `Request ${giftMoney(amount)} from ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nNo money moves until they approve.` : `Send ${giftMoney(amount)} to ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nNo transfer fee. The money moves immediately and cannot be canceled in the app.`)) return;
-    const draft = {kind,recipient_id:transferRecipient.member_id, recipient_name:transferRecipient.first_name, amount_cents:amount, request_id:crypto.randomUUID()};
+    if (!window.confirm(kind === 'request' ? `Request ${giftMoney(amount)} from ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nThe payer will pay a $5.00 merchant fee in addition to this amount. No money moves until they approve.` : `Send ${giftMoney(amount)} to ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nMerchant fee: $5.00\nTotal deducted: ${giftMoney(amount+TRANSFER_FEE_CENTS)}\nThe recipient receives ${giftMoney(amount)}. The money moves immediately and cannot be canceled in the app.`)) return;
+    const draft = {kind,...(kind==='send' ? {agreed_fee_cents:TRANSFER_FEE_CENTS} : {}),recipient_id:transferRecipient.member_id, recipient_name:transferRecipient.first_name, amount_cents:amount, request_id:crypto.randomUUID()};
     try { localStorage.setItem(transferStorageKey,JSON.stringify(draft)); }
     catch (_) { $('transferStatus').textContent = 'Payment was not sent. Enable browser storage and reopen the app to protect against duplicate payments.'; return; }
     transferDraft = draft;
+  }
+  if (transferDraft.kind !== 'request' && transferDraft.agreed_fee_cents !== TRANSFER_FEE_CENTS) {
+    if (!window.confirm(`Check or complete the previous payment of ${giftMoney(transferDraft.amount_cents)} to ${transferDraft.recipient_name} (Member ID ${transferDraft.recipient_id})?\n\nIf not already completed, a $5.00 merchant fee applies. Total deducted: ${giftMoney(transferDraft.amount_cents+TRANSFER_FEE_CENTS)}. Completed payments are never charged again.`)) return;
+    try { const updated = {...transferDraft,agreed_fee_cents:TRANSFER_FEE_CENTS};localStorage.setItem(transferStorageKey,JSON.stringify(updated));transferDraft=updated; }
+    catch (_) { $('transferStatus').textContent='Unable to save payment confirmation. Please reopen the app.';return; }
   }
   transferBusy = true; transferControls();
   $('transferStatus').textContent = 'Checking payment…';
@@ -2349,7 +2355,7 @@ $('transferForm').addEventListener('submit', async event => {
     transferDraft = null; transferRecipient = null;
     $('transferAmount').value = ''; $('transferRecipient').value = '';
     $('transferRecipientDetails').textContent = 'Check the recipient before sending.';
-    $('transferStatus').textContent = requesting ? `Request #${result.request.id} ${result.request.status}: ${giftMoney(result.request.amount_cents)} from ${completed.recipient_name}. No money moves until approval.` : `${result.already_processed ? 'Payment confirmed' : 'Payment sent'}: ${giftMoney(result.transfer.amount_cents)} to ${completed.recipient_name} (Member ID ${result.transfer.recipient_id}). Receipt #${result.transfer.id}.`;
+    $('transferStatus').textContent = requesting ? `Request #${result.request.id} ${result.request.status}: ${giftMoney(result.request.amount_cents)} from ${completed.recipient_name}. No money moves until approval.` : `${result.already_processed ? 'Payment confirmed' : 'Payment sent'}: ${giftMoney(result.transfer.amount_cents)} to ${completed.recipient_name} (Member ID ${result.transfer.recipient_id}). Merchant fee: ${giftMoney(result.transfer.fee_cents || 0)}. Total deducted: ${giftMoney(result.transfer.amount_cents+(result.transfer.fee_cents || 0))}. Receipt #${result.transfer.id}.`;
     await Promise.all([loadWallet(),loadTransfers(1),loadPaymentRequests(1)]);
   } catch (e) {
     if (e.status >= 400 && e.status < 500 && ![408,429].includes(e.status)) {
@@ -2365,7 +2371,7 @@ async function loadTransfers(page = transferPage) {
   try {
     const data = await api(`/api/transfers?page=${Math.max(1,page)}`);
     transferPage = data.page;
-    $('transferHistory').innerHTML = data.transfers.map(t => `<div class="deposit-item"><strong>${t.direction==='sent' ? 'Sent' : 'Received'} ${giftMoney(t.amount_cents)}</strong><p>${t.direction==='sent' ? 'To' : 'From'} Member ID ${Number(t.member_id)} · Receipt #${Number(t.id)}</p><p>${esc(prettyTime(t.created_at))} · Completed</p></div>`).join('') || '<div class="empty">No payments yet.</div>';
+    $('transferHistory').innerHTML = data.transfers.map(t => `<div class="deposit-item"><strong>${t.direction==='sent' ? 'Sent' : 'Received'} ${giftMoney(t.amount_cents)}</strong><p>${t.direction==='sent' ? 'To' : 'From'} Member ID ${Number(t.member_id)} · Receipt #${Number(t.id)}</p><p>${t.direction==='sent' ? 'Merchant fee: '+giftMoney(t.fee_cents)+' · Total deducted: '+giftMoney(t.total_debit_cents) : 'Full payment received; sender pays the merchant fee.'}</p><p>${esc(prettyTime(t.created_at))} · Completed</p></div>`).join('') || '<div class="empty">No payments yet.</div>';
     $('transferPrev').disabled = transferPage<=1;
     $('transferNext').disabled = transferPage*25>=data.total;
   } catch (e) { $('transferHistory').textContent = e.message; }
@@ -2414,7 +2420,7 @@ async function loadPaymentRequests(page = paymentRequestPage) {
     $('paymentRequestList').innerHTML = data.requests.map(r=>{
       const other = r.incoming ? {member_id:r.requester_id,first_name:r.requester_name,username:r.requester_username} : {member_id:r.payer_id,first_name:r.payer_name,username:r.payer_username};
       const buttons = r.status!=='pending' ? '' : r.incoming ? `<button data-action="pay">APPROVE & PAY</button><button data-action="decline" class="btn-blue">DECLINE</button>` : '<button data-action="cancel" class="btn-blue">CANCEL REQUEST</button>';
-      return `<div class="deposit-item" data-request="${Number(r.id)}"><strong>${r.incoming ? 'Requested from you' : 'You requested'}: ${giftMoney(r.amount_cents)}</strong><p>${esc(memberLabel(other))}</p><p>Request #${Number(r.id)} · ${esc(r.status)} · ${esc(prettyTime(r.created_at))}${r.transfer_id ? ' · Receipt #'+Number(r.transfer_id) : ''}</p><div class="actions">${buttons}</div></div>`;
+      return `<div class="deposit-item" data-request="${Number(r.id)}"><strong>${r.incoming ? 'Requested from you' : 'You requested'}: ${giftMoney(r.amount_cents)}</strong><p>${esc(memberLabel(other))}</p><p>${r.status==='pending' || r.status==='paid' ? 'Payer merchant fee: '+giftMoney(r.fee_cents)+' · Payer total: '+giftMoney(r.total_debit_cents) : 'No payment or fee charged.'}</p><p>Request #${Number(r.id)} · ${esc(r.status)} · ${esc(prettyTime(r.created_at))}${r.transfer_id ? ' · Receipt #'+Number(r.transfer_id) : ''}</p><div class="actions">${buttons}</div></div>`;
     }).join('') || '<div class="empty">No payment requests.</div>';
     $('paymentRequestList').querySelectorAll('[data-request]').forEach(item=>{
       const row=data.requests.find(r=>r.id===Number(item.dataset.request));
@@ -2429,11 +2435,11 @@ async function loadPaymentRequests(page = paymentRequestPage) {
 }
 async function reviewPaymentRequest(row,action) {
   if(paymentRequestBusy.has(row.id)) return;
-  const prompt = action==='pay' ? `Pay ${giftMoney(row.amount_cents)} to ${row.requester_name || 'Member'} (Member ID ${row.requester_id}) for request #${row.id}?\n\nYour wallet will be charged immediately. This payment cannot be canceled.` : `${action==='decline'?'Decline':'Cancel'} request #${row.id} for ${giftMoney(row.amount_cents)}? No money will move.`;
+  const prompt = action==='pay' ? `Pay ${giftMoney(row.amount_cents)} to ${row.requester_name || 'Member'} (Member ID ${row.requester_id}) for request #${row.id}?\n\nPayment: ${giftMoney(row.amount_cents)}\nMerchant fee: $5.00\nTotal deducted: ${giftMoney(row.amount_cents+TRANSFER_FEE_CENTS)}\nYour wallet will be charged immediately. This payment cannot be canceled.` : `${action==='decline'?'Decline':'Cancel'} request #${row.id} for ${giftMoney(row.amount_cents)}? No money will move.`;
   if(!window.confirm(prompt)) return;
   paymentRequestBusy.add(row.id);
   try {
-    const result=await api(`/api/payment-requests/${row.id}/decision`,{method:'POST',body:JSON.stringify({action})});
+    const result=await api(`/api/payment-requests/${row.id}/decision`,{method:'POST',body:JSON.stringify({action,...(action==='pay' ? {agreed_fee_cents:TRANSFER_FEE_CENTS} : {})})});
     $('paymentRequestStatus').textContent=`Request #${row.id}: ${result.status}${result.transfer_id ? ' · Receipt #'+result.transfer_id : ''}.`;
   } catch(e) { $('paymentRequestStatus').textContent=e.status ? e.message : 'Result not confirmed. Refresh requests, then retry this same request if still pending; it cannot charge twice.'; }
   finally { paymentRequestBusy.delete(row.id);await Promise.all([loadPaymentRequests(),loadTransfers(),loadWallet()]); }
