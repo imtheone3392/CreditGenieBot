@@ -93,9 +93,9 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.client.get('/api/admin/gift-cards/orders?status=approved',headers=auth(900)).json()['total'],1)
 
     def test_quantity_discount_boundaries(self):
-        for qty, charge, percent in [(1,40000,0),(2,28000,65),(9,126000,65),(10,140000,65),(11,154000,65),(50,700000,65)]:
+        for qty, charge, percent in [(1,40000,0),(2,52000,35),(9,234000,35),(10,260000,35),(11,286000,35),(50,1300000,35)]:
             with self.subTest(quantity=qty):
-                self.fund(1000000)
+                self.fund(2000000)
                 result=self.buy({**self.payload(),'quantity':qty})
                 self.assertEqual(result.status_code,200,result.text)
                 order=result.json()['order']
@@ -104,26 +104,26 @@ class GiftCards(unittest.TestCase):
                 self.assertEqual(order['charged_cents'],charge)
                 self.assertEqual(order['discount_percent'],percent)
                 self.assertEqual(order['discount_cents'],qty*40000-charge)
-                self.assertEqual(self.balance(),1000000-charge)
-        self.fund(2500000)
+                self.assertEqual(self.balance(),2000000-charge)
+        self.fund(4000000)
         order=self.buy({**self.payload(100000),'quantity':50}).json()['order']
-        self.assertEqual(order['charged_cents'],1750000)
+        self.assertEqual(order['charged_cents'],3250000)
         self.assertEqual(self.balance(),750000)
 
     def test_invalid_quantity_and_price_tampering(self):
-        self.fund(1000000)
+        self.fund(2000000)
         for qty in [0,-1,51,100,1.5,True,'11',None]:
             with self.subTest(quantity=qty):
                 self.assertEqual(self.buy({**self.payload(),'quantity':qty}).status_code,422)
         for key in ['charged_cents','discount_percent','total_value_cents']:
             self.assertEqual(self.buy({**self.payload(),'quantity':11,key:1}).status_code,422)
-        self.assertEqual(self.balance(),1000000)
+        self.assertEqual(self.balance(),2000000)
         payload={**self.payload(),'quantity':11}
         self.assertEqual(self.buy(payload).status_code,200)
         self.assertEqual(self.buy({**payload,'quantity':12}).status_code,409)
 
     def test_discounted_rejection_refunds_payment_once(self):
-        self.fund(154000)
+        self.fund(286000)
         payload={**self.payload(),'quantity':11}
         order=self.buy(payload).json()['order'];oid=order['id']
         self.assertEqual(self.balance(),0)
@@ -132,16 +132,16 @@ class GiftCards(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=2) as pool:
             results=list(pool.map(lambda _:self.decide(oid,status='rejected',details='Unavailable'),range(2)))
         self.assertEqual([r.status_code for r in results],[200,200])
-        self.assertEqual(self.balance(),154000)
+        self.assertEqual(self.balance(),286000)
         row=self.client.get('/api/gift-cards/orders',headers=auth(100)).json()['orders'][0]
-        self.assertEqual(row['refunded_cents'],154000)
+        self.assertEqual(row['refunded_cents'],286000)
         self.assertEqual(row['total_value_cents'],440000)
-        self.assertEqual(row['discount_percent'],65)
+        self.assertEqual(row['discount_percent'],35)
 
     def test_bulk_order_approval_and_cent_rounding(self):
-        self.fund(154008)
+        self.fund(286014)
         order=self.buy({**self.payload(40002),'quantity':11}).json()['order']
-        self.assertEqual(order['charged_cents'],154008)
+        self.assertEqual(order['charged_cents'],286014)
         self.assertEqual(self.balance(),0)
         oid=order['id']
         app.init_db()
@@ -149,8 +149,8 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.balance(),0)
         row=self.client.get('/api/admin/gift-cards/orders?status=approved',headers=auth(900)).json()['orders'][0]
         self.assertEqual(row['quantity'],11)
-        self.assertEqual(row['charged_cents'],154008)
-        self.assertEqual(row['discount_cents'],286014)
+        self.assertEqual(row['charged_cents'],286014)
+        self.assertEqual(row['discount_cents'],154008)
         self.assertIn('11 cards',self.sender.call_args.kwargs['text'])
         self.assertEqual(self.client.get('/api/gift-cards/orders',headers=auth(101)).json()['orders'],[])
 
@@ -175,17 +175,17 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.balance(),before+40000)
 
     def test_competing_bulk_orders_respect_discounted_balance(self):
-        self.fund(200000)
+        self.fund(300000)
         with ThreadPoolExecutor(max_workers=2) as pool:
             codes=list(pool.map(lambda _:self.buy({**self.payload(),'quantity':11}).status_code,range(2)))
         self.assertEqual(sorted(codes),[200,409])
-        self.assertEqual(self.balance(),46000)
+        self.assertEqual(self.balance(),14000)
 
     def test_previous_discount_schema_and_orders_are_preserved(self):
         with app.db() as con:
             schema=con.execute("SELECT sql FROM sqlite_master WHERE name='gift_card_orders'").fetchone()['sql']
             con.execute('DROP TABLE gift_card_orders')
-            con.execute(schema.replace('(0,15,40,60,65)', '(0,60)'))
+            con.execute(schema.replace('(0,15,35,40,60,65)', '(0,60)'))
             con.execute('''INSERT INTO gift_card_orders
                 (id,user_id,request_id,brand_id,brand_name,amount_cents,quantity,discount_percent,charged_cents,created_at,updated_at)
                 VALUES(77,?,?,?,?,40000,11,60,176000,?,?)''',
@@ -198,14 +198,14 @@ class GiftCards(unittest.TestCase):
         self.assertEqual(self.balance(),before+176000)
         order=self.buy({**self.payload(),'quantity':2}).json()['order']
         self.assertGreater(order['id'],77)
-        self.assertEqual((order['discount_percent'],order['charged_cents']),(65,28000))
+        self.assertEqual((order['discount_percent'],order['charged_cents']),(35,52000))
 
 
     def test_65_percent_schema_preserved_and_new_quote_required(self):
         with app.db() as con:
             schema=con.execute("SELECT sql FROM sqlite_master WHERE name='gift_card_orders'").fetchone()['sql']
             con.execute('DROP TABLE gift_card_orders')
-            con.execute(schema.replace('(0,15,40,60,65)','(0,60,65)'))
+            con.execute(schema.replace('(0,15,35,40,60,65)','(0,15,40,60,65)'))
             con.execute('''INSERT INTO gift_card_orders(user_id,request_id,brand_id,brand_name,amount_cents,quantity,discount_percent,charged_cents,created_at,updated_at)
                 VALUES(?,?,?,?,40000,2,65,28000,?,?)''',(self.user['id'],str(uuid.uuid4()),'legacy','Legacy',app.now_iso(),app.now_iso()))
         app.init_db();app.init_db();self.fund()
@@ -213,16 +213,16 @@ class GiftCards(unittest.TestCase):
         self.assertEqual((row['discount_percent'],row['charged_cents']),(65,28000))
         p={**self.payload(),'quantity':2}
         self.assertEqual(self.client.post('/api/gift-cards/orders',headers=auth(100),json=p).status_code,409)
-        self.assertEqual(self.buy({**p,'agreed_charged_cents':68000}).status_code,409)
+        self.assertEqual(self.buy({**p,'agreed_charged_cents':28000}).status_code,409)
         self.assertEqual(self.buy(p).status_code,200)
-        self.assertEqual(self.balance(),72000)
+        self.assertEqual(self.balance(),48000)
 
 
     def test_previous_40_percent_schema_keeps_paid_prices(self):
         with app.db() as con:
             schema=con.execute("SELECT sql FROM sqlite_master WHERE name='gift_card_orders'").fetchone()['sql']
             con.execute('DROP TABLE gift_card_orders')
-            con.execute(schema.replace('(0,15,40,60,65)','(0,40,60,65)'))
+            con.execute(schema.replace('(0,15,35,40,60,65)','(0,40,60,65)'))
             con.execute('''INSERT INTO gift_card_orders(user_id,request_id,brand_id,brand_name,amount_cents,quantity,discount_percent,charged_cents,created_at,updated_at)
                 VALUES(?,?,?,?,40000,2,40,48000,?,?)''',(self.user['id'],str(uuid.uuid4()),'legacy','Legacy',app.now_iso(),app.now_iso()))
         before=self.balance();app.init_db();app.init_db()
