@@ -570,21 +570,34 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
 <!-- MEMBER PAYMENTS -->
 <section class="card" id="transferSection">
-  <div class="card-head"><h2>SEND PAYMENT</h2><span class="pill">USD WALLET</span></div>
+  <div class="card-head"><h2>SEND OR REQUEST PAYMENT</h2><span class="pill">USD WALLET</span></div>
   <p class="help">Send available wallet balance to another CreditGenie member. Payments arrive immediately with no transfer fee.</p>
   <p id="myMemberId" class="notice">Open from Telegram to see your Member ID.</p>
   <p class="help">To receive a payment, share your Member ID with the sender.</p>
+  <div class="card-head section-gap"><h2>MEMBERS</h2><span id="paymentMemberCount" class="pill">0</span></div>
+  <label for="paymentMemberSearch">Find members</label>
+  <input id="paymentMemberSearch" placeholder="Search name, @username, or Member ID" autocomplete="off">
+  <div class="actions"><button id="searchPaymentMembers" class="btn-blue" type="button">SEARCH MEMBERS</button></div>
+  <div id="paymentMemberList"></div>
+  <div class="actions"><button id="paymentMemberPrev" class="btn-blue" type="button" disabled>PREVIOUS MEMBERS</button><button id="paymentMemberNext" class="btn-blue" type="button" disabled>NEXT MEMBERS</button></div>
   <form id="transferForm">
-    <label for="transferRecipient">Recipient Member ID</label>
-    <input id="transferRecipient" inputmode="numeric" autocomplete="off" placeholder="Ask the recipient for their Member ID" required>
+    <label for="paymentMode">What would you like to do?</label>
+    <select id="paymentMode"><option value="send">Send payment</option><option value="request">Request payment</option></select>
+    <label for="transferRecipient">Member ID or @username</label>
+    <input id="transferRecipient" autocomplete="off" placeholder="Enter @username or Member ID" required>
     <div class="actions"><button id="findTransferRecipient" class="btn-blue" type="button">CHECK RECIPIENT</button></div>
     <p id="transferRecipientDetails" class="help" aria-live="polite">Check the recipient before sending.</p>
-    <label for="transferAmount">Amount to send (USD)</label>
+    <label for="transferAmount">Amount (USD)</label>
     <input id="transferAmount" inputmode="decimal" autocomplete="off" placeholder="Example: 25.00" required>
     <p class="notice">Use confirmed available balance only. Verify the Member ID with the recipient. Completed payments cannot be canceled in the app.</p>
     <div class="actions"><button id="sendTransferBtn" type="submit" disabled>REVIEW & SEND PAYMENT</button></div>
   </form>
   <div id="transferStatus" class="status" role="status" aria-live="polite"></div>
+  <p class="help">Requesting payment does not move money. The other member must approve it. Check the member’s name and ID before sending or requesting.</p>
+  <div class="card-head section-gap"><h2>PAYMENT REQUESTS</h2><button id="refreshPaymentRequests" class="btn-blue" type="button">REFRESH REQUESTS</button></div>
+  <div id="paymentRequestList"></div>
+  <div id="paymentRequestStatus" class="status" role="status" aria-live="polite"></div>
+  <div class="actions"><button id="paymentRequestPrev" class="btn-blue" type="button" disabled>PREVIOUS REQUESTS</button><button id="paymentRequestNext" class="btn-blue" type="button" disabled>NEXT REQUESTS</button></div>
   <div class="card-head section-gap"><h2>PAYMENT HISTORY</h2><button id="refreshTransfers" class="btn-blue" type="button">REFRESH</button></div>
   <div id="transferHistory"></div>
   <div class="actions"><button id="transferPrev" class="btn-blue" type="button" disabled>PREVIOUS</button><button id="transferNext" class="btn-blue" type="button" disabled>NEXT</button></div>
@@ -1911,6 +1924,7 @@ async function creditAdminDeposit(
       loadAdminDeposits(),
       loadWallet(),
     loadTransfers(),
+    loadPaymentRequests(),
       loadDeposits(),
       loadAdminMembers()
     ]);
@@ -2258,10 +2272,12 @@ function transferCents(value) {
 function transferControls() {
   const locked = transferBusy || Boolean(transferDraft);
   $('transferRecipient').disabled = locked;
+  $('paymentMode').disabled = locked;
   $('transferAmount').disabled = locked;
   $('findTransferRecipient').disabled = locked || !currentUser;
   $('sendTransferBtn').disabled = transferBusy || !currentUser || (!transferDraft && !transferRecipient);
-  $('sendTransferBtn').textContent = transferDraft ? 'RETRY SAME PAYMENT' : 'REVIEW & SEND PAYMENT';
+  const requesting = (transferDraft?.kind || $('paymentMode').value) === 'request';
+  $('sendTransferBtn').textContent = transferDraft ? (requesting ? 'RETRY SAME REQUEST' : 'RETRY SAME PAYMENT') : (requesting ? 'REVIEW & REQUEST PAYMENT' : 'REVIEW & SEND PAYMENT');
 }
 function initializeTransfers(me) {
   $('myMemberId').textContent = `Your Member ID: ${me.member_id}`;
@@ -2269,6 +2285,7 @@ function initializeTransfers(me) {
   try {
     transferDraft = JSON.parse(localStorage.getItem(transferStorageKey) || 'null');
     if (transferDraft) {
+      $('paymentMode').value = transferDraft.kind || 'send';
       $('transferRecipient').value = transferDraft.recipient_id;
       $('transferAmount').value = (transferDraft.amount_cents/100).toFixed(2);
       $('transferRecipientDetails').textContent = `${transferDraft.recipient_name} · Member ID ${transferDraft.recipient_id}`;
@@ -2277,6 +2294,7 @@ function initializeTransfers(me) {
   } catch (_) { transferDraft = null; }
   transferControls();
 }
+$('paymentMode').addEventListener('change',transferControls);
 $('transferRecipient').addEventListener('input', () => {
   transferLookupGeneration++;
   transferRecipient = null;
@@ -2287,15 +2305,16 @@ $('findTransferRecipient').addEventListener('click', async () => {
   const text = $('transferRecipient').value.trim();
   const generation = ++transferLookupGeneration;
   transferRecipient = null; transferControls();
-  if (!/^\d+$/.test(text) || !Number.isSafeInteger(Number(text)) || Number(text)<1) {
-    $('transferRecipientDetails').textContent = 'Enter a valid Member ID.'; return;
+  const numeric = /^\d+$/.test(text);
+  if (!text || (numeric && (!Number.isSafeInteger(Number(text)) || Number(text)<1))) {
+    $('transferRecipientDetails').textContent = 'Enter a Member ID or @username.'; return;
   }
   $('transferRecipientDetails').textContent = 'Checking recipient…';
   try {
-    const member = await api(`/api/transfers/recipient/${Number(text)}`);
+    const member = await api(numeric ? `/api/transfers/recipient/${Number(text)}` : `/api/transfers/resolve?username=${encodeURIComponent(text)}`);
     if (generation !== transferLookupGeneration) return;
     transferRecipient = member;
-    $('transferRecipientDetails').textContent = `${member.first_name} · Member ID ${member.member_id}. Confirm this is the person you intend to pay.`;
+    $('transferRecipientDetails').textContent = `${member.first_name}${member.username ? ' (@'+member.username+')' : ''} · Member ID ${member.member_id}. Confirm this is the intended member.`;
   } catch (e) {
     if (generation === transferLookupGeneration) $('transferRecipientDetails').textContent = e.message;
   }
@@ -2306,12 +2325,13 @@ $('transferForm').addEventListener('submit', async event => {
   if (transferBusy || !currentUser) return;
   if (!transferDraft) {
     const amount = transferCents($('transferAmount').value);
-    if (!transferRecipient || Number($('transferRecipient').value)!==transferRecipient.member_id) {
+    if (!transferRecipient) {
       $('transferStatus').textContent = 'Check the recipient first.'; return;
     }
     if (!amount) { $('transferStatus').textContent = 'Enter an amount of at least $0.01 with no more than two decimal places.'; return; }
-    if (!window.confirm(`Send ${giftMoney(amount)} to ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nNo transfer fee. The money moves immediately and cannot be canceled in the app.`)) return;
-    const draft = {recipient_id:transferRecipient.member_id, recipient_name:transferRecipient.first_name, amount_cents:amount, request_id:crypto.randomUUID()};
+    const kind = $('paymentMode').value === 'request' ? 'request' : 'send';
+    if (!window.confirm(kind === 'request' ? `Request ${giftMoney(amount)} from ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nNo money moves until they approve.` : `Send ${giftMoney(amount)} to ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nNo transfer fee. The money moves immediately and cannot be canceled in the app.`)) return;
+    const draft = {kind,recipient_id:transferRecipient.member_id, recipient_name:transferRecipient.first_name, amount_cents:amount, request_id:crypto.randomUUID()};
     try { localStorage.setItem(transferStorageKey,JSON.stringify(draft)); }
     catch (_) { $('transferStatus').textContent = 'Payment was not sent. Enable browser storage and reopen the app to protect against duplicate payments.'; return; }
     transferDraft = draft;
@@ -2319,23 +2339,25 @@ $('transferForm').addEventListener('submit', async event => {
   transferBusy = true; transferControls();
   $('transferStatus').textContent = 'Checking payment…';
   try {
-    const {recipient_name,...payload} = transferDraft;
-    const result = await api('/api/transfers',{method:'POST',body:JSON.stringify(payload)});
+    const {recipient_name,kind,...payload} = transferDraft;
+    const requesting = kind === 'request';
+    const body = requesting ? {payer_id:payload.recipient_id,amount_cents:payload.amount_cents,request_id:payload.request_id} : payload;
+    const result = await api(requesting ? '/api/payment-requests' : '/api/transfers',{method:'POST',body:JSON.stringify(body)});
     const completed = transferDraft;
     // Clear retry state only after a definite result; history remains on the server.
     try { localStorage.removeItem(transferStorageKey); } catch (_) {}
     transferDraft = null; transferRecipient = null;
     $('transferAmount').value = ''; $('transferRecipient').value = '';
     $('transferRecipientDetails').textContent = 'Check the recipient before sending.';
-    $('transferStatus').textContent = `${result.already_processed ? 'Payment confirmed' : 'Payment sent'}: ${giftMoney(result.transfer.amount_cents)} to ${completed.recipient_name} (Member ID ${result.transfer.recipient_id}). Receipt #${result.transfer.id}.`;
-    await Promise.all([loadWallet(),loadTransfers(1)]);
+    $('transferStatus').textContent = requesting ? `Request #${result.request.id} ${result.request.status}: ${giftMoney(result.request.amount_cents)} from ${completed.recipient_name}. No money moves until approval.` : `${result.already_processed ? 'Payment confirmed' : 'Payment sent'}: ${giftMoney(result.transfer.amount_cents)} to ${completed.recipient_name} (Member ID ${result.transfer.recipient_id}). Receipt #${result.transfer.id}.`;
+    await Promise.all([loadWallet(),loadTransfers(1),loadPaymentRequests(1)]);
   } catch (e) {
     if (e.status >= 400 && e.status < 500 && ![408,429].includes(e.status)) {
       try { localStorage.removeItem(transferStorageKey); } catch (_) {}
       transferDraft = null;
       $('transferStatus').textContent = e.message;
     } else {
-      $('transferStatus').textContent = 'Payment result is not confirmed. Use RETRY SAME PAYMENT to safely check or complete it without sending twice.';
+      $('transferStatus').textContent = 'Result is not confirmed. Use the retry button to check or complete the same payment or request without duplicating it.';
     }
   } finally { transferBusy = false; transferControls(); }
 });
@@ -2352,14 +2374,88 @@ $('refreshTransfers').addEventListener('click',()=>Promise.all([loadWallet(),loa
 $('transferPrev').addEventListener('click',()=>loadTransfers(transferPage-1));
 $('transferNext').addEventListener('click',()=>loadTransfers(transferPage+1));
 
+
+// Member directory and payer-authorized requests.
+let paymentMemberPage = 1;
+let paymentMemberQuery = '';
+let paymentRequestPage = 1;
+let paymentDirectoryGeneration = 0;
+const paymentRequestBusy = new Set();
+function memberLabel(member) {
+  return `${member.first_name || 'Member'}${member.username ? ' (@'+member.username+')' : ''} · Member ID ${member.member_id}`;
+}
+async function loadPaymentMembers(page = paymentMemberPage) {
+  const generation = ++paymentDirectoryGeneration;
+  try {
+    const data = await api(`/api/payment-members?page=${Math.max(1,page)}&search=${encodeURIComponent(paymentMemberQuery)}`);
+    if (generation !== paymentDirectoryGeneration) return;
+    paymentMemberPage = data.page;
+    $('paymentMemberCount').textContent = `${data.total} members`;
+    $('paymentMemberList').innerHTML = data.members.map(m => `<div class="deposit-item"><p>${esc(memberLabel(m))}${m.member_id===currentUser?.member_id ? ' · You' : ''}</p>${m.member_id===currentUser?.member_id ? '' : `<div class="actions"><button class="btn-blue" type="button" data-member="${Number(m.member_id)}" data-mode="send">SEND</button><button class="btn-blue" type="button" data-member="${Number(m.member_id)}" data-mode="request">REQUEST</button></div>`}</div>`).join('') || '<div class="empty">No members found.</div>';
+    $('paymentMemberList').querySelectorAll('button[data-member]').forEach(button => button.addEventListener('click',()=>{
+      if (transferBusy || transferDraft) { $('transferStatus').textContent = 'Finish checking your previous payment or request first.'; return; }
+      const member = data.members.find(m=>m.member_id===Number(button.dataset.member));
+      transferLookupGeneration++;
+      transferRecipient = member;
+      $('transferRecipient').value = member.member_id;
+      $('paymentMode').value = button.dataset.mode;
+      $('transferRecipientDetails').textContent = memberLabel(member);
+      $('transferStatus').textContent = '';
+      transferControls(); $('transferAmount').focus();
+    }));
+    $('paymentMemberPrev').disabled = data.page<=1;
+    $('paymentMemberNext').disabled = data.page*25>=data.total;
+  } catch(e) { if(generation===paymentDirectoryGeneration) $('paymentMemberList').textContent=e.message; }
+}
+async function loadPaymentRequests(page = paymentRequestPage) {
+  try {
+    const data = await api(`/api/payment-requests?page=${Math.max(1,page)}`);
+    paymentRequestPage = data.page;
+    $('paymentRequestList').innerHTML = data.requests.map(r=>{
+      const other = r.incoming ? {member_id:r.requester_id,first_name:r.requester_name,username:r.requester_username} : {member_id:r.payer_id,first_name:r.payer_name,username:r.payer_username};
+      const buttons = r.status!=='pending' ? '' : r.incoming ? `<button data-action="pay">APPROVE & PAY</button><button data-action="decline" class="btn-blue">DECLINE</button>` : '<button data-action="cancel" class="btn-blue">CANCEL REQUEST</button>';
+      return `<div class="deposit-item" data-request="${Number(r.id)}"><strong>${r.incoming ? 'Requested from you' : 'You requested'}: ${giftMoney(r.amount_cents)}</strong><p>${esc(memberLabel(other))}</p><p>Request #${Number(r.id)} · ${esc(r.status)} · ${esc(prettyTime(r.created_at))}${r.transfer_id ? ' · Receipt #'+Number(r.transfer_id) : ''}</p><div class="actions">${buttons}</div></div>`;
+    }).join('') || '<div class="empty">No payment requests.</div>';
+    $('paymentRequestList').querySelectorAll('[data-request]').forEach(item=>{
+      const row=data.requests.find(r=>r.id===Number(item.dataset.request));
+      item.querySelectorAll('button').forEach(button=>{
+        button.type='button';button.disabled=paymentRequestBusy.has(row.id);
+        button.addEventListener('click',()=>reviewPaymentRequest(row,button.dataset.action));
+      });
+    });
+    $('paymentRequestPrev').disabled=data.page<=1;
+    $('paymentRequestNext').disabled=data.page*25>=data.total;
+  } catch(e) { $('paymentRequestList').textContent=e.message; }
+}
+async function reviewPaymentRequest(row,action) {
+  if(paymentRequestBusy.has(row.id)) return;
+  const prompt = action==='pay' ? `Pay ${giftMoney(row.amount_cents)} to ${row.requester_name || 'Member'} (Member ID ${row.requester_id}) for request #${row.id}?\n\nYour wallet will be charged immediately. This payment cannot be canceled.` : `${action==='decline'?'Decline':'Cancel'} request #${row.id} for ${giftMoney(row.amount_cents)}? No money will move.`;
+  if(!window.confirm(prompt)) return;
+  paymentRequestBusy.add(row.id);
+  try {
+    const result=await api(`/api/payment-requests/${row.id}/decision`,{method:'POST',body:JSON.stringify({action})});
+    $('paymentRequestStatus').textContent=`Request #${row.id}: ${result.status}${result.transfer_id ? ' · Receipt #'+result.transfer_id : ''}.`;
+  } catch(e) { $('paymentRequestStatus').textContent=e.status ? e.message : 'Result not confirmed. Refresh requests, then retry this same request if still pending; it cannot charge twice.'; }
+  finally { paymentRequestBusy.delete(row.id);await Promise.all([loadPaymentRequests(),loadTransfers(),loadWallet()]); }
+}
+$('searchPaymentMembers').addEventListener('click',()=>{paymentMemberQuery=$('paymentMemberSearch').value.trim();loadPaymentMembers(1);});
+$('paymentMemberSearch').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();paymentMemberQuery=$('paymentMemberSearch').value.trim();loadPaymentMembers(1);}});
+$('paymentMemberPrev').addEventListener('click',()=>loadPaymentMembers(paymentMemberPage-1));
+$('paymentMemberNext').addEventListener('click',()=>loadPaymentMembers(paymentMemberPage+1));
+$('refreshPaymentRequests').addEventListener('click',()=>loadPaymentRequests());
+$('paymentRequestPrev').addEventListener('click',()=>loadPaymentRequests(paymentRequestPage-1));
+$('paymentRequestNext').addEventListener('click',()=>loadPaymentRequests(paymentRequestPage+1));
+
 async function startApp() {
 
   await loadMe();
   await loadGiftCatalog();
+  await loadPaymentMembers();
 
   await Promise.all([
     loadWallet(),
     loadTransfers(),
+    loadPaymentRequests(),
     loadGiftHistory(),
     loadAdminGifts(),
     loadDeposits(),
@@ -2383,6 +2479,7 @@ setInterval(
     await Promise.all([
       loadWallet(),
     loadTransfers(),
+    loadPaymentRequests(),
       loadGiftHistory(),
       loadAdminGifts(),
       loadDeposits(),

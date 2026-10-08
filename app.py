@@ -231,6 +231,22 @@ def init_db():
                 CHECK(sender_id<>recipient_id),
                 UNIQUE(sender_id,request_id)
             );
+            CREATE TABLE IF NOT EXISTS payment_requests(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                requester_id INTEGER NOT NULL REFERENCES users(id),
+                payer_id INTEGER NOT NULL REFERENCES users(id),
+                request_id TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL CHECK(amount_cents>0),
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid','declined','canceled')),
+                transfer_id INTEGER REFERENCES wallet_transfers(id),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                CHECK(requester_id<>payer_id),
+                UNIQUE(requester_id,request_id)
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_payment_request_pending ON payment_requests(requester_id,payer_id) WHERE status='pending';
+            CREATE INDEX IF NOT EXISTS idx_payment_request_payer ON payment_requests(payer_id,id DESC);
+            CREATE INDEX IF NOT EXISTS idx_payment_request_requester ON payment_requests(requester_id,id DESC);
             CREATE INDEX IF NOT EXISTS idx_transfers_sender ON wallet_transfers(sender_id,id DESC);
             CREATE INDEX IF NOT EXISTS idx_transfers_recipient ON wallet_transfers(recipient_id,id DESC);
 
@@ -1806,19 +1822,7 @@ async def send_wallet_transfer(req: WalletTransferInput, x_telegram_init_data: s
             if existing['recipient_id'] != req.recipient_id or existing['amount_cents'] != req.amount_cents:
                 raise HTTPException(409, 'This payment reference was already used for different details.')
             return {'ok': True, 'already_processed': True, 'transfer': dict(existing)}
-        recipient = con.execute('SELECT id,balance_cents FROM users WHERE id=?', (req.recipient_id,)).fetchone()
-        if not recipient:
-            raise HTTPException(404, 'Recipient is no longer available.')
-        if recipient['balance_cents'] > MAX_WALLET_CENTS - req.amount_cents:
-            raise HTTPException(409, 'The recipient cannot receive this amount.')
-        debited = con.execute('UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?',
-                              (req.amount_cents,user['id'],req.amount_cents))
-        if debited.rowcount != 1:
-            raise HTTPException(409, 'Insufficient available balance. Pending deposits cannot be sent.')
-        con.execute('UPDATE users SET balance_cents=balance_cents+? WHERE id=?', (req.amount_cents,req.recipient_id))
-        cur = con.execute('INSERT INTO wallet_transfers(sender_id,recipient_id,request_id,amount_cents,created_at) VALUES(?,?,?,?,?)',
-                          (user['id'],req.recipient_id,str(req.request_id),req.amount_cents,now_iso()))
-        row = con.execute('SELECT * FROM wallet_transfers WHERE id=?', (cur.lastrowid,)).fetchone()
+        row = commit_wallet_transfer(con,user['id'],req.recipient_id,req.amount_cents,str(req.request_id))
     return {'ok': True, 'already_processed': False, 'transfer': dict(row)}
 
 
@@ -1832,3 +1836,115 @@ async def wallet_transfer_history(page: int = Query(default=1, ge=1, le=1000000)
     return {'transfers': [{'id': r['id'], 'direction': 'sent' if r['sender_id']==user['id'] else 'received',
              'member_id': r['recipient_id'] if r['sender_id']==user['id'] else r['sender_id'],
              'amount_cents': r['amount_cents'], 'created_at': r['created_at']} for r in rows], 'page': page, 'total': total}
+
+
+def commit_wallet_transfer(con, sender_id, recipient_id, amount_cents, request_id):
+    # Caller owns the immediate transaction, so balance updates and all receipts commit together.
+    recipient = con.execute('SELECT id,balance_cents FROM users WHERE id=?', (recipient_id,)).fetchone()
+    if not recipient:
+        raise HTTPException(404, 'Recipient is no longer available.')
+    if recipient['balance_cents'] > MAX_WALLET_CENTS - amount_cents:
+        raise HTTPException(409, 'The recipient cannot receive this amount.')
+    debited = con.execute('UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?',
+                          (amount_cents,sender_id,amount_cents))
+    if debited.rowcount != 1:
+        raise HTTPException(409, 'Insufficient available balance. Pending deposits cannot be sent.')
+    con.execute('UPDATE users SET balance_cents=balance_cents+? WHERE id=?', (amount_cents,recipient_id))
+    cur = con.execute('INSERT INTO wallet_transfers(sender_id,recipient_id,request_id,amount_cents,created_at) VALUES(?,?,?,?,?)',
+                      (sender_id,recipient_id,request_id,amount_cents,now_iso()))
+    row = con.execute('SELECT * FROM wallet_transfers WHERE id=?', (cur.lastrowid,)).fetchone()
+    return row
+
+
+def payment_member(row):
+    return {'member_id': row['id'], 'first_name': row['first_name'] or 'Member', 'username': row['username'] or ''}
+
+
+@api.get('/api/payment-members')
+async def payment_members(search: str = Query(default='', max_length=64), page: int = Query(default=1, ge=1, le=1000000), x_telegram_init_data: str = Header(default='')):
+    get_or_create_user(verify_init_data(x_telegram_init_data))
+    query=search.strip().lstrip('@').lower()
+    with db() as con:
+        where="instr(lower(COALESCE(username,'')),?)>0 OR instr(lower(COALESCE(first_name,'')),?)>0 OR CAST(id AS TEXT)=?"
+        args=(query,query,query)
+        rows=con.execute('SELECT id,first_name,username FROM users WHERE '+where+' ORDER BY id LIMIT 25 OFFSET ?',(*args,(page-1)*25)).fetchall()
+        total=con.execute('SELECT COUNT(*) FROM users WHERE '+where,args).fetchone()[0]
+    return {'members':[payment_member(r) for r in rows],'page':page,'total':total}
+
+
+@api.get('/api/transfers/resolve')
+async def resolve_payment_username(username: str = Query(min_length=1,max_length=64), x_telegram_init_data: str = Header(default='')):
+    user=get_or_create_user(verify_init_data(x_telegram_init_data))
+    name=username.strip().lstrip('@')
+    with db() as con:
+        rows=con.execute('SELECT id,first_name,username FROM users WHERE lower(username)=lower(?) LIMIT 2',(name,)).fetchall()
+    if not rows: raise HTTPException(404,'Username not found. Ask the member to open the app or use their Member ID.')
+    if len(rows)>1: raise HTTPException(409,'This username matches multiple saved accounts. Use the recipient’s Member ID.')
+    if rows[0]['id']==user['id']: raise HTTPException(422,'Choose another member.')
+    return payment_member(rows[0])
+
+
+class PaymentRequestInput(BaseModel):
+    model_config = {'extra':'forbid'}
+    payer_id: int = Field(strict=True,ge=1,le=MAX_WALLET_CENTS)
+    amount_cents: int = Field(strict=True,ge=1,le=MAX_WALLET_CENTS)
+    request_id: uuid.UUID
+
+
+class PaymentRequestDecision(BaseModel):
+    model_config = {'extra':'forbid'}
+    action: Literal['pay','decline','cancel']
+
+
+@api.post('/api/payment-requests')
+async def create_payment_request(req: PaymentRequestInput,x_telegram_init_data: str = Header(default='')):
+    user=get_or_create_user(verify_init_data(x_telegram_init_data))
+    if req.payer_id==user['id']: raise HTTPException(422,'You cannot request money from yourself.')
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        old=con.execute('SELECT * FROM payment_requests WHERE requester_id=? AND request_id=?',(user['id'],str(req.request_id))).fetchone()
+        if old:
+            if old['payer_id']!=req.payer_id or old['amount_cents']!=req.amount_cents: raise HTTPException(409,'This request reference already has different details.')
+            return {'ok':True,'already_processed':True,'request':dict(old)}
+        if not con.execute('SELECT id FROM users WHERE id=?',(req.payer_id,)).fetchone(): raise HTTPException(404,'Member not found.')
+        if con.execute("SELECT id FROM payment_requests WHERE requester_id=? AND payer_id=? AND status='pending'",(user['id'],req.payer_id)).fetchone(): raise HTTPException(409,'You already have a pending request to this member. Cancel it before creating another.')
+        stamp=now_iso()
+        cur=con.execute('INSERT INTO payment_requests(requester_id,payer_id,request_id,amount_cents,created_at,updated_at) VALUES(?,?,?,?,?,?)',(user['id'],req.payer_id,str(req.request_id),req.amount_cents,stamp,stamp))
+        row=con.execute('SELECT * FROM payment_requests WHERE id=?',(cur.lastrowid,)).fetchone()
+    return {'ok':True,'already_processed':False,'request':dict(row)}
+
+
+@api.get('/api/payment-requests')
+async def list_payment_requests(page: int = Query(default=1,ge=1,le=1000000),x_telegram_init_data: str = Header(default='')):
+    user=get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        rows=con.execute('''SELECT p.*, r.first_name AS requester_name,r.username AS requester_username,
+            u.first_name AS payer_name,u.username AS payer_username FROM payment_requests p
+            JOIN users r ON r.id=p.requester_id JOIN users u ON u.id=p.payer_id
+            WHERE p.requester_id=? OR p.payer_id=? ORDER BY p.id DESC LIMIT 25 OFFSET ?''',(user['id'],user['id'],(page-1)*25)).fetchall()
+        total=con.execute('SELECT COUNT(*) FROM payment_requests WHERE requester_id=? OR payer_id=?',(user['id'],user['id'])).fetchone()[0]
+    result=[]
+    for row in rows:
+        item=dict(row);item.pop('request_id');item['incoming']=row['payer_id']==user['id'];result.append(item)
+    return {'requests':result,'page':page,'total':total}
+
+
+@api.post('/api/payment-requests/{request_id}/decision')
+async def decide_payment_request(request_id: int,req: PaymentRequestDecision,x_telegram_init_data: str = Header(default='')):
+    user=get_or_create_user(verify_init_data(x_telegram_init_data))
+    with db() as con:
+        con.execute('BEGIN IMMEDIATE')
+        row=con.execute('SELECT * FROM payment_requests WHERE id=? AND (requester_id=? OR payer_id=?)',(request_id,user['id'],user['id'])).fetchone()
+        if not row: raise HTTPException(404,'Payment request not found.')
+        allowed = row['requester_id'] if req.action=='cancel' else row['payer_id']
+        if allowed!=user['id']: raise HTTPException(403,'Only the requested payer can pay or decline; only the requester can cancel.')
+        status={'pay':'paid','decline':'declined','cancel':'canceled'}[req.action]
+        if row['status']!='pending':
+            if row['status']==status:return {'ok':True,'already_processed':True,'status':status,'transfer_id':row['transfer_id']}
+            raise HTTPException(409,'This payment request is already '+row['status']+'. Refresh requests.')
+        transfer_id=None
+        if req.action=='pay':
+            transfer=commit_wallet_transfer(con,row['payer_id'],row['requester_id'],row['amount_cents'],'payment-request:'+str(row['id']))
+            transfer_id=transfer['id']
+        con.execute('UPDATE payment_requests SET status=?,transfer_id=?,updated_at=? WHERE id=?',(status,transfer_id,now_iso(),row['id']))
+    return {'ok':True,'already_processed':False,'status':status,'transfer_id':transfer_id}
