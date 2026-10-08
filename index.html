@@ -942,6 +942,13 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 </div>
 
 
+<div id="withdrawalConfirmDialog" role="dialog" aria-modal="true" aria-labelledby="withdrawalConfirmTitle" hidden style="position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.8);padding:24px;overflow:auto">
+  <div class="card" style="max-width:620px;margin:24px auto">
+    <h2 id="withdrawalConfirmTitle">CONFIRM WITHDRAWAL ACTION</h2>
+    <p id="withdrawalConfirmText" style="white-space:pre-wrap;overflow-wrap:anywhere"></p>
+    <div class="actions"><button type="button" id="withdrawalConfirmYes">CONFIRM ACTION</button><button type="button" id="withdrawalConfirmNo" class="btn-blue">GO BACK</button></div>
+  </div>
+</div>
 <script>
 
 const tg = window.Telegram?.WebApp;
@@ -2520,6 +2527,36 @@ $('paymentRequestNext').addEventListener('click',()=>loadPaymentRequests(payment
 let withdrawalPage=1, adminWithdrawalPage=1, withdrawalMemberPage=1;
 let withdrawalBusy=false, adminWithdrawalBusy=false, withdrawalLoading=false, adminWithdrawalLoading=false, withdrawalMemberLoading=false;
 let withdrawalRows=new Map(), adminWithdrawalRows=new Map(), withdrawalMemberRows=new Map(), selectedWithdrawalMember=null;
+let withdrawalConfirmResolve=null, withdrawalConfirmFocus=null;
+const withdrawalActionMessages=new Map();
+function confirmWithdrawalAction(message) {
+  if(withdrawalConfirmResolve) return Promise.resolve(false);
+  $('withdrawalConfirmText').textContent=message;
+  withdrawalConfirmFocus=document.activeElement;
+  $('withdrawalConfirmDialog').hidden=false;
+  return new Promise(resolve=>{withdrawalConfirmResolve=resolve;$('withdrawalConfirmYes').focus();});
+}
+function closeWithdrawalConfirmation(confirmed) {
+  const resolve=withdrawalConfirmResolve;
+  withdrawalConfirmResolve=null;
+  $('withdrawalConfirmDialog').hidden=true;
+  if(withdrawalConfirmFocus?.isConnected)withdrawalConfirmFocus.focus();
+  if(resolve)resolve(confirmed);
+}
+$('withdrawalConfirmYes').addEventListener('click',()=>closeWithdrawalConfirmation(true));
+$('withdrawalConfirmNo').addEventListener('click',()=>closeWithdrawalConfirmation(false));
+$('withdrawalConfirmDialog').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.preventDefault();closeWithdrawalConfirmation(false);}
+  if(e.key==='Tab'){e.preventDefault();(document.activeElement===$('withdrawalConfirmYes')?$('withdrawalConfirmNo'):$('withdrawalConfirmYes')).focus();}
+});
+function withdrawalActionStatus(id,message) {
+  withdrawalActionMessages.set(id,message);
+  $('adminWithdrawalStatus').textContent=message;
+  const status=$('withdraw-action-status-'+id);
+  if(status)status.textContent=message;
+  (status || $('adminWithdrawalStatus')).scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+
 function btcMoney(satoshis) { return (satoshis/100000000).toFixed(8)+' BTC'; }
 function btcSatoshis(value) {
   if (!/^\d+(\.\d{1,8})?$/.test(value.trim())) return null;
@@ -2539,7 +2576,7 @@ function withdrawalSummary(row) {
     ${row.txid ? `<p style="overflow-wrap:anywhere">Transaction ID: ${esc(row.txid)}</p>` : ''}<p>${esc(prettyTime(row.updated_at))}</p>`;
 }
 async function loadWithdrawals(page=withdrawalPage) {
-  if(withdrawalLoading || withdrawalBusy || $('withdrawalList').contains(document.activeElement)) return;
+  if(withdrawalConfirmResolve || withdrawalLoading || withdrawalBusy || $('withdrawalList').contains(document.activeElement)) return;
   withdrawalLoading=true;
   try {
     const data=await api(`/api/withdrawals?page=${page}`); withdrawalPage=data.page;
@@ -2560,7 +2597,7 @@ $('withdrawalList').addEventListener('click',async e=>{
   const action=button.dataset.action, address=$('withdraw-address-'+row.id).value.trim();
   if(action==='accept' && !address) { $('withdrawalStatus').textContent='Enter your Bitcoin receiving address first.'; return; }
   const prompt=action==='accept' ? `Reserve ${giftMoney(row.amount_cents)} for withdrawal #${row.id}?\nYou will receive ${btcMoney(row.btc_satoshis)}. Fee: $0.00.\nReceiving address: ${address}\nCheck this address carefully. Reserved funds cannot be spent while awaiting admin review and payment.` : `Decline withdrawal #${row.id}? No money will be deducted.`;
-  if(!window.confirm(prompt)) return;
+  if(!await confirmWithdrawalAction(prompt)) return;
   withdrawalBusy=true; button.disabled=true;
   try {
     const result=await api(`/api/withdrawals/${row.id}/decision`,{method:'POST',body:JSON.stringify({action,...(action==='accept'?{btc_address:address,agreed_amount_cents:row.amount_cents,agreed_btc_satoshis:row.btc_satoshis}:{})})});
@@ -2589,7 +2626,7 @@ $('withdrawalCreateForm').addEventListener('submit',async e=>{
   const amount=transferCents($('withdrawalUsd').value),btc=btcSatoshis($('withdrawalBtc').value);
   if(!selectedWithdrawalMember || !amount || !btc){$('adminWithdrawalStatus').textContent='Choose a member and enter valid USD and BTC amounts.';return;}
   const details={member_id:selectedWithdrawalMember.id,amount_cents:amount,btc_satoshis:btc,note:$('withdrawalRequestNote').value.trim()};
-  if(!window.confirm(`Ask ${selectedWithdrawalMember.first_name || 'Member'} (#${details.member_id}) to withdraw ${giftMoney(amount)} and receive ${btcMoney(btc)}?\nFee: $0.00. Nothing is reserved until the member accepts or an admin approves directly.`))return;
+  if(!await confirmWithdrawalAction(`Ask ${selectedWithdrawalMember.first_name || 'Member'} (#${details.member_id}) to withdraw ${giftMoney(amount)} and receive ${btcMoney(btc)}?\nFee: $0.00. Nothing is reserved until the member accepts or an admin approves directly.`))return;
   adminWithdrawalBusy=true;$('createWithdrawalBtn').disabled=true;
   try {
     let pending=JSON.parse(localStorage.getItem(withdrawalDraftKey()) || 'null');
@@ -2602,7 +2639,7 @@ $('withdrawalCreateForm').addEventListener('submit',async e=>{
   finally{adminWithdrawalBusy=false;$('createWithdrawalBtn').disabled=false;await loadAdminWithdrawals(1);}
 });
 async function loadAdminWithdrawals(page=adminWithdrawalPage) {
-  if(!adminEnabled || adminWithdrawalLoading || adminWithdrawalBusy || $('adminWithdrawalList').contains(document.activeElement))return;
+  if(!adminEnabled || withdrawalConfirmResolve || adminWithdrawalLoading || adminWithdrawalBusy || $('adminWithdrawalList').contains(document.activeElement))return;
   adminWithdrawalLoading=true;
   try{
     const data=await api(`/api/admin/withdrawals?page=${page}&status=${$('adminWithdrawalFilter').value}`);adminWithdrawalPage=page;
@@ -2610,7 +2647,7 @@ async function loadAdminWithdrawals(page=adminWithdrawalPage) {
     const adminAddressDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('admin-withdraw-address-'+id)?.value || '']));
     const txDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('withdraw-txid-'+id)?.value || '']));
     adminWithdrawalRows=new Map(data.withdrawals.map(row=>[row.id,row]));
-    $('adminWithdrawalList').innerHTML=data.withdrawals.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · Member #${row.user_id}</b><p>Current available balance: ${giftMoney(row.balance_cents)}</p>${withdrawalSummary(row)}${['requested','accepted','approved'].includes(row.status)?`
+    $('adminWithdrawalList').innerHTML=data.withdrawals.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · Member #${row.user_id}</b><p>Current available balance: ${giftMoney(row.balance_cents)}</p>${withdrawalSummary(row)}<div id="withdraw-action-status-${row.id}" class="status" role="status" aria-live="polite">${esc(withdrawalActionMessages.get(row.id) || '')}</div>${['requested','accepted','approved'].includes(row.status)?`
       ${row.status==='requested'?`<label for="admin-withdraw-address-${row.id}">Member’s Bitcoin mainnet receiving address</label><input id="admin-withdraw-address-${row.id}" value="${esc(adminAddressDrafts.get(row.id) || '')}" maxlength="90" autocomplete="off" spellcheck="false"><p class="help">Direct approval reserves the member’s USD balance without waiting for acceptance and notifies them.</p>`:''}
       <label for="withdraw-note-${row.id}">${row.status==='accepted'?'Approval / rejection note':'Note for member'}</label><textarea id="withdraw-note-${row.id}" maxlength="1000" placeholder="Required: message for the member">${esc(noteDrafts.get(row.id) || '')}</textarea>
       ${row.status==='approved'?`<label for="withdraw-txid-${row.id}">Bitcoin transaction ID (after sending payment manually)</label><input id="withdraw-txid-${row.id}" value="${esc(txDrafts.get(row.id) || '')}" maxlength="64" autocomplete="off">`:''}
@@ -2623,20 +2660,21 @@ $('adminWithdrawalList').addEventListener('click',async e=>{
   const button=e.target.closest('[data-admin-withdrawal]');if(!button || adminWithdrawalBusy)return;
   const row=adminWithdrawalRows.get(Number(button.dataset.adminWithdrawal));if(!row)return;
   const action=button.dataset.action,note=$('withdraw-note-'+row.id).value.trim();
-  if(!note){$('adminWithdrawalStatus').textContent='Enter a note for the member.';return;}
+  if(!note){withdrawalActionStatus(row.id,'Enter an approval note for the member.');$('withdraw-note-'+row.id).focus();return;}
   const txid=action==='paid'?$('withdraw-txid-'+row.id).value.trim().toLowerCase():'';
-  if(action==='paid' && !/^[a-f0-9]{64}$/.test(txid)){$('adminWithdrawalStatus').textContent='Enter the 64-character Bitcoin transaction ID.';return;}
+  if(action==='paid' && !/^[a-f0-9]{64}$/.test(txid)){withdrawalActionStatus(row.id,'Enter the 64-character Bitcoin transaction ID.');return;}
   const directApproval=action==='approve' && row.status==='requested';
   const address=directApproval ? $('admin-withdraw-address-'+row.id).value.trim() : row.btc_address;
-  if(directApproval && !address){$('adminWithdrawalStatus').textContent='Enter the member’s receiving BTC address.';return;}
+  if(directApproval && !address){withdrawalActionStatus(row.id,'Enter the member’s receiving BTC address before approving.');$('admin-withdraw-address-'+row.id).focus();return;}
   const summary=`Withdrawal #${row.id} · ${giftMoney(row.amount_cents)} · ${btcMoney(row.btc_satoshis)}\nAddress: ${address || 'Not submitted'}\nNote: ${note}`;
   const prompt=action==='approve'?`Approve for manual payment? This does not send Bitcoin.${directApproval ? " Reserve "+giftMoney(row.amount_cents)+" from this member WITHOUT waiting for their acceptance." : " Funds are already reserved; no second deduction."}\n${summary}`:action==='paid'?`Confirm you already sent ${btcMoney(row.btc_satoshis)} to this exact address. This records the payment; it does not send Bitcoin.\n${summary}\nTransaction: ${txid}`:action==='reject'?`Confirm NO Bitcoin was sent for this withdrawal. Reject and return ${giftMoney(row.amount_cents)} to the member?\n${summary}`:`Cancel the request? No funds will move.\n${summary}`;
-  if(!window.confirm(prompt))return;
+  if(!await confirmWithdrawalAction(prompt))return;
   adminWithdrawalBusy=true;button.disabled=true;
+  withdrawalActionStatus(row.id,'Submitting '+action+'…');
   try{
     const result=await api(`/api/admin/withdrawals/${row.id}/decision`,{method:'POST',body:JSON.stringify({action,note,txid,...(directApproval?{btc_address:address,confirmed_reserve:true}:{}),confirmed_sent:action==='paid',confirmed_not_sent:action==='reject'})});
-    $('adminWithdrawalStatus').textContent=`Withdrawal #${row.id}: ${withdrawalLabel(result.withdrawal.status)}. ${result.notification_sent?'Member notified.':'Saved in member history; Telegram notification unconfirmed or previously sent.'}`;
-  }catch(e){$('adminWithdrawalStatus').textContent=e.status?e.message:'Result unconfirmed. Refresh the queue before retrying this same action.';}
+    withdrawalActionStatus(row.id,`Withdrawal #${row.id}: ${withdrawalLabel(result.withdrawal.status)}. ${result.notification_sent?'Member notified.':'Saved in member history; Telegram notification unconfirmed or previously sent.'}`);
+  }catch(e){withdrawalActionStatus(row.id,e.status?e.message:'Result unconfirmed. Refresh the queue before retrying this same action.');}
   finally{adminWithdrawalBusy=false;button.disabled=false;if($('adminWithdrawalList').contains(document.activeElement))document.activeElement.blur();await Promise.all([loadAdminWithdrawals(),loadWithdrawalMembers(),loadAdminMembers(),loadWallet(),loadWithdrawals()]);}
 });
 $('refreshWithdrawals').addEventListener('click',()=>loadWithdrawals());
