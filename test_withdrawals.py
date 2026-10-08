@@ -58,7 +58,7 @@ class TestWithdrawals(unittest.TestCase):
         self.assertEqual(self.accept(wid,uid=101).status_code,404)
         self.assertEqual(self.accept(wid,uid=900).status_code,404)
         self.assertEqual(self.review(wid,uid=100).status_code,403)
-        self.assertEqual(self.review(wid).status_code,409)
+        self.assertEqual(self.review(wid).status_code,422)
         self.assertEqual(self.accept(wid,agreed_amount_cents=1).status_code,409)
         self.assertEqual(self.accept(wid,agreed_btc_satoshis=1).status_code,409)
         self.assertEqual(self.accept(wid,btc_address='not-an-address').status_code,422)
@@ -115,6 +115,37 @@ class TestWithdrawals(unittest.TestCase):
         row=self.client.get('/api/withdrawals',headers=auth(100)).json()['withdrawals'][0]
         self.assertEqual(row['approval_note'],'Processing your Bitcoin payment.')
         self.assertEqual(row['btc_address'],ADDRESS);self.assertEqual(self.balance(),1000)
+
+    def test_admin_direct_approval_reserves_once_and_releases(self):
+        wid=self.create().json()['withdrawal']['id']
+        self.assertEqual(self.review(wid,btc_address=ADDRESS).status_code,422)
+        self.assertEqual(self.balance(),3000)
+        self.assertEqual(self.review(wid,uid=100,btc_address=ADDRESS,confirmed_reserve=True).status_code,403)
+        with ThreadPoolExecutor(2) as pool:
+            codes=list(pool.map(lambda _:self.review(wid,btc_address=ADDRESS,confirmed_reserve=True).status_code,range(2)))
+        self.assertEqual(codes,[200,200]);self.assertEqual(self.balance(),1000)
+        mine=self.client.get('/api/withdrawals',headers=auth(100)).json()
+        self.assertEqual(mine['reserved_cents'],2000)
+        self.assertEqual(mine['withdrawals'][0]['status'],'approved')
+        self.assertEqual(mine['withdrawals'][0]['btc_address'],ADDRESS)
+        self.assertIn(ADDRESS,self.sender.call_args.kwargs['text'])
+        with app.db() as con:
+            self.assertEqual(con.execute("SELECT COUNT(*) FROM withdrawal_events WHERE action='approved_without_member_acceptance'").fetchone()[0],1)
+        self.assertEqual(self.review(wid,btc_address='3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy',confirmed_reserve=True).status_code,409)
+        self.assertEqual(self.review(wid,action='reject',confirmed_not_sent=True).status_code,200)
+        self.assertEqual(self.review(wid,action='reject',confirmed_not_sent=True).status_code,200)
+        self.assertEqual(self.balance(),3000)
+
+    def test_direct_approval_insufficient_and_member_address_immutable(self):
+        wid=self.create().json()['withdrawal']['id']
+        with app.db() as con: con.execute('UPDATE users SET balance_cents=0 WHERE id=?',(self.user['id'],))
+        self.assertEqual(self.review(wid,btc_address=ADDRESS,confirmed_reserve=True).status_code,409)
+        self.assertEqual(self.client.get('/api/withdrawals',headers=auth(100)).json()['withdrawals'][0]['status'],'requested')
+        with app.db() as con: con.execute('UPDATE users SET balance_cents=3000 WHERE id=?',(self.user['id'],))
+        self.accept(wid)
+        self.assertEqual(self.review(wid,btc_address='3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy',confirmed_reserve=True).status_code,409)
+        self.assertEqual(self.review(wid).status_code,200)
+        self.assertEqual(self.balance(),1000)
 
     def test_validation_and_immutable_receipt(self):
         for amount in [0,-1,1.5,True,'2000']:

@@ -605,7 +605,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
 
 <section class="card" id="withdrawalSection">
   <div class="card-head"><h2>WITHDRAWALS</h2><button type="button" class="btn-blue" id="refreshWithdrawals">REFRESH</button></div>
-  <p class="help">Review requests from an admin. Accept with your own Bitcoin mainnet receiving address, or decline. Accepting reserves the USD amount until payment or rejection. Withdrawal fee: $0.00.</p>
+  <p class="help">Review requests from an admin. Accept with your own Bitcoin mainnet receiving address, or decline. Funds are reserved when you accept or an admin approves directly with your receiving address. Withdrawal fee: $0.00.</p>
   <p id="withdrawalReserved" class="notice"></p>
   <div id="withdrawalStatus" class="status" role="status" aria-live="polite"></div>
   <div id="withdrawalList"></div>
@@ -701,7 +701,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
   </div>
   <div id="admin-page-withdrawals" class="section-gap" hidden>
     <h2>WITHDRAWALS & MEMBER BALANCES</h2>
-    <p class="help">Choose a member, enter the USD deduction and exact BTC amount they will receive, then send a request for their consent. The app does not send Bitcoin. After approval, pay manually and record the transaction ID.</p>
+    <p class="help">Choose a member, enter the USD deduction and exact BTC amount they will receive, then create a withdrawal request. Admins can approve it directly by entering the member’s receiving BTC address. The app does not send Bitcoin. After approval, pay manually and record the transaction ID.</p>
     <button type="button" class="btn-small btn-blue" id="refreshWithdrawalMembers">REFRESH BALANCES</button>
     <div id="withdrawalMembers"></div>
     <div class="actions"><button type="button" class="btn-small" id="withdrawalMembersPrev">PREVIOUS MEMBERS</button><span id="withdrawalMembersPage"></span><button type="button" class="btn-small" id="withdrawalMembersNext">NEXT MEMBERS</button></div>
@@ -714,7 +714,7 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
     </form>
     <div id="adminWithdrawalStatus" class="status" role="status" aria-live="polite"></div>
     <h2 class="section-gap">WITHDRAWAL QUEUE</h2>
-    <label for="adminWithdrawalFilter">Withdrawal status</label><select id="adminWithdrawalFilter"><option value="all">All</option><option value="requested">Waiting for member</option><option value="accepted">Awaiting admin approval</option><option value="approved">Approved — awaiting manual payment</option><option value="paid">Payment recorded</option><option value="declined">Declined</option><option value="rejected">Rejected</option><option value="canceled">Canceled</option></select>
+    <label for="adminWithdrawalFilter">Withdrawal status</label><select id="adminWithdrawalFilter"><option value="all">All</option><option value="requested">Pending approval</option><option value="accepted">Awaiting admin approval</option><option value="approved">Approved — awaiting manual payment</option><option value="paid">Payment recorded</option><option value="declined">Declined</option><option value="rejected">Rejected</option><option value="canceled">Canceled</option></select>
     <button type="button" class="btn-small btn-blue" id="refreshAdminWithdrawals">REFRESH WITHDRAWALS</button>
     <div id="adminWithdrawalList"></div>
     <div class="actions"><button type="button" id="adminWithdrawalPrev" class="btn-small">PREVIOUS</button><span id="adminWithdrawalPage"></span><button type="button" id="adminWithdrawalNext" class="btn-small">NEXT</button></div>
@@ -2528,7 +2528,7 @@ function btcSatoshis(value) {
   return Number.isSafeInteger(amount) && amount>0 && amount<=2100000000000000 ? amount : null;
 }
 function withdrawalLabel(status) {
-  return ({requested:'Waiting for member',accepted:'Awaiting admin approval',approved:'Approved — awaiting manual payment',paid:'Payment recorded',declined:'Declined',rejected:'Rejected — balance released',canceled:'Canceled'})[status] || status;
+  return ({requested:'Pending approval',accepted:'Awaiting admin approval',approved:'Approved — awaiting manual payment',paid:'Payment recorded',declined:'Declined',rejected:'Rejected — balance released',canceled:'Canceled'})[status] || status;
 }
 function withdrawalSummary(row) {
   return `<p><b>Withdrawal #${Number(row.id)} · ${esc(withdrawalLabel(row.status))}</b></p><p>USD: ${giftMoney(row.amount_cents)} · To receive: ${btcMoney(row.btc_satoshis)} · Fee: $0.00</p>
@@ -2589,7 +2589,7 @@ $('withdrawalCreateForm').addEventListener('submit',async e=>{
   const amount=transferCents($('withdrawalUsd').value),btc=btcSatoshis($('withdrawalBtc').value);
   if(!selectedWithdrawalMember || !amount || !btc){$('adminWithdrawalStatus').textContent='Choose a member and enter valid USD and BTC amounts.';return;}
   const details={member_id:selectedWithdrawalMember.id,amount_cents:amount,btc_satoshis:btc,note:$('withdrawalRequestNote').value.trim()};
-  if(!window.confirm(`Ask ${selectedWithdrawalMember.first_name || 'Member'} (#${details.member_id}) to withdraw ${giftMoney(amount)} and receive ${btcMoney(btc)}?\nFee: $0.00. Nothing is deducted until the member accepts.`))return;
+  if(!window.confirm(`Ask ${selectedWithdrawalMember.first_name || 'Member'} (#${details.member_id}) to withdraw ${giftMoney(amount)} and receive ${btcMoney(btc)}?\nFee: $0.00. Nothing is reserved until the member accepts or an admin approves directly.`))return;
   adminWithdrawalBusy=true;$('createWithdrawalBtn').disabled=true;
   try {
     let pending=JSON.parse(localStorage.getItem(withdrawalDraftKey()) || 'null');
@@ -2607,12 +2607,14 @@ async function loadAdminWithdrawals(page=adminWithdrawalPage) {
   try{
     const data=await api(`/api/admin/withdrawals?page=${page}&status=${$('adminWithdrawalFilter').value}`);adminWithdrawalPage=page;
     const noteDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('withdraw-note-'+id)?.value || '']));
+    const adminAddressDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('admin-withdraw-address-'+id)?.value || '']));
     const txDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('withdraw-txid-'+id)?.value || '']));
     adminWithdrawalRows=new Map(data.withdrawals.map(row=>[row.id,row]));
     $('adminWithdrawalList').innerHTML=data.withdrawals.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · Member #${row.user_id}</b><p>Current available balance: ${giftMoney(row.balance_cents)}</p>${withdrawalSummary(row)}${['requested','accepted','approved'].includes(row.status)?`
+      ${row.status==='requested'?`<label for="admin-withdraw-address-${row.id}">Member’s Bitcoin mainnet receiving address</label><input id="admin-withdraw-address-${row.id}" value="${esc(adminAddressDrafts.get(row.id) || '')}" maxlength="90" autocomplete="off" spellcheck="false"><p class="help">Direct approval reserves the member’s USD balance without waiting for acceptance and notifies them.</p>`:''}
       <label for="withdraw-note-${row.id}">${row.status==='accepted'?'Approval / rejection note':'Note for member'}</label><textarea id="withdraw-note-${row.id}" maxlength="1000" placeholder="Required: message for the member">${esc(noteDrafts.get(row.id) || '')}</textarea>
       ${row.status==='approved'?`<label for="withdraw-txid-${row.id}">Bitcoin transaction ID (after sending payment manually)</label><input id="withdraw-txid-${row.id}" value="${esc(txDrafts.get(row.id) || '')}" maxlength="64" autocomplete="off">`:''}
-      <div class="actions">${row.status==='requested'?`<button type="button" data-admin-withdrawal="${row.id}" data-action="cancel">CANCEL REQUEST</button>`:row.status==='accepted'?`<button type="button" data-admin-withdrawal="${row.id}" data-action="approve">APPROVE WITH NOTE</button><button type="button" class="btn-blue" data-admin-withdrawal="${row.id}" data-action="reject">REJECT & RELEASE</button>`:`<button type="button" data-admin-withdrawal="${row.id}" data-action="paid">RECORD MANUAL BTC PAYMENT</button><button type="button" class="btn-blue" data-admin-withdrawal="${row.id}" data-action="reject">NOT SENT — REJECT & RELEASE</button>`}</div>`:''}</div>`).join('')||'<p>No matching withdrawals.</p>';
+      <div class="actions">${row.status==='requested'?`<button type="button" data-admin-withdrawal="${row.id}" data-action="approve">APPROVE DIRECTLY WITH NOTE</button><button type="button" class="btn-blue" data-admin-withdrawal="${row.id}" data-action="cancel">CANCEL REQUEST</button>`:row.status==='accepted'?`<button type="button" data-admin-withdrawal="${row.id}" data-action="approve">APPROVE WITH NOTE</button><button type="button" class="btn-blue" data-admin-withdrawal="${row.id}" data-action="reject">REJECT & RELEASE</button>`:`<button type="button" data-admin-withdrawal="${row.id}" data-action="paid">RECORD MANUAL BTC PAYMENT</button><button type="button" class="btn-blue" data-admin-withdrawal="${row.id}" data-action="reject">NOT SENT — REJECT & RELEASE</button>`}</div>`:''}</div>`).join('')||'<p>No matching withdrawals.</p>';
     $('adminWithdrawalPrev').disabled=page<=1;$('adminWithdrawalNext').disabled=page*25>=data.total;
     $('adminWithdrawalPage').textContent=`Page ${page} of ${Math.max(1,Math.ceil(data.total/25))}`;
   }catch(e){$('adminWithdrawalStatus').textContent=e.message;}finally{adminWithdrawalLoading=false;}
@@ -2624,12 +2626,15 @@ $('adminWithdrawalList').addEventListener('click',async e=>{
   if(!note){$('adminWithdrawalStatus').textContent='Enter a note for the member.';return;}
   const txid=action==='paid'?$('withdraw-txid-'+row.id).value.trim().toLowerCase():'';
   if(action==='paid' && !/^[a-f0-9]{64}$/.test(txid)){$('adminWithdrawalStatus').textContent='Enter the 64-character Bitcoin transaction ID.';return;}
-  const summary=`Withdrawal #${row.id} · ${giftMoney(row.amount_cents)} · ${btcMoney(row.btc_satoshis)}\nAddress: ${row.btc_address || 'Not submitted'}\nNote: ${note}`;
-  const prompt=action==='approve'?`Approve for manual payment? This does not send Bitcoin.\n${summary}`:action==='paid'?`Confirm you already sent ${btcMoney(row.btc_satoshis)} to this exact address. This records the payment; it does not send Bitcoin.\n${summary}\nTransaction: ${txid}`:action==='reject'?`Confirm NO Bitcoin was sent for this withdrawal. Reject and return ${giftMoney(row.amount_cents)} to the member?\n${summary}`:`Cancel the request? No funds will move.\n${summary}`;
+  const directApproval=action==='approve' && row.status==='requested';
+  const address=directApproval ? $('admin-withdraw-address-'+row.id).value.trim() : row.btc_address;
+  if(directApproval && !address){$('adminWithdrawalStatus').textContent='Enter the member’s receiving BTC address.';return;}
+  const summary=`Withdrawal #${row.id} · ${giftMoney(row.amount_cents)} · ${btcMoney(row.btc_satoshis)}\nAddress: ${address || 'Not submitted'}\nNote: ${note}`;
+  const prompt=action==='approve'?`Approve for manual payment? This does not send Bitcoin.${directApproval ? " Reserve "+giftMoney(row.amount_cents)+" from this member WITHOUT waiting for their acceptance." : " Funds are already reserved; no second deduction."}\n${summary}`:action==='paid'?`Confirm you already sent ${btcMoney(row.btc_satoshis)} to this exact address. This records the payment; it does not send Bitcoin.\n${summary}\nTransaction: ${txid}`:action==='reject'?`Confirm NO Bitcoin was sent for this withdrawal. Reject and return ${giftMoney(row.amount_cents)} to the member?\n${summary}`:`Cancel the request? No funds will move.\n${summary}`;
   if(!window.confirm(prompt))return;
   adminWithdrawalBusy=true;button.disabled=true;
   try{
-    const result=await api(`/api/admin/withdrawals/${row.id}/decision`,{method:'POST',body:JSON.stringify({action,note,txid,confirmed_sent:action==='paid',confirmed_not_sent:action==='reject'})});
+    const result=await api(`/api/admin/withdrawals/${row.id}/decision`,{method:'POST',body:JSON.stringify({action,note,txid,...(directApproval?{btc_address:address,confirmed_reserve:true}:{}),confirmed_sent:action==='paid',confirmed_not_sent:action==='reject'})});
     $('adminWithdrawalStatus').textContent=`Withdrawal #${row.id}: ${withdrawalLabel(result.withdrawal.status)}. ${result.notification_sent?'Member notified.':'Saved in member history; Telegram notification unconfirmed or previously sent.'}`;
   }catch(e){$('adminWithdrawalStatus').textContent=e.status?e.message:'Result unconfirmed. Refresh the queue before retrying this same action.';}
   finally{adminWithdrawalBusy=false;button.disabled=false;if($('adminWithdrawalList').contains(document.activeElement))document.activeElement.blur();await Promise.all([loadAdminWithdrawals(),loadWithdrawalMembers(),loadAdminMembers(),loadWallet(),loadWithdrawals()]);}

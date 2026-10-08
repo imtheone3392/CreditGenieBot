@@ -2083,6 +2083,8 @@ class WithdrawalReview(BaseModel):
     action: Literal['approve', 'reject', 'cancel', 'paid']
     note: str = Field(min_length=1, max_length=1000)
     txid: str = Field(default='', max_length=64)
+    btc_address: str = Field(default='', max_length=90)
+    confirmed_reserve: bool = Field(default=False, strict=True)
     confirmed_sent: bool = Field(default=False, strict=True)
     confirmed_not_sent: bool = Field(default=False, strict=True)
 
@@ -2136,7 +2138,7 @@ async def create_withdrawal(req: WithdrawalCreate,x_telegram_init_data: str = He
                            (req.member_id,str(req.request_id),req.amount_cents,req.btc_satoshis,req.note.strip(),admin['id'],stamp,stamp))
         row=con.execute('SELECT * FROM withdrawals WHERE id=?',(cursor.lastrowid,)).fetchone()
         withdrawal_event(con,row['id'],admin['id'],'requested',req.note.strip())
-    sent=await notify_withdrawal(user['telegram_id'],row,'An admin requested a withdrawal. Accept and enter your receiving BTC address, or decline. No balance is reserved until you accept.\n'+row['request_note'])
+    sent=await notify_withdrawal(user['telegram_id'],row,'An admin requested a withdrawal. Accept and enter your receiving BTC address, or decline. Funds are reserved when you accept or an admin approves directly using your receiving address.\n'+row['request_note'])
     return {'ok':True,'already_processed':False,'withdrawal':withdrawal_view(row),'notification_sent':sent}
 
 
@@ -2194,6 +2196,10 @@ async def review_withdrawal(withdrawal_id: int,req: WithdrawalReview,x_telegram_
     admin=require_admin(x_telegram_init_data)
     status={'approve':'approved','reject':'rejected','cancel':'canceled','paid':'paid'}[req.action]
     txid=req.txid.strip().lower()
+    address=''
+    if req.action=='approve' and req.btc_address.strip():
+        try: address=normalize_btc_address(req.btc_address)
+        except ValueError as exc: raise HTTPException(422,str(exc)) from None
     if req.action=='paid' and (not req.confirmed_sent or len(txid)!=64 or any(c not in '0123456789abcdef' for c in txid)):
         raise HTTPException(422,'Confirm Bitcoin was sent and enter its 64-character transaction ID.')
     with db() as con:
@@ -2202,20 +2208,27 @@ async def review_withdrawal(withdrawal_id: int,req: WithdrawalReview,x_telegram_
         if not row: raise HTTPException(404,'Withdrawal not found.')
         if row['status']==status:
             note=row['approval_note'] if req.action=='approve' else row['resolution_note']
-            if note!=req.note or (req.action=='paid' and row['txid']!=txid): raise HTTPException(409,'This withdrawal is already saved with different details.')
+            if note!=req.note or (req.action=='paid' and row['txid']!=txid) or (req.action=='approve' and address and row['btc_address']!=address): raise HTTPException(409,'This withdrawal is already saved with different details.')
             return {'ok':True,'already_processed':True,'withdrawal':withdrawal_view(row),'notification_sent':False}
-        allowed={'approve':('accepted',),'reject':('accepted','approved'),'cancel':('requested',),'paid':('approved',)}
+        allowed={'approve':('requested','accepted'),'reject':('accepted','approved'),'cancel':('requested',),'paid':('approved',)}
         if row['status'] not in allowed[req.action]: raise HTTPException(409,'Cannot '+req.action+' a '+row['status']+' withdrawal.')
         if req.action=='reject':
             if not req.confirmed_not_sent: raise HTTPException(422,'Confirm that no Bitcoin was sent before releasing reserved funds.')
             changed=con.execute('UPDATE users SET balance_cents=balance_cents+? WHERE id=? AND balance_cents<=?',(row['amount_cents'],row['user_id'],MAX_WALLET_CENTS-row['amount_cents']))
             if changed.rowcount!=1: raise HTTPException(409,'The balance cannot receive this release yet. No funds were changed.')
         if req.action=='approve':
-            con.execute('UPDATE withdrawals SET status=?,approval_note=?,reviewed_by=?,updated_at=? WHERE id=?',(status,req.note,admin['id'],now_iso(),withdrawal_id))
+            if row['status']=='requested':
+                if not address or not req.confirmed_reserve:
+                    raise HTTPException(422,'Enter the receiving BTC address and confirm reserving the member’s funds without member acceptance.')
+                changed=con.execute('UPDATE users SET balance_cents=balance_cents-? WHERE id=? AND balance_cents>=?',(row['amount_cents'],row['user_id'],row['amount_cents']))
+                if changed.rowcount!=1: raise HTTPException(409,'Insufficient available balance. Nothing was reserved.')
+            elif address and address!=row['btc_address']:
+                raise HTTPException(409,'The member already accepted with a different address. Refresh the request; the address cannot be changed.')
+            con.execute('UPDATE withdrawals SET status=?,btc_address=?,approval_note=?,reviewed_by=?,updated_at=? WHERE id=?',(status,address or row['btc_address'],req.note,admin['id'],now_iso(),withdrawal_id))
         else:
             con.execute('UPDATE withdrawals SET status=?,resolution_note=?,txid=?,reviewed_by=?,updated_at=? WHERE id=?',(status,req.note,txid if req.action=='paid' else None,admin['id'],now_iso(),withdrawal_id))
-        withdrawal_event(con,withdrawal_id,admin['id'],status,req.note)
+        withdrawal_event(con,withdrawal_id,admin['id'],'approved_without_member_acceptance' if req.action=='approve' and row['status']=='requested' else status,req.note)
         updated=con.execute('SELECT * FROM withdrawals WHERE id=?',(withdrawal_id,)).fetchone()
     message={'approve':'Approved for manual BTC payment. Funds remain reserved.','reject':'Rejected. Reserved USD funds were returned to your available balance.','cancel':'Canceled. No funds were deducted.','paid':'Admin recorded Bitcoin payment. Transaction ID: '+txid}[req.action]
-    sent=await notify_withdrawal(row['telegram_id'],updated,message+'\nAdmin note: '+req.note)
+    sent=await notify_withdrawal(row['telegram_id'],updated,message+('\nReceiving BTC address: '+updated['btc_address'] if req.action=='approve' else '')+'\nAdmin note: '+req.note)
     return {'ok':True,'already_processed':False,'withdrawal':withdrawal_view(updated),'notification_sent':sent}
