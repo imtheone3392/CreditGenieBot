@@ -612,30 +612,6 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
   <div class="actions"><button type="button" id="withdrawalPrev" class="btn-blue">PREVIOUS</button><span id="withdrawalPageLabel"></span><button type="button" id="withdrawalNext" class="btn-blue">NEXT</button></div>
 </section>
 
-<!-- GIFT CARDS -->
-<section class="card" id="giftCardSection">
-  <div class="card-head"><h2>GIFT CARDS</h2><span class="pill">1 CARD · FULL PRICE / 2–50 · 35% OFF</span></div>
-  <p class="help">Add wallet balance first, choose your gift card and quantity, then purchase. One card is full price. Orders of 2–50 cards get 35% off the entire order. Admin reviews your order and supplies the card details.</p>
-  <a href="#walletSection">ADD BALANCE ↑</a>
-  <form id="giftPurchaseForm" class="grid section-gap">
-    <label for="giftBrandSearch">Find a gift card</label>
-    <input id="giftBrandSearch" type="search" placeholder="Search brands…" autocomplete="off">
-    <label for="giftBrand">Gift card</label>
-    <select id="giftBrand" required><option value="">Loading gift cards…</option></select>
-    <label for="giftAmount">Value per gift card (USD)</label>
-    <input id="giftAmount" type="number" min="400" max="1000" step="0.01" value="400" required inputmode="decimal">
-    <label for="giftQuantity">Quantity (1–50 cards)</label>
-    <input id="giftQuantity" type="number" min="1" max="50" step="1" value="1" required inputmode="numeric">
-    <div id="giftPriceSummary" class="approval-note" role="status" aria-live="polite"></div>
-    <p class="notice">Each card: $400–$1,000. Choose up to 50 cards of the same brand and value per order. One card has no discount; quantities 2–50 are 35% off. Availability and redemption region are subject to admin confirmation. Rejected orders refund the amount actually paid.</p>
-    <button id="buyGiftBtn" type="submit">PURCHASE WITH WALLET</button>
-  </form>
-  <div id="giftPurchaseStatus" class="status" role="status" aria-live="polite"></div>
-  <div class="card-head section-gap"><h2 style="font-size:20px">MY GIFT CARDS</h2><button id="refreshGiftHistory" class="btn-small btn-blue" type="button">REFRESH</button></div>
-  <div id="giftHistory"></div>
-  <div class="actions"><button id="giftPrev" type="button" class="btn-small btn-blue">PREVIOUS</button><span id="giftPageLabel"></span><button id="giftNext" type="button" class="btn-small btn-blue">NEXT</button></div>
-</section>
-
 <!-- ADMIN -->
 <section
   class="card"
@@ -696,7 +672,6 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
     <button type="button" class="btn-small" data-admin-page="messages">MESSAGES</button>
     <button type="button" class="btn-small btn-blue" data-admin-page="deposits">DEPOSITS</button>
     <button type="button" class="btn-small btn-blue" data-admin-page="requests">PROFILE SEARCHES</button>
-    <button type="button" class="btn-small btn-blue" data-admin-page="gifts">GIFT CARDS</button>
     <button type="button" class="btn-small btn-blue" data-admin-page="withdrawals">WITHDRAWALS & BALANCES</button>
   </div>
   <div id="admin-page-withdrawals" class="section-gap" hidden>
@@ -718,16 +693,6 @@ select{width:100%;padding:14px;border:1px solid #52626d;border-radius:10px;backg
     <button type="button" class="btn-small btn-blue" id="refreshAdminWithdrawals">REFRESH WITHDRAWALS</button>
     <div id="adminWithdrawalList"></div>
     <div class="actions"><button type="button" id="adminWithdrawalPrev" class="btn-small">PREVIOUS</button><span id="adminWithdrawalPage"></span><button type="button" id="adminWithdrawalNext" class="btn-small">NEXT</button></div>
-  </div>
-  <div id="admin-page-gifts" class="section-gap" hidden>
-    <div class="card-head"><h2 style="font-size:20px">GIFT CARD ORDERS</h2><span id="adminGiftCount" class="pill"></span></div>
-    <p class="help">Orders are already paid from the member's wallet. Supply details for every card in the quantity ordered. Reject with a reason to refund the wallet payment shown, including any bulk discount.</p>
-    <label for="adminGiftFilter">Order status</label>
-    <select id="adminGiftFilter"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select>
-    <button id="refreshAdminGifts" type="button" class="btn-small btn-blue">REFRESH ORDERS</button>
-    <div id="adminGiftStatus" class="status" role="status" aria-live="polite"></div>
-    <div id="adminGiftOrders"></div>
-    <div class="actions"><button id="adminGiftPrev" type="button" class="btn-small btn-blue">PREVIOUS</button><span id="adminGiftPageLabel"></span><button id="adminGiftNext" type="button" class="btn-small btn-blue">NEXT</button></div>
   </div>
   <div id="admin-page-messages" class="section-gap">
     <h2>MEMBER INBOX</h2>
@@ -1449,7 +1414,7 @@ async function loadAdminMembers(
 
               <div class="admin-meta">
                 Available balance:
-                ${esc(member.balance)} · Reserved for withdrawals: ${giftMoney(member.reserved_cents || 0)}
+                ${esc(member.balance)} · Reserved for withdrawals: ${formatUsd(member.reserved_cents || 0)}
               </div>
 
               <div class="admin-meta">
@@ -2168,11 +2133,10 @@ $('inboxNext').addEventListener('click', () => loadInbox(inboxPage+1));
 $('refreshDepositsAdmin').addEventListener('click', loadAdminDeposits);
 document.querySelectorAll('[data-admin-page]').forEach(button => button.addEventListener('click', () => {
   document.querySelectorAll('[data-admin-page]').forEach(b => b.classList.toggle('btn-blue', b !== button));
-  ['messages','deposits','requests','gifts','withdrawals'].forEach(page => $('admin-page-'+page).hidden = page !== button.dataset.adminPage);
+  ['messages','deposits','requests','withdrawals'].forEach(page => $('admin-page-'+page).hidden = page !== button.dataset.adminPage);
   if (button.dataset.adminPage === 'messages') loadInbox();
   if (button.dataset.adminPage === 'deposits') loadAdminDeposits();
   if (button.dataset.adminPage === 'requests') loadCharacterQueue();
-  if (button.dataset.adminPage === 'gifts') loadAdminGifts();
   if (button.dataset.adminPage === 'withdrawals') { loadWithdrawalMembers(); loadAdminWithdrawals(); }
 }));
 
@@ -2181,150 +2145,8 @@ document.querySelectorAll('[data-admin-page]').forEach(button => button.addEvent
 ========================================== */
 
 
-/* Gift card purchases and manual fulfillment. */
-let giftBrands = [], giftPage = 1, adminGiftPage = 1;
-let giftBuying = false, giftHistoryLoading = false, adminGiftsLoading = false, giftDecisionBusy = false;
-const giftDetailDrafts = new Map();
-const giftMoney = cents => new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(cents/100);
-let giftPurchaseDraft = null;
-let giftPricing = {min_cents:40000,max_cents:100000,max_quantity:50,discount_min_quantity:2,bulk_discount_percent:35,standard_discount_percent:0};
-function giftQuote() {
-  const raw = $('giftAmount').value.trim(), count = $('giftQuantity').value.trim();
-  const amount_cents = /^\d+(?:\.\d{1,2})?$/.test(raw) ? Math.round(Number(raw)*100) : NaN;
-  const quantity = /^\d+$/.test(count) ? Number(count) : NaN;
-  if (!Number.isSafeInteger(amount_cents) || amount_cents < giftPricing.min_cents || amount_cents > giftPricing.max_cents ||
-      !Number.isSafeInteger(quantity) || quantity < 1 || quantity > giftPricing.max_quantity) return null;
-  const total_value_cents = amount_cents * quantity;
-  const discount_percent = quantity === 1 ? 0 : (quantity >= giftPricing.discount_min_quantity ? giftPricing.bulk_discount_percent : giftPricing.standard_discount_percent);
-  const charged_cents = Math.floor((total_value_cents * (100-discount_percent) + 50)/100);
-  return {amount_cents,quantity,total_value_cents,discount_percent,charged_cents,discount_cents:total_value_cents-charged_cents};
-}
-function updateGiftQuote() {
-  const quote = giftQuote();
-  $('giftPriceSummary').textContent = quote ? `${quote.quantity} × ${giftMoney(quote.amount_cents)} = ${giftMoney(quote.total_value_cents)} card value\nDiscount: ${quote.discount_percent}% (save ${giftMoney(quote.discount_cents)})\nWallet payment: ${giftMoney(quote.charged_cents)}` : 'Enter $400–$1,000 per card and a whole-number quantity from 1 to 50.';
-}
-$('giftAmount').addEventListener('input',updateGiftQuote);
-$('giftQuantity').addEventListener('input',updateGiftQuote);
-updateGiftQuote();
-function giftDraftKey() { return 'creditgenie-gift-purchase-'+String(tg?.initDataUnsafe?.user?.id || 'session'); }
-function saveGiftDraft(value) {
-  giftPurchaseDraft = value;
-  try { if (value) sessionStorage.setItem(giftDraftKey(),JSON.stringify(value)); else sessionStorage.removeItem(giftDraftKey()); } catch (_) {}
-}
-function filterGiftBrands() {
-  const selected = $('giftBrand').value;
-  const query = $('giftBrandSearch').value.trim().toLowerCase();
-  const matching = giftBrands.filter(b => b.name.toLowerCase().includes(query));
-  $('giftBrand').innerHTML = '<option value="">Choose a gift card</option>' + matching.map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('');
-  if (matching.some(b => b.id === selected)) $('giftBrand').value = selected;
-}
-async function loadGiftCatalog() {
-  if (!currentUser) return;
-  try {
-    const data = await api('/api/gift-cards'); giftBrands = data.brands; giftPricing = data; filterGiftBrands();
-    try { giftPurchaseDraft = JSON.parse(sessionStorage.getItem(giftDraftKey()) || 'null'); } catch (_) {}
-    if (giftPurchaseDraft && giftBrands.some(b => b.id === giftPurchaseDraft.brand_id)) {
-      $('giftBrand').value = giftPurchaseDraft.brand_id; $('giftAmount').value = (giftPurchaseDraft.amount_cents/100).toFixed(2);
-      $('giftQuantity').value = String(giftPurchaseDraft.quantity ?? 1);
-      $('giftPurchaseStatus').textContent = 'A purchase may still be unconfirmed. Retry the same selection to check it without a duplicate charge.';
-    }
-    updateGiftQuote();
-  } catch(e) { $('giftPurchaseStatus').textContent = e.message; }
-}
-$('giftBrandSearch').addEventListener('input', filterGiftBrands);
-$('giftPurchaseForm').addEventListener('submit', async e => {
-  e.preventDefault(); if (giftBuying) return;
-  if (!currentUser) { $('giftPurchaseStatus').textContent = 'Open the Mini App from Telegram first.'; return; }
-  const brand = giftBrands.find(b => b.id === $('giftBrand').value);
-  const quote = giftQuote();
-  if (!brand || !quote) {
-    $('giftPurchaseStatus').textContent = 'Select a gift card, $400–$1,000 per card, and 1–50 cards.'; return;
-  }
-  if (!window.confirm(`Purchase ${quote.quantity} ${brand.name} cards × ${giftMoney(quote.amount_cents)} each?\n\nTotal card value: ${giftMoney(quote.total_value_cents)}\nDiscount: ${quote.discount_percent}% (save ${giftMoney(quote.discount_cents)})\nWallet payment: ${giftMoney(quote.charged_cents)}\n\nCard details arrive after admin approval. Rejected orders refund your payment.`)) return;
-  if (!giftPurchaseDraft || giftPurchaseDraft.brand_id !== brand.id || giftPurchaseDraft.amount_cents !== quote.amount_cents || (giftPurchaseDraft.quantity ?? 1) !== quote.quantity) {
-    saveGiftDraft({brand_id:brand.id,amount_cents:quote.amount_cents,quantity:quote.quantity,request_id:crypto.randomUUID()});
-  }
-  saveGiftDraft({...giftPurchaseDraft,agreed_charged_cents:quote.charged_cents});
-  giftBuying = true; $('buyGiftBtn').disabled = true;
-  $('giftPurchaseStatus').textContent = 'Placing order…';
-  try {
-    const result = await api('/api/gift-cards/orders',{method:'POST',body:JSON.stringify(giftPurchaseDraft)});
-    saveGiftDraft(null); giftPage = 1;
-    $('giftPurchaseStatus').textContent = `Order #${result.order.id} ${result.already_processed ? 'already saved; no duplicate charge' : 'paid '+giftMoney(result.order.charged_cents)} — ${result.order.status}. View My Gift Cards for updates.`;
-    await Promise.all([loadGiftHistory(),loadWallet(),loadAdminGifts()]);
-  } catch(e) { $('giftPurchaseStatus').textContent = e.message; }
-  finally { giftBuying = false; $('buyGiftBtn').disabled = false; }
-});
-function giftOrderSummary(o) {
-  return `<b>Order #${Number(o.id)} · ${esc(o.brand_name)}</b>
-    <div class="row">${Number(o.quantity)} cards × ${giftMoney(o.amount_cents)} each · ${esc(o.status)}</div>
-    <div class="row">Total card value: ${giftMoney(o.total_value_cents)}</div>
-    <div class="row">Discount: ${Number(o.discount_percent)}% · Saved: ${giftMoney(o.discount_cents)}</div>
-    <div class="row">Wallet payment: ${giftMoney(o.charged_cents)}</div>
-    <div class="row">${esc(prettyTime(o.created_at))}</div>`;
-}
-async function loadGiftHistory(page = giftPage) {
-  if (!currentUser || giftHistoryLoading) return;
-  giftHistoryLoading = true;
-  try {
-    const data = await api('/api/gift-cards/orders?page='+page); giftPage = data.page;
-    $('giftHistory').innerHTML = data.orders.length ? data.orders.map(o => `<div class="request-item">${giftOrderSummary(o)}
-      ${o.delivery_details ? `<div class="approval-note"><b>${o.status === 'approved' ? 'Gift card details' : 'Admin reason'}</b>\n${esc(o.delivery_details)}</div>` : '<p>Paid. Waiting for admin approval and gift card details.</p>'}
-      ${o.refunded_cents ? `<p>Refunded to wallet: ${giftMoney(o.refunded_cents)}</p>` : ''}</div>`).join('') : '<p>No gift card purchases yet.</p>';
-    $('giftPrev').disabled = giftPage <= 1; $('giftNext').disabled = giftPage*25 >= data.total;
-    $('giftPageLabel').textContent = 'Page '+giftPage;
-  } catch(e) { $('giftPurchaseStatus').textContent = e.message; }
-  finally { giftHistoryLoading = false; }
-}
-async function loadAdminGifts(page = adminGiftPage) {
-  if (!adminEnabled || adminGiftsLoading || giftDecisionBusy || $('adminGiftOrders').contains(document.activeElement)) return;
-  adminGiftsLoading = true;
-  try {
-    const data = await api('/api/admin/gift-cards/orders?'+new URLSearchParams({page,status:$('adminGiftFilter').value}));
-    adminGiftPage = data.page;
-    $('adminGiftCount').textContent = `${data.total} ${$('adminGiftFilter').value}`;
-    $('adminGiftOrders').innerHTML = data.orders.length ? data.orders.map(o => `<div class="admin-request">${giftOrderSummary(o)}
-      <div class="admin-meta">${esc(o.first_name || 'Member')}${o.username ? ' (@'+esc(o.username)+')' : ''} · Account #${Number(o.user_id)}</div>
-      ${o.status === 'pending' ? `<label for="gift-details-${Number(o.id)}">Gift card details or rejection reason</label>
-      <textarea id="gift-details-${Number(o.id)}" data-gift-draft="${Number(o.id)}" maxlength="3000" placeholder="Provide every card in the order, with code, PIN if applicable, redemption region and instructions. For rejection, explain the reason.">${esc(giftDetailDrafts.get(o.id) || '')}</textarea>
-      <div class="admin-buttons"><button type="button" class="btn-small" data-gift-order="${Number(o.id)}" data-gift-decision="approved">APPROVE & SEND DETAILS</button>
-      <button type="button" class="btn-small btn-red" data-gift-order="${Number(o.id)}" data-gift-decision="rejected">REJECT & REFUND ${giftMoney(o.charged_cents)}</button></div>` : `<div class="approval-note">${esc(o.delivery_details || '')}</div>`}</div>`).join('') : '<p>No orders with this status.</p>';
-    $('adminGiftPrev').disabled = adminGiftPage <= 1; $('adminGiftNext').disabled = adminGiftPage*25 >= data.total;
-    $('adminGiftPageLabel').textContent = 'Page '+adminGiftPage;
-  } catch(e) { $('adminGiftStatus').textContent = e.message; }
-  finally { adminGiftsLoading = false; }
-}
-$('adminGiftOrders').addEventListener('input', e => {
-  if (e.target.matches('[data-gift-draft]')) giftDetailDrafts.set(Number(e.target.dataset.giftDraft),e.target.value);
-});
-$('adminGiftOrders').addEventListener('click', async e => {
-  const button = e.target.closest('[data-gift-order]');
-  if (!button || !adminEnabled || giftDecisionBusy) return;
-  const id = Number(button.dataset.giftOrder), status = button.dataset.giftDecision;
-  const details = $(`gift-details-${id}`).value.trim();
-  if (!details) { $('adminGiftStatus').textContent = 'Enter gift card details or a rejection reason first.'; return; }
-  if (!window.confirm(`${status === 'approved' ? 'Approve and release these details to the buyer' : 'Reject and refund the full wallet payment'} for order #${id}?\n\n${details}`)) return;
-  giftDecisionBusy = true;
-  const buttons = [...$('adminGiftOrders').querySelectorAll('button')]; buttons.forEach(b => b.disabled = true);
-  try {
-    const result = await api(`/api/admin/gift-cards/orders/${id}/decision`,{method:'POST',body:JSON.stringify({status,details})});
-    giftDetailDrafts.delete(id);
-    $('adminGiftStatus').textContent = `Order #${id} ${result.status}. ${result.already_processed ? 'Already saved; no duplicate action.' : result.notification_sent ? 'Buyer notified. Details saved in My Gift Cards.' : 'Details saved in My Gift Cards; Telegram notification unconfirmed.'}`;
-    if ($('adminGiftOrders').contains(document.activeElement)) document.activeElement.blur();
-  } catch(e) { $('adminGiftStatus').textContent = e.message; }
-  finally {
-    giftDecisionBusy = false; buttons.forEach(b => b.disabled = false);
-    await Promise.all([loadAdminGifts(),loadGiftHistory(),loadWallet(),loadAdminMembers()]);
-  }
-});
-$('refreshGiftHistory').addEventListener('click',() => loadGiftHistory());
-$('giftPrev').addEventListener('click',() => loadGiftHistory(giftPage-1));
-$('giftNext').addEventListener('click',() => loadGiftHistory(giftPage+1));
-$('refreshAdminGifts').addEventListener('click',() => loadAdminGifts());
-$('adminGiftPrev').addEventListener('click',() => loadAdminGifts(adminGiftPage-1));
-$('adminGiftNext').addEventListener('click',() => loadAdminGifts(adminGiftPage+1));
-$('adminGiftFilter').addEventListener('change',() => loadAdminGifts(1));
-
+// Shared USD formatting for member balances, payments, and withdrawals.
+const formatUsd = cents => new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(cents/100);
 
 // Keep an uncertain payment's exact request ID across reloads, preventing double sends.
 const TRANSFER_FEE_CENTS = 500;
@@ -2402,14 +2224,14 @@ $('transferForm').addEventListener('submit', async event => {
     }
     if (!amount) { $('transferStatus').textContent = 'Enter an amount of at least $0.01 with no more than two decimal places.'; return; }
     const kind = $('paymentMode').value === 'request' ? 'request' : 'send';
-    if (!window.confirm(kind === 'request' ? `Request ${giftMoney(amount)} from ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nThe payer will pay a $5.00 merchant fee in addition to this amount. No money moves until they approve.` : `Send ${giftMoney(amount)} to ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nMerchant fee: $5.00\nTotal deducted: ${giftMoney(amount+TRANSFER_FEE_CENTS)}\nThe recipient receives ${giftMoney(amount)}. The money moves immediately and cannot be canceled in the app.`)) return;
+    if (!window.confirm(kind === 'request' ? `Request ${formatUsd(amount)} from ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nThe payer will pay a $5.00 merchant fee in addition to this amount. No money moves until they approve.` : `Send ${formatUsd(amount)} to ${transferRecipient.first_name} (Member ID ${transferRecipient.member_id})?\n\nMerchant fee: $5.00\nTotal deducted: ${formatUsd(amount+TRANSFER_FEE_CENTS)}\nThe recipient receives ${formatUsd(amount)}. The money moves immediately and cannot be canceled in the app.`)) return;
     const draft = {kind,...(kind==='send' ? {agreed_fee_cents:TRANSFER_FEE_CENTS} : {}),recipient_id:transferRecipient.member_id, recipient_name:transferRecipient.first_name, amount_cents:amount, request_id:crypto.randomUUID()};
     try { localStorage.setItem(transferStorageKey,JSON.stringify(draft)); }
     catch (_) { $('transferStatus').textContent = 'Payment was not sent. Enable browser storage and reopen the app to protect against duplicate payments.'; return; }
     transferDraft = draft;
   }
   if (transferDraft.kind !== 'request' && transferDraft.agreed_fee_cents !== TRANSFER_FEE_CENTS) {
-    if (!window.confirm(`Check or complete the previous payment of ${giftMoney(transferDraft.amount_cents)} to ${transferDraft.recipient_name} (Member ID ${transferDraft.recipient_id})?\n\nIf not already completed, a $5.00 merchant fee applies. Total deducted: ${giftMoney(transferDraft.amount_cents+TRANSFER_FEE_CENTS)}. Completed payments are never charged again.`)) return;
+    if (!window.confirm(`Check or complete the previous payment of ${formatUsd(transferDraft.amount_cents)} to ${transferDraft.recipient_name} (Member ID ${transferDraft.recipient_id})?\n\nIf not already completed, a $5.00 merchant fee applies. Total deducted: ${formatUsd(transferDraft.amount_cents+TRANSFER_FEE_CENTS)}. Completed payments are never charged again.`)) return;
     try { const updated = {...transferDraft,agreed_fee_cents:TRANSFER_FEE_CENTS};localStorage.setItem(transferStorageKey,JSON.stringify(updated));transferDraft=updated; }
     catch (_) { $('transferStatus').textContent='Unable to save payment confirmation. Please reopen the app.';return; }
   }
@@ -2426,7 +2248,7 @@ $('transferForm').addEventListener('submit', async event => {
     transferDraft = null; transferRecipient = null;
     $('transferAmount').value = ''; $('transferRecipient').value = '';
     $('transferRecipientDetails').textContent = 'Check the recipient before sending.';
-    $('transferStatus').textContent = requesting ? `Request #${result.request.id} ${result.request.status}: ${giftMoney(result.request.amount_cents)} from ${completed.recipient_name}. No money moves until approval.` : `${result.already_processed ? 'Payment confirmed' : 'Payment sent'}: ${giftMoney(result.transfer.amount_cents)} to ${completed.recipient_name} (Member ID ${result.transfer.recipient_id}). Merchant fee: ${giftMoney(result.transfer.fee_cents || 0)}. Total deducted: ${giftMoney(result.transfer.amount_cents+(result.transfer.fee_cents || 0))}. Receipt #${result.transfer.id}.`;
+    $('transferStatus').textContent = requesting ? `Request #${result.request.id} ${result.request.status}: ${formatUsd(result.request.amount_cents)} from ${completed.recipient_name}. No money moves until approval.` : `${result.already_processed ? 'Payment confirmed' : 'Payment sent'}: ${formatUsd(result.transfer.amount_cents)} to ${completed.recipient_name} (Member ID ${result.transfer.recipient_id}). Merchant fee: ${formatUsd(result.transfer.fee_cents || 0)}. Total deducted: ${formatUsd(result.transfer.amount_cents+(result.transfer.fee_cents || 0))}. Receipt #${result.transfer.id}.`;
     await Promise.all([loadWallet(),loadTransfers(1),loadPaymentRequests(1)]);
   } catch (e) {
     if (e.status >= 400 && e.status < 500 && ![408,429].includes(e.status)) {
@@ -2442,7 +2264,7 @@ async function loadTransfers(page = transferPage) {
   try {
     const data = await api(`/api/transfers?page=${Math.max(1,page)}`);
     transferPage = data.page;
-    $('transferHistory').innerHTML = data.transfers.map(t => `<div class="deposit-item"><strong>${t.direction==='sent' ? 'Sent' : 'Received'} ${giftMoney(t.amount_cents)}</strong><p>${t.direction==='sent' ? 'To' : 'From'} Member ID ${Number(t.member_id)} · Receipt #${Number(t.id)}</p><p>${t.direction==='sent' ? 'Merchant fee: '+giftMoney(t.fee_cents)+' · Total deducted: '+giftMoney(t.total_debit_cents) : 'Full payment received; sender pays the merchant fee.'}</p><p>${esc(prettyTime(t.created_at))} · Completed</p></div>`).join('') || '<div class="empty">No payments yet.</div>';
+    $('transferHistory').innerHTML = data.transfers.map(t => `<div class="deposit-item"><strong>${t.direction==='sent' ? 'Sent' : 'Received'} ${formatUsd(t.amount_cents)}</strong><p>${t.direction==='sent' ? 'To' : 'From'} Member ID ${Number(t.member_id)} · Receipt #${Number(t.id)}</p><p>${t.direction==='sent' ? 'Merchant fee: '+formatUsd(t.fee_cents)+' · Total deducted: '+formatUsd(t.total_debit_cents) : 'Full payment received; sender pays the merchant fee.'}</p><p>${esc(prettyTime(t.created_at))} · Completed</p></div>`).join('') || '<div class="empty">No payments yet.</div>';
     $('transferPrev').disabled = transferPage<=1;
     $('transferNext').disabled = transferPage*25>=data.total;
   } catch (e) { $('transferHistory').textContent = e.message; }
@@ -2491,7 +2313,7 @@ async function loadPaymentRequests(page = paymentRequestPage) {
     $('paymentRequestList').innerHTML = data.requests.map(r=>{
       const other = r.incoming ? {member_id:r.requester_id,first_name:r.requester_name,username:r.requester_username} : {member_id:r.payer_id,first_name:r.payer_name,username:r.payer_username};
       const buttons = r.status!=='pending' ? '' : r.incoming ? `<button data-action="pay">APPROVE & PAY</button><button data-action="decline" class="btn-blue">DECLINE</button>` : '<button data-action="cancel" class="btn-blue">CANCEL REQUEST</button>';
-      return `<div class="deposit-item" data-request="${Number(r.id)}"><strong>${r.incoming ? 'Requested from you' : 'You requested'}: ${giftMoney(r.amount_cents)}</strong><p>${esc(memberLabel(other))}</p><p>${r.status==='pending' || r.status==='paid' ? 'Payer merchant fee: '+giftMoney(r.fee_cents)+' · Payer total: '+giftMoney(r.total_debit_cents) : 'No payment or fee charged.'}</p><p>Request #${Number(r.id)} · ${esc(r.status)} · ${esc(prettyTime(r.created_at))}${r.transfer_id ? ' · Receipt #'+Number(r.transfer_id) : ''}</p><div class="actions">${buttons}</div></div>`;
+      return `<div class="deposit-item" data-request="${Number(r.id)}"><strong>${r.incoming ? 'Requested from you' : 'You requested'}: ${formatUsd(r.amount_cents)}</strong><p>${esc(memberLabel(other))}</p><p>${r.status==='pending' || r.status==='paid' ? 'Payer merchant fee: '+formatUsd(r.fee_cents)+' · Payer total: '+formatUsd(r.total_debit_cents) : 'No payment or fee charged.'}</p><p>Request #${Number(r.id)} · ${esc(r.status)} · ${esc(prettyTime(r.created_at))}${r.transfer_id ? ' · Receipt #'+Number(r.transfer_id) : ''}</p><div class="actions">${buttons}</div></div>`;
     }).join('') || '<div class="empty">No payment requests.</div>';
     $('paymentRequestList').querySelectorAll('[data-request]').forEach(item=>{
       const row=data.requests.find(r=>r.id===Number(item.dataset.request));
@@ -2506,7 +2328,7 @@ async function loadPaymentRequests(page = paymentRequestPage) {
 }
 async function reviewPaymentRequest(row,action) {
   if(paymentRequestBusy.has(row.id)) return;
-  const prompt = action==='pay' ? `Pay ${giftMoney(row.amount_cents)} to ${row.requester_name || 'Member'} (Member ID ${row.requester_id}) for request #${row.id}?\n\nPayment: ${giftMoney(row.amount_cents)}\nMerchant fee: $5.00\nTotal deducted: ${giftMoney(row.amount_cents+TRANSFER_FEE_CENTS)}\nYour wallet will be charged immediately. This payment cannot be canceled.` : `${action==='decline'?'Decline':'Cancel'} request #${row.id} for ${giftMoney(row.amount_cents)}? No money will move.`;
+  const prompt = action==='pay' ? `Pay ${formatUsd(row.amount_cents)} to ${row.requester_name || 'Member'} (Member ID ${row.requester_id}) for request #${row.id}?\n\nPayment: ${formatUsd(row.amount_cents)}\nMerchant fee: $5.00\nTotal deducted: ${formatUsd(row.amount_cents+TRANSFER_FEE_CENTS)}\nYour wallet will be charged immediately. This payment cannot be canceled.` : `${action==='decline'?'Decline':'Cancel'} request #${row.id} for ${formatUsd(row.amount_cents)}? No money will move.`;
   if(!window.confirm(prompt)) return;
   paymentRequestBusy.add(row.id);
   try {
@@ -2568,7 +2390,7 @@ function withdrawalLabel(status) {
   return ({requested:'Pending approval',accepted:'Awaiting admin approval',approved:'Approved — awaiting manual payment',paid:'Payment recorded',declined:'Declined',rejected:'Rejected — balance released',canceled:'Canceled'})[status] || status;
 }
 function withdrawalSummary(row) {
-  return `<p><b>Withdrawal #${Number(row.id)} · ${esc(withdrawalLabel(row.status))}</b></p><p>USD: ${giftMoney(row.amount_cents)} · To receive: ${btcMoney(row.btc_satoshis)} · Fee: $0.00</p>
+  return `<p><b>Withdrawal #${Number(row.id)} · ${esc(withdrawalLabel(row.status))}</b></p><p>USD: ${formatUsd(row.amount_cents)} · To receive: ${btcMoney(row.btc_satoshis)} · Fee: $0.00</p>
     ${row.btc_address ? `<p style="overflow-wrap:anywhere">Receiving address: ${esc(row.btc_address)}</p>` : ''}
     ${row.request_note ? `<p>Request note: ${esc(row.request_note)}</p>` : ''}
     ${row.approval_note ? `<p>Approval note: ${esc(row.approval_note)}</p>` : ''}
@@ -2582,7 +2404,7 @@ async function loadWithdrawals(page=withdrawalPage) {
     const data=await api(`/api/withdrawals?page=${page}`); withdrawalPage=data.page;
     const addressDrafts=new Map([...withdrawalRows.keys()].map(id=>[id,$('withdraw-address-'+id)?.value || '']));
     withdrawalRows=new Map(data.withdrawals.map(row=>[row.id,row]));
-    $('withdrawalReserved').textContent='Reserved for withdrawals: '+giftMoney(data.reserved_cents);
+    $('withdrawalReserved').textContent='Reserved for withdrawals: '+formatUsd(data.reserved_cents);
     $('withdrawalList').innerHTML=data.withdrawals.map(row=>`<div class="admin-deposit">${withdrawalSummary(row)}${row.status==='requested' ? `
       <label for="withdraw-address-${row.id}">Your Bitcoin mainnet receiving address</label><input id="withdraw-address-${row.id}" value="${esc(addressDrafts.get(row.id) || '')}" autocomplete="off" spellcheck="false" maxlength="90" placeholder="Enter your own BTC receiving address">
       <div class="actions"><button type="button" data-withdrawal="${row.id}" data-action="accept">ACCEPT & RESERVE FUNDS</button><button type="button" class="btn-blue" data-withdrawal="${row.id}" data-action="decline">DECLINE</button></div>` : ''}</div>`).join('') || '<p>No withdrawal requests yet.</p>';
@@ -2596,7 +2418,7 @@ $('withdrawalList').addEventListener('click',async e=>{
   const row=withdrawalRows.get(Number(button.dataset.withdrawal)); if(!row) return;
   const action=button.dataset.action, address=$('withdraw-address-'+row.id).value.trim();
   if(action==='accept' && !address) { $('withdrawalStatus').textContent='Enter your Bitcoin receiving address first.'; return; }
-  const prompt=action==='accept' ? `Reserve ${giftMoney(row.amount_cents)} for withdrawal #${row.id}?\nYou will receive ${btcMoney(row.btc_satoshis)}. Fee: $0.00.\nReceiving address: ${address}\nCheck this address carefully. Reserved funds cannot be spent while awaiting admin review and payment.` : `Decline withdrawal #${row.id}? No money will be deducted.`;
+  const prompt=action==='accept' ? `Reserve ${formatUsd(row.amount_cents)} for withdrawal #${row.id}?\nYou will receive ${btcMoney(row.btc_satoshis)}. Fee: $0.00.\nReceiving address: ${address}\nCheck this address carefully. Reserved funds cannot be spent while awaiting admin review and payment.` : `Decline withdrawal #${row.id}? No money will be deducted.`;
   if(!await confirmWithdrawalAction(prompt)) return;
   withdrawalBusy=true; button.disabled=true;
   try {
@@ -2610,7 +2432,7 @@ async function loadWithdrawalMembers(page=withdrawalMemberPage) {
   try {
     const data=await api(`/api/admin/members?page=${page}&page_size=25`);withdrawalMemberPage=page;
     withdrawalMemberRows=new Map(data.members.map(row=>[row.id,row]));
-    $('withdrawalMembers').innerHTML=data.members.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · #${row.id}</b><p>Available: ${giftMoney(row.balance_cents)} · Reserved: ${giftMoney(row.reserved_cents)}</p><button type="button" class="btn-small" data-withdraw-member="${row.id}">SELECT MEMBER</button></div>`).join('') || '<p>No members yet.</p>';
+    $('withdrawalMembers').innerHTML=data.members.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · #${row.id}</b><p>Available: ${formatUsd(row.balance_cents)} · Reserved: ${formatUsd(row.reserved_cents)}</p><button type="button" class="btn-small" data-withdraw-member="${row.id}">SELECT MEMBER</button></div>`).join('') || '<p>No members yet.</p>';
     $('withdrawalMembersPrev').disabled=page<=1;$('withdrawalMembersNext').disabled=page*25>=data.total;
     $('withdrawalMembersPage').textContent=`Page ${page} of ${Math.max(1,Math.ceil(data.total/25))}`;
   } catch(e) {$('adminWithdrawalStatus').textContent=e.message;} finally {withdrawalMemberLoading=false;}
@@ -2618,7 +2440,7 @@ async function loadWithdrawalMembers(page=withdrawalMemberPage) {
 $('withdrawalMembers').addEventListener('click',e=>{
   const button=e.target.closest('[data-withdraw-member]');if(!button || adminWithdrawalBusy)return;
   selectedWithdrawalMember=withdrawalMemberRows.get(Number(button.dataset.withdrawMember));
-  if(selectedWithdrawalMember){$('withdrawalSelectedMember').textContent=`Member #${selectedWithdrawalMember.id}: ${selectedWithdrawalMember.first_name || 'Member'} · Available balance: ${giftMoney(selectedWithdrawalMember.balance_cents)} · Reserved: ${giftMoney(selectedWithdrawalMember.reserved_cents)}`;$('withdrawalCreateForm').scrollIntoView({block:'center',behavior:'smooth'});}
+  if(selectedWithdrawalMember){$('withdrawalSelectedMember').textContent=`Member #${selectedWithdrawalMember.id}: ${selectedWithdrawalMember.first_name || 'Member'} · Available balance: ${formatUsd(selectedWithdrawalMember.balance_cents)} · Reserved: ${formatUsd(selectedWithdrawalMember.reserved_cents)}`;$('withdrawalCreateForm').scrollIntoView({block:'center',behavior:'smooth'});}
 });
 function withdrawalDraftKey(){return 'creditgenie-admin-withdrawal-'+String(currentUser?.member_id || '');}
 $('withdrawalCreateForm').addEventListener('submit',async e=>{
@@ -2626,7 +2448,7 @@ $('withdrawalCreateForm').addEventListener('submit',async e=>{
   const amount=transferCents($('withdrawalUsd').value),btc=btcSatoshis($('withdrawalBtc').value);
   if(!selectedWithdrawalMember || !amount || !btc){$('adminWithdrawalStatus').textContent='Choose a member and enter valid USD and BTC amounts.';return;}
   const details={member_id:selectedWithdrawalMember.id,amount_cents:amount,btc_satoshis:btc,note:$('withdrawalRequestNote').value.trim()};
-  if(!await confirmWithdrawalAction(`Ask ${selectedWithdrawalMember.first_name || 'Member'} (#${details.member_id}) to withdraw ${giftMoney(amount)} and receive ${btcMoney(btc)}?\nFee: $0.00. Nothing is reserved until the member accepts or an admin approves directly.`))return;
+  if(!await confirmWithdrawalAction(`Ask ${selectedWithdrawalMember.first_name || 'Member'} (#${details.member_id}) to withdraw ${formatUsd(amount)} and receive ${btcMoney(btc)}?\nFee: $0.00. Nothing is reserved until the member accepts or an admin approves directly.`))return;
   adminWithdrawalBusy=true;$('createWithdrawalBtn').disabled=true;
   try {
     let pending=JSON.parse(localStorage.getItem(withdrawalDraftKey()) || 'null');
@@ -2647,7 +2469,7 @@ async function loadAdminWithdrawals(page=adminWithdrawalPage) {
     const adminAddressDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('admin-withdraw-address-'+id)?.value || '']));
     const txDrafts=new Map([...adminWithdrawalRows.keys()].map(id=>[id,$('withdraw-txid-'+id)?.value || '']));
     adminWithdrawalRows=new Map(data.withdrawals.map(row=>[row.id,row]));
-    $('adminWithdrawalList').innerHTML=data.withdrawals.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · Member #${row.user_id}</b><p>Current available balance: ${giftMoney(row.balance_cents)}</p>${withdrawalSummary(row)}<div id="withdraw-action-status-${row.id}" class="status" role="status" aria-live="polite">${esc(withdrawalActionMessages.get(row.id) || '')}</div>${['requested','accepted','approved'].includes(row.status)?`
+    $('adminWithdrawalList').innerHTML=data.withdrawals.map(row=>`<div class="admin-deposit"><b>${esc(row.first_name || 'Member')}${row.username ? ' (@'+esc(row.username)+')' : ''} · Member #${row.user_id}</b><p>Current available balance: ${formatUsd(row.balance_cents)}</p>${withdrawalSummary(row)}<div id="withdraw-action-status-${row.id}" class="status" role="status" aria-live="polite">${esc(withdrawalActionMessages.get(row.id) || '')}</div>${['requested','accepted','approved'].includes(row.status)?`
       ${row.status==='requested'?`<label for="admin-withdraw-address-${row.id}">Member’s Bitcoin mainnet receiving address</label><input id="admin-withdraw-address-${row.id}" value="${esc(adminAddressDrafts.get(row.id) || '')}" maxlength="90" autocomplete="off" spellcheck="false"><p class="help">Direct approval reserves the member’s USD balance without waiting for acceptance and notifies them.</p>`:''}
       <label for="withdraw-note-${row.id}">${row.status==='accepted'?'Approval / rejection note':'Note for member'}</label><textarea id="withdraw-note-${row.id}" maxlength="1000" placeholder="Required: message for the member">${esc(noteDrafts.get(row.id) || '')}</textarea>
       ${row.status==='approved'?`<label for="withdraw-txid-${row.id}">Bitcoin transaction ID (after sending payment manually)</label><input id="withdraw-txid-${row.id}" value="${esc(txDrafts.get(row.id) || '')}" maxlength="64" autocomplete="off">`:''}
@@ -2666,8 +2488,8 @@ $('adminWithdrawalList').addEventListener('click',async e=>{
   const directApproval=action==='approve' && row.status==='requested';
   const address=directApproval ? $('admin-withdraw-address-'+row.id).value.trim() : row.btc_address;
   if(directApproval && !address){withdrawalActionStatus(row.id,'Enter the member’s receiving BTC address before approving.');$('admin-withdraw-address-'+row.id).focus();return;}
-  const summary=`Withdrawal #${row.id} · ${giftMoney(row.amount_cents)} · ${btcMoney(row.btc_satoshis)}\nAddress: ${address || 'Not submitted'}\nNote: ${note}`;
-  const prompt=action==='approve'?`Approve for manual payment? This does not send Bitcoin.${directApproval ? " Reserve "+giftMoney(row.amount_cents)+" from this member WITHOUT waiting for their acceptance." : " Funds are already reserved; no second deduction."}\n${summary}`:action==='paid'?`Confirm you already sent ${btcMoney(row.btc_satoshis)} to this exact address. This records the payment; it does not send Bitcoin.\n${summary}\nTransaction: ${txid}`:action==='reject'?`Confirm NO Bitcoin was sent for this withdrawal. Reject and return ${giftMoney(row.amount_cents)} to the member?\n${summary}`:`Cancel the request? No funds will move.\n${summary}`;
+  const summary=`Withdrawal #${row.id} · ${formatUsd(row.amount_cents)} · ${btcMoney(row.btc_satoshis)}\nAddress: ${address || 'Not submitted'}\nNote: ${note}`;
+  const prompt=action==='approve'?`Approve for manual payment? This does not send Bitcoin.${directApproval ? " Reserve "+formatUsd(row.amount_cents)+" from this member WITHOUT waiting for their acceptance." : " Funds are already reserved; no second deduction."}\n${summary}`:action==='paid'?`Confirm you already sent ${btcMoney(row.btc_satoshis)} to this exact address. This records the payment; it does not send Bitcoin.\n${summary}\nTransaction: ${txid}`:action==='reject'?`Confirm NO Bitcoin was sent for this withdrawal. Reject and return ${formatUsd(row.amount_cents)} to the member?\n${summary}`:`Cancel the request? No funds will move.\n${summary}`;
   if(!await confirmWithdrawalAction(prompt))return;
   adminWithdrawalBusy=true;button.disabled=true;
   withdrawalActionStatus(row.id,'Submitting '+action+'…');
@@ -2704,7 +2526,6 @@ async function startApp() {
       }
     } catch(e) { $('adminWithdrawalStatus').textContent='Unable to restore the pending request. Check your browser storage settings.'; }
   }
-  await loadGiftCatalog();
   await loadPaymentMembers();
 
   await Promise.all([
@@ -2713,8 +2534,6 @@ async function startApp() {
     loadAdminWithdrawals(),
     loadTransfers(),
     loadPaymentRequests(),
-    loadGiftHistory(),
-    loadAdminGifts(),
     loadDeposits(),
     loadCharacterHistory(),
     loadCharacterQueue(),
@@ -2739,8 +2558,6 @@ setInterval(
     loadAdminWithdrawals(),
     loadTransfers(),
     loadPaymentRequests(),
-      loadGiftHistory(),
-      loadAdminGifts(),
       loadDeposits(),
       loadCharacterHistory(),
       loadCharacterQueue()
@@ -2765,5 +2582,6 @@ setInterval(
 
 </body>
 </html>
+
 
 

@@ -6,7 +6,7 @@ let confirm=true,fail=false;
 let row={id:1,user_id:2,amount_cents:2000,btc_satoshis:20000,status:'requested',request_note:'Note',updated_at:'now'};
 const $=id=>elements[id] ||= {value:'',textContent:'',innerHTML:'',events:{},contains:()=>false,scrollIntoView(){},focus(){},addEventListener(k,v){this.events[k]=v;}};
 const member={id:2,first_name:'Test Member',balance_cents:3000,reserved_cents:0};
-const context=vm.createContext({$,adminEnabled:true,currentUser:{member_id:900},document:{activeElement:null},window:{confirm:()=>{throw new Error('Native browser dialogs must not be used for withdrawals');}},crypto:{randomUUID:()=> 'fixed-reference'},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},giftMoney:n=>'$'+(n/100).toFixed(2),esc:s=>String(s).replaceAll('<','&lt;').replaceAll('"','&quot;'),prettyTime:s=>s,transferCents:s=>/^\d+(\.\d{1,2})?$/.test(s)?Math.round(Number(s)*100):null,loadWallet:async()=>{},loadAdminMembers:async()=>{},api:async(path,options)=>{
+const context=vm.createContext({$,adminEnabled:true,currentUser:{member_id:900},document:{activeElement:null},window:{confirm:()=>{throw new Error('Native browser dialogs must not be used for withdrawals');}},crypto:{randomUUID:()=> 'fixed-reference'},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},formatUsd:n=>'$'+(n/100).toFixed(2),esc:s=>String(s).replaceAll('<','&lt;').replaceAll('"','&quot;'),prettyTime:s=>s,transferCents:s=>/^\d+(\.\d{1,2})?$/.test(s)?Math.round(Number(s)*100):null,loadWallet:async()=>{},loadAdminMembers:async()=>{},api:async(path,options)=>{
  if(options){const payload=JSON.parse(options.body);posts.push({path,payload});if(fail)throw new Error('Network timeout');if(path==='/api/admin/withdrawals')return {withdrawal:row,notification_sent:true};row={...row,status:({accept:'accepted',approve:'approved',paid:'paid',reject:'rejected',decline:'declined'})[payload.action],approval_note:payload.note || '',btc_address:payload.btc_address || row.btc_address};return {withdrawal:row,notification_sent:true};}
  if(path.startsWith('/api/admin/members'))return {members:[member],page:1,total:1};
  return {withdrawals:[row],page:1,total:1,reserved_cents:row.status==='accepted'?2000:0};
@@ -44,3 +44,4 @@ async function runAction(run){const pending=run();if($('withdrawalConfirmDialog'
  assert.equal(posts.at(-1).payload.confirmed_reserve,true);assert.equal(posts.at(-1).payload.btc_address,'1BoatSLRHtKNngkdXEeobR76b53LETtpyT');assert.match(prompts.at(-1),/WITHOUT waiting/);
  console.log('Withdrawal consent, approval notes, balance rendering, payment confirmation and stable retry checks passed.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
+

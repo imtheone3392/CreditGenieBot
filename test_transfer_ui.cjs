@@ -4,7 +4,7 @@ const code=html.slice(html.indexOf('// Keep an uncertain payment'),html.indexOf(
 const elements={}, stored=new Map(), calls=[], confirmations=[];
 let confirm=true, fail=null;
 const $=id=>elements[id] ||= {value:'',disabled:false,textContent:'',innerHTML:'',events:{},querySelectorAll:()=>[],focus(){},addEventListener(name,fn){this.events[name]=fn;}};
-const context=vm.createContext({$,currentUser:{member_id:1},crypto:{randomUUID:()=> 'test-request-id'},localStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)},window:{confirm:text=>{confirmations.push(text);return confirm;}},giftMoney:n=>'$'+(n/100).toFixed(2),esc:s=>String(s).replaceAll('<','&lt;'),prettyTime:s=>s,loadWallet:async()=>{},api:async(path,options)=>{
+const context=vm.createContext({$,currentUser:{member_id:1},crypto:{randomUUID:()=> 'test-request-id'},localStorage:{getItem:k=>stored.get(k),setItem:(k,v)=>stored.set(k,v),removeItem:k=>stored.delete(k)},window:{confirm:text=>{confirmations.push(text);return confirm;}},formatUsd:n=>'$'+(n/100).toFixed(2),esc:s=>String(s).replaceAll('<','&lt;'),prettyTime:s=>s,loadWallet:async()=>{},api:async(path,options)=>{
  if(path.startsWith('/api/transfers/recipient/') || path.startsWith('/api/transfers/resolve?')) return {member_id:2,first_name:'Recipient'};
  if(options && path.endsWith('/decision')) return {status:'paid',transfer_id:99};
  if(options){calls.push(JSON.parse(options.body));if(fail)throw fail;if(path==='/api/payment-requests')return {request:{id:20,status:'pending',amount_cents:calls.at(-1).amount_cents}};return {already_processed:calls.length>1,transfer:{id:10,recipient_id:2,fee_cents:500,amount_cents:calls.at(-1).amount_cents}};}
@@ -47,3 +47,4 @@ vm.runInContext(code,context);
  assert.match(confirmations.at(-1),/Total deducted: \$15.00/);
  console.log('Username lookup, requests, payer confirmation, payment confirmation, amount validation, persistent retry and recipient-change checks passed.');
 })().catch(e=>{console.error(e);process.exitCode=1});
+

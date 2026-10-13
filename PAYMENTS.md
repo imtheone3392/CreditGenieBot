@@ -8,7 +8,7 @@ A sender-scoped UUID deduplicates retries. The client retains the exact payment 
 
 New endpoints: GET /api/transfers/recipient/{member_id}, POST /api/transfers, GET /api/transfers?page=1. Recipient lookup exposes only first name and Member ID, not balances, Telegram IDs, or messages. The existing /api/me response includes the current member's ID. Startup creates an additive wallet_transfers table and indexes without changing existing balances or orders.
 
-Validation: python -m pytest -q test_wallet_transfers.py test_gift_cards.py test_admin_workflows.py test_admin_members.py; node test_transfer_ui.cjs. Tests use temporary databases, signed dummy sessions, and mocked Telegram; no real member payments are made.
+Validation: python -m pytest -q test_wallet_transfers.py test_admin_workflows.py test_admin_members.py; node test_transfer_ui.cjs. Tests use temporary databases, signed dummy sessions, and mocked Telegram; no real member payments are made.
 
 
 ## Member directory and payment requests
@@ -21,3 +21,4 @@ Additional endpoints: GET /api/payment-members, GET /api/transfers/resolve?usern
 
 
 The fee also applies when approving payment requests. Creating, declining, or canceling a request has no fee. Both confirmation screens show the payment, fee, and total wallet debit. New transfers require explicit server-validated agreement to the $5.00 fee; older clients must reopen and confirm. Retries return existing receipts without charging again. Historical transfers migrate with zero fee and are never charged retroactively.
+

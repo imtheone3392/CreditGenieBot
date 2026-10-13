@@ -10,6 +10,7 @@ The admin must add a note to approve. The approval note is saved to member histo
 
 An admin can cancel a request while it remains requested. After acceptance or direct approval, rejection requires confirmation that no Bitcoin has been sent and releases the reserved balance exactly once. Paid withdrawals cannot be rejected or refunded through this workflow. Requests, approvals, rejections, and manual payment receipts are immutable on retry. A mismatched retry is rejected. Only one active withdrawal is allowed per member. Failed Telegram delivery leaves the request or decision visible in the app; it does not roll back the financial state.
 
-The existing deposit address, credentials, gift card pricing, $5 member transfer fee, and prior records are unchanged. Tests use a temporary database and mocked Telegram delivery. No production funds or notifications are used for verification.
+The existing deposit address, credentials, $5 member transfer fee, and prior records are unchanged. Tests use a temporary database and mocked Telegram delivery. No production funds or notifications are used for verification.
 
 Run `python -m pytest -q test_withdrawals.py` and `node test_withdrawal_ui.cjs` for the withdrawal checks. Address checksum rules follow Base58Check, BIP173 and BIP350. A valid checksum does not prove ownership; members and admins must review the receiving address before payment.
+

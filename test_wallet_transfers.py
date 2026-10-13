@@ -92,18 +92,13 @@ class WalletTransfers(unittest.TestCase):
         self.assertEqual(self.balances(),before)
         self.assertEqual(self.client.get('/api/transfers',headers=auth(100)).json()['total'],0)
 
-    def test_competing_gift_purchase_and_transfer_conserve_balance(self):
-        rid=self.recipient()
-        with app.db() as con:con.execute('UPDATE users SET balance_cents=40000 WHERE id=?',(self.user['id'],))
-        def action(which):
-            if which:return self.send(self.payload(rid,30000)).status_code
-            return self.client.post('/api/gift-cards/orders',headers=auth(100),json={'brand_id':next(iter(app.GIFT_CARD_BRANDS)),'agreed_charged_cents':40000,'amount_cents':40000,'request_id':str(uuid.uuid4())}).status_code
-        with ThreadPoolExecutor(max_workers=2) as pool:codes=list(pool.map(action,[0,1]))
-        self.assertEqual(sorted(codes),[200,409])
-        self.assertTrue(all(x>=0 for x in self.balances().values()))
-        with app.db() as con:spent=con.execute('SELECT COALESCE(SUM(charged_cents),0) FROM gift_card_orders').fetchone()[0]
-        with app.db() as con:fees=con.execute('SELECT COALESCE(SUM(fee_cents),0) FROM wallet_transfers').fetchone()[0]
-        self.assertEqual(sum(self.balances().values())+spent+fees,40000)
+    def test_removed_store_cannot_charge_wallet(self):
+        before = self.balance()
+        for path in ['/api/gift-cards', '/api/gift-cards/orders', '/api/admin/gift-cards/orders']:
+            self.assertEqual(self.client.get(path, headers=auth(100)).status_code, 404)
+        self.assertEqual(self.client.post('/api/gift-cards/orders', headers=auth(100), json={}).status_code, 404)
+        self.assertEqual(self.client.post('/api/admin/gift-cards/orders/1/decision', headers=auth(900), json={}).status_code, 404)
+        self.assertEqual(self.balance(), before)
 
     def test_recipient_overflow_is_rejected_and_history_paginates(self):
         rid=self.recipient()
@@ -139,3 +134,4 @@ class WalletTransfers(unittest.TestCase):
         old={**p};old.pop('agreed_fee_cents')
         self.assertEqual(self.send(old).status_code,200)
         self.assertEqual(self.balance(),0)
+
